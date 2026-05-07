@@ -1,7 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::sync::Arc;
-use tauri::Manager;
 use zb_app::AppState;
 use zb_application::audit_service::AuditService;
 use zb_application::snapshot_service::SnapshotService;
@@ -13,13 +12,16 @@ use zb_domain::tweaks::definitions::{
     ShowFileExtensionsTweak,
 };
 use zb_infrastructure::logging::init_logging;
-use zb_infrastructure::persistence::{SqliteAuditLogger, SqliteRepo};
+use zb_infrastructure::persistence::{init_database, SqliteAuditLogger, SqliteRepo};
 use zb_infrastructure::registry::WinRegistryProvider;
 use zb_infrastructure::windows_api::metrics_collector::MetricsCollector;
 use zb_infrastructure::windows_api::winget::WingetInstaller;
 
 fn main() {
     init_logging();
+
+    let db_conn = init_database()
+        .expect("Failed to initialize database at %LOCALAPPDATA%\\ZingerBoost\\data.db");
 
     let registry_provider = WinRegistryProvider::new();
 
@@ -52,10 +54,8 @@ fn main() {
         Arc::new(SetHighPerformanceTweak::new()),
     ];
 
-    let snapshot_service: Arc<dyn SnapshotService> =
-        SqliteRepo::new_in_memory().expect("Failed to create SQLite snapshot repository");
-    let audit_service: Arc<dyn AuditService> =
-        SqliteAuditLogger::new_in_memory().expect("Failed to create SQLite audit logger");
+    let snapshot_service: Arc<dyn SnapshotService> = SqliteRepo::from_connection(db_conn.clone());
+    let audit_service: Arc<dyn AuditService> = SqliteAuditLogger::from_connection(db_conn);
 
     let engine = Arc::new(TweakEngine::new(tweaks, snapshot_service, audit_service));
     let metrics_collector = Arc::new(MetricsCollector::new());

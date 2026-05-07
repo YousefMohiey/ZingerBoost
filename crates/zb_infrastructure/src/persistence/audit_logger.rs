@@ -9,21 +9,25 @@ use zb_shared::types::{AuditEntry, AuditLevel};
 /// SQLite-backed audit logger
 #[derive(Debug)]
 pub struct SqliteAuditLogger {
-    conn: Mutex<Connection>,
+    conn: Arc<Mutex<Connection>>,
 }
 
 impl SqliteAuditLogger {
     pub fn new(db_path: PathBuf) -> Result<Arc<dyn AuditService>, rusqlite::Error> {
         let conn = Connection::open(db_path)?;
         Ok(Arc::new(Self {
-            conn: Mutex::new(conn),
+            conn: Arc::new(Mutex::new(conn)),
         }))
+    }
+
+    pub fn from_connection(conn: Arc<Mutex<Connection>>) -> Arc<dyn AuditService> {
+        Arc::new(Self { conn })
     }
 
     pub fn new_in_memory() -> Result<Arc<dyn AuditService>, rusqlite::Error> {
         let conn = Connection::open_in_memory()?;
         Ok(Arc::new(Self {
-            conn: Mutex::new(conn),
+            conn: Arc::new(Mutex::new(conn)),
         }))
     }
 }

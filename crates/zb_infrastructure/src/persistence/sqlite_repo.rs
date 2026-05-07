@@ -54,27 +54,49 @@ const MIGRATIONS: Migrations<'static> = Migrations::new(vec![
     ),
 ]);
 
+/// Initialize the ZingerBoost database at LOCALAPPDATA
+pub fn init_database() -> Result<Arc<Mutex<Connection>>, rusqlite::Error> {
+    let local_app_data = std::env::var("LOCALAPPDATA")
+        .unwrap_or_else(|_| std::env::var("APPDATA").unwrap_or_else(|_| ".".into()));
+    let dir = PathBuf::from(&local_app_data).join("ZingerBoost");
+    std::fs::create_dir_all(&dir).expect("Failed to create ZingerBoost data directory");
+    let db_path = dir.join("data.db");
+
+    let mut conn = Connection::open(&db_path)?;
+    conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
+    MIGRATIONS.to_latest(&mut conn)?;
+
+    Ok(Arc::new(Mutex::new(conn)))
+}
+
 /// SQLite-backed snapshot and audit repository
-#[derive(Debug)]
 pub struct SqliteRepo {
-    conn: Mutex<Connection>,
+    conn: Arc<Mutex<Connection>>,
 }
 
 impl SqliteRepo {
-    pub fn new(db_path: PathBuf) -> Result<Arc<Self>, rusqlite::Error> {
+    pub fn new(db_path: PathBuf) -> Result<Arc<dyn SnapshotService>, rusqlite::Error> {
         let mut conn = Connection::open(db_path)?;
         MIGRATIONS.to_latest(&mut conn)?;
         Ok(Arc::new(Self {
-            conn: Mutex::new(conn),
+            conn: Arc::new(Mutex::new(conn)),
         }))
     }
 
-    pub fn new_in_memory() -> Result<Arc<Self>, rusqlite::Error> {
+    pub fn from_connection(conn: Arc<Mutex<Connection>>) -> Arc<dyn SnapshotService> {
+        Arc::new(Self { conn })
+    }
+
+    pub fn new_in_memory() -> Result<Arc<dyn SnapshotService>, rusqlite::Error> {
         let mut conn = Connection::open_in_memory()?;
         MIGRATIONS.to_latest(&mut conn)?;
         Ok(Arc::new(Self {
-            conn: Mutex::new(conn),
+            conn: Arc::new(Mutex::new(conn)),
         }))
+    }
+
+    pub fn conn(&self) -> Arc<Mutex<Connection>> {
+        self.conn.clone()
     }
 }
 
