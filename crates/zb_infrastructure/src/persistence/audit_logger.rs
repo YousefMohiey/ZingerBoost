@@ -74,12 +74,20 @@ impl AuditService for SqliteAuditLogger {
             };
 
             let timestamp = chrono::DateTime::parse_from_rfc3339(&ts)
-                .unwrap_or_else(|_| chrono::DateTime::parse_from_rfc3339("1970-01-01T00:00:00Z").unwrap())
+                .unwrap_or_else(|_| {
+                    chrono::DateTime::parse_from_rfc3339("1970-01-01T00:00:00Z").unwrap()
+                })
                 .with_timezone(&chrono::Utc);
 
             let details = details.and_then(|d| serde_json::from_str(&d).ok());
 
-            Ok(AuditEntry { timestamp, level, category, message, details })
+            Ok(AuditEntry {
+                timestamp,
+                level,
+                category,
+                message,
+                details,
+            })
         }) {
             Ok(r) => r,
             Err(_) => return Vec::new(),

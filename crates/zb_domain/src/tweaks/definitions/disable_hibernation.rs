@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use std::sync::Arc;
 use zb_shared::types::{
-    RegPath, RegValue, RiskLevel, SnapshotData, TweakCategory, TweakExplanation,
-    TweakMetadata, TweakResult,
+    RegPath, RegValue, RiskLevel, SnapshotData, TweakCategory, TweakExplanation, TweakMetadata,
+    TweakResult,
 };
 
 use crate::errors::TweakError;
@@ -17,7 +17,8 @@ impl Tweak for DisableHibernationTweak {
         TweakMetadata {
             id: "performance_disable_hibernation".into(),
             name: "Disable Hibernation".into(),
-            description: "Turns off hibernation to free up disk space equal to your RAM size.".into(),
+            description: "Turns off hibernation to free up disk space equal to your RAM size."
+                .into(),
             category: TweakCategory::Performance,
             risk: RiskLevel::Safe,
             requires_reboot: false,

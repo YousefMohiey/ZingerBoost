@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use std::sync::Arc;
 use zb_shared::types::{
-    RegPath, RegValue, RiskLevel, SnapshotData, TweakCategory, TweakExplanation,
-    TweakMetadata, TweakResult,
+    RegPath, RegValue, RiskLevel, SnapshotData, TweakCategory, TweakExplanation, TweakMetadata,
+    TweakResult,
 };
 
 use crate::errors::TweakError;
@@ -19,7 +19,9 @@ impl ShowFileExtensionsTweak {
     }
 
     pub fn with_provider(provider: Arc<dyn crate::registry::RegistryProvider>) -> Self {
-        Self { provider: Some(provider) }
+        Self {
+            provider: Some(provider),
+        }
     }
 }
 
@@ -29,21 +31,23 @@ impl Tweak for ShowFileExtensionsTweak {
         TweakMetadata {
             id: "visual_show_extensions".into(),
             name: "Show File Extensions".into(),
-            description: "Always show file extensions in Windows Explorer for security and clarity.".into(),
+            description:
+                "Always show file extensions in Windows Explorer for security and clarity.".into(),
             category: TweakCategory::Visual,
             risk: RiskLevel::Safe,
             requires_reboot: false,
             requires_admin: false,
-            affected_keys: vec![
-                RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"),
-            ],
+            affected_keys: vec![RegPath::hkcu(
+                r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced",
+            )],
             source_url: None,
         }
     }
 
     async fn is_applied(&self) -> Result<bool, TweakError> {
         if let Some(provider) = &self.provider {
-            let path = RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced");
+            let path =
+                RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced");
             match provider.read(&path, "HideFileExt").await {
                 Ok(RegValue::Dword(v)) => Ok(v == 0),
                 _ => Ok(false),
@@ -55,9 +59,17 @@ impl Tweak for ShowFileExtensionsTweak {
 
     async fn capture_state(&self) -> Result<SnapshotData, TweakError> {
         if let Some(provider) = &self.provider {
-            let path = RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced");
-            let val = provider.read(&path, "HideFileExt").await.unwrap_or(RegValue::Dword(1));
-            Ok(SnapshotData::Registry { path, name: "HideFileExt".into(), previous: val })
+            let path =
+                RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced");
+            let val = provider
+                .read(&path, "HideFileExt")
+                .await
+                .unwrap_or(RegValue::Dword(1));
+            Ok(SnapshotData::Registry {
+                path,
+                name: "HideFileExt".into(),
+                previous: val,
+            })
         } else {
             Ok(SnapshotData::Registry {
                 path: RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced"),
@@ -69,8 +81,11 @@ impl Tweak for ShowFileExtensionsTweak {
 
     async fn apply(&self) -> Result<TweakResult, TweakError> {
         if let Some(provider) = &self.provider {
-            let path = RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced");
-            provider.write(&path, "HideFileExt", &RegValue::Dword(0)).await
+            let path =
+                RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced");
+            provider
+                .write(&path, "HideFileExt", &RegValue::Dword(0))
+                .await
                 .map_err(|e| TweakError::Registry(e.to_string()))?;
         }
         Ok(TweakResult {
@@ -80,9 +95,16 @@ impl Tweak for ShowFileExtensionsTweak {
     }
 
     async fn revert(&self, snapshot: &SnapshotData) -> Result<TweakResult, TweakError> {
-        if let SnapshotData::Registry { path, name, previous } = snapshot {
+        if let SnapshotData::Registry {
+            path,
+            name,
+            previous,
+        } = snapshot
+        {
             if let Some(provider) = &self.provider {
-                provider.write(path, name, previous).await
+                provider
+                    .write(path, name, previous)
+                    .await
                     .map_err(|e| TweakError::Registry(e.to_string()))?;
             }
         }

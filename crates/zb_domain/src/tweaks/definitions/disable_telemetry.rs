@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use std::sync::Arc;
 use zb_shared::types::{
-    RegPath, RegValue, RiskLevel, SnapshotData, TweakCategory, TweakExplanation,
-    TweakMetadata, TweakResult,
+    RegPath, RegValue, RiskLevel, SnapshotData, TweakCategory, TweakExplanation, TweakMetadata,
+    TweakResult,
 };
 
 use crate::errors::TweakError;
@@ -19,7 +19,9 @@ impl DisableTelemetryTweak {
     }
 
     pub fn with_provider(provider: Arc<dyn crate::registry::RegistryProvider>) -> Self {
-        Self { provider: Some(provider) }
+        Self {
+            provider: Some(provider),
+        }
     }
 }
 
@@ -34,9 +36,9 @@ impl Tweak for DisableTelemetryTweak {
             risk: RiskLevel::Safe,
             requires_reboot: false,
             requires_admin: true,
-            affected_keys: vec![
-                RegPath::hklm(r"SOFTWARE\Policies\Microsoft\Windows\DataCollection"),
-            ],
+            affected_keys: vec![RegPath::hklm(
+                r"SOFTWARE\Policies\Microsoft\Windows\DataCollection",
+            )],
             source_url: None,
         }
     }
@@ -56,8 +58,15 @@ impl Tweak for DisableTelemetryTweak {
     async fn capture_state(&self) -> Result<SnapshotData, TweakError> {
         if let Some(provider) = &self.provider {
             let path = RegPath::hklm(r"SOFTWARE\Policies\Microsoft\Windows\DataCollection");
-            let val = provider.read(&path, "AllowTelemetry").await.unwrap_or(RegValue::Dword(1));
-            Ok(SnapshotData::Registry { path, name: "AllowTelemetry".into(), previous: val })
+            let val = provider
+                .read(&path, "AllowTelemetry")
+                .await
+                .unwrap_or(RegValue::Dword(1));
+            Ok(SnapshotData::Registry {
+                path,
+                name: "AllowTelemetry".into(),
+                previous: val,
+            })
         } else {
             Ok(SnapshotData::Registry {
                 path: RegPath::hklm(r"SOFTWARE\Policies\Microsoft\Windows\DataCollection"),
@@ -70,7 +79,9 @@ impl Tweak for DisableTelemetryTweak {
     async fn apply(&self) -> Result<TweakResult, TweakError> {
         if let Some(provider) = &self.provider {
             let path = RegPath::hklm(r"SOFTWARE\Policies\Microsoft\Windows\DataCollection");
-            provider.write(&path, "AllowTelemetry", &RegValue::Dword(0)).await
+            provider
+                .write(&path, "AllowTelemetry", &RegValue::Dword(0))
+                .await
                 .map_err(|e| TweakError::Registry(e.to_string()))?;
         }
         Ok(TweakResult {
@@ -80,9 +91,16 @@ impl Tweak for DisableTelemetryTweak {
     }
 
     async fn revert(&self, snapshot: &SnapshotData) -> Result<TweakResult, TweakError> {
-        if let SnapshotData::Registry { path, name, previous } = snapshot {
+        if let SnapshotData::Registry {
+            path,
+            name,
+            previous,
+        } = snapshot
+        {
             if let Some(provider) = &self.provider {
-                provider.write(path, name, previous).await
+                provider
+                    .write(path, name, previous)
+                    .await
                     .map_err(|e| TweakError::Registry(e.to_string()))?;
             }
         }

@@ -82,7 +82,9 @@ impl SqliteRepo {
 impl SnapshotService for SqliteRepo {
     async fn save_snapshot(&self, snapshot: SystemSnapshot) -> Result<(), SnapshotError> {
         let conn = self.conn.lock().await;
-        let tx = conn.unchecked_transaction().map_err(|e| SnapshotError::Storage(e.to_string()))?;
+        let tx = conn
+            .unchecked_transaction()
+            .map_err(|e| SnapshotError::Storage(e.to_string()))?;
 
         tx.execute(
             "INSERT INTO snapshots (id, created_at, description) VALUES (?1, ?2, ?3)",
@@ -91,7 +93,8 @@ impl SnapshotService for SqliteRepo {
                 snapshot.created_at.to_rfc3339(),
                 snapshot.description.clone(),
             ],
-        ).map_err(|e| SnapshotError::Storage(e.to_string()))?;
+        )
+        .map_err(|e| SnapshotError::Storage(e.to_string()))?;
 
         for record in &snapshot.tweak_records {
             let data = serde_json::to_string(&record.snapshot_data)
@@ -102,13 +105,15 @@ impl SnapshotService for SqliteRepo {
             ).map_err(|e| SnapshotError::Storage(e.to_string()))?;
         }
 
-        tx.commit().map_err(|e| SnapshotError::Storage(e.to_string()))?;
+        tx.commit()
+            .map_err(|e| SnapshotError::Storage(e.to_string()))?;
         Ok(())
     }
 
     async fn save_applied(&self, tweak_id: &str, data: SnapshotData) -> Result<(), SnapshotError> {
         let conn = self.conn.lock().await;
-        let json = serde_json::to_string(&data).map_err(|e| SnapshotError::Storage(e.to_string()))?;
+        let json =
+            serde_json::to_string(&data).map_err(|e| SnapshotError::Storage(e.to_string()))?;
         conn.execute(
             "INSERT INTO tweak_states (tweak_id, snapshot_data, updated_at) VALUES (?1, ?2, ?3)
              ON CONFLICT(tweak_id) DO UPDATE SET snapshot_data = excluded.snapshot_data, updated_at = excluded.updated_at",
@@ -130,7 +135,10 @@ impl SnapshotService for SqliteRepo {
 
         match json {
             Some(j) => serde_json::from_str(&j).map_err(|e| SnapshotError::Storage(e.to_string())),
-            None => Err(SnapshotError::NotFound(format!("No snapshot for tweak: {}", tweak_id))),
+            None => Err(SnapshotError::NotFound(format!(
+                "No snapshot for tweak: {}",
+                tweak_id
+            ))),
         }
     }
 
@@ -151,14 +159,17 @@ impl SnapshotService for SqliteRepo {
 
         let mut snapshots = Vec::new();
         for row in rows {
-            let (id, created_at, description) = row.map_err(|e| SnapshotError::Storage(e.to_string()))?;
+            let (id, created_at, description) =
+                row.map_err(|e| SnapshotError::Storage(e.to_string()))?;
             let uuid = Uuid::parse_str(&id).map_err(|e| SnapshotError::Storage(e.to_string()))?;
             let dt = chrono::DateTime::parse_from_rfc3339(&created_at)
                 .map_err(|e| SnapshotError::Storage(e.to_string()))?
                 .with_timezone(&chrono::Utc);
 
             let mut tweak_stmt = conn
-                .prepare("SELECT tweak_id, snapshot_data FROM snapshot_tweaks WHERE snapshot_id = ?1")
+                .prepare(
+                    "SELECT tweak_id, snapshot_data FROM snapshot_tweaks WHERE snapshot_id = ?1",
+                )
                 .map_err(|e| SnapshotError::Storage(e.to_string()))?;
             let tweak_rows = tweak_stmt
                 .query_map([&id], |row| {

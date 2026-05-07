@@ -7,7 +7,7 @@ use zb_application::snapshot_service::SnapshotService;
 use zb_application::tweak_engine::TweakEngine;
 use zb_domain::tweaks::definitions::{
     DisableAnimationsTweak, DisableBackgroundAppsTweak, DisableGameDvrTweak,
-    DisableHibernationTweak, DisableStickyKeysTweak, DisableStartupDelayTweak,
+    DisableHibernationTweak, DisableStartupDelayTweak, DisableStickyKeysTweak,
     DisableTelemetryTweak, DisableTransparencyTweak, SetHighPerformanceTweak,
     ShowFileExtensionsTweak,
 };
@@ -28,22 +28,38 @@ pub fn run() {
     let registry_provider = WinRegistryProvider::new();
 
     let tweaks: Vec<Arc<dyn zb_domain::tweaks::Tweak>> = vec![
-        Arc::new(DisableGameDvrTweak::with_provider(registry_provider.clone())),
-        Arc::new(DisableTransparencyTweak::with_provider(registry_provider.clone())),
-        Arc::new(DisableAnimationsTweak::with_provider(registry_provider.clone())),
-        Arc::new(ShowFileExtensionsTweak::with_provider(registry_provider.clone())),
-        Arc::new(DisableStickyKeysTweak::with_provider(registry_provider.clone())),
-        Arc::new(DisableStartupDelayTweak::with_provider(registry_provider.clone())),
-        Arc::new(DisableBackgroundAppsTweak::with_provider(registry_provider.clone())),
-        Arc::new(DisableTelemetryTweak::with_provider(registry_provider.clone())),
+        Arc::new(DisableGameDvrTweak::with_provider(
+            registry_provider.clone(),
+        )),
+        Arc::new(DisableTransparencyTweak::with_provider(
+            registry_provider.clone(),
+        )),
+        Arc::new(DisableAnimationsTweak::with_provider(
+            registry_provider.clone(),
+        )),
+        Arc::new(ShowFileExtensionsTweak::with_provider(
+            registry_provider.clone(),
+        )),
+        Arc::new(DisableStickyKeysTweak::with_provider(
+            registry_provider.clone(),
+        )),
+        Arc::new(DisableStartupDelayTweak::with_provider(
+            registry_provider.clone(),
+        )),
+        Arc::new(DisableBackgroundAppsTweak::with_provider(
+            registry_provider.clone(),
+        )),
+        Arc::new(DisableTelemetryTweak::with_provider(
+            registry_provider.clone(),
+        )),
         Arc::new(DisableHibernationTweak::new()),
         Arc::new(SetHighPerformanceTweak::new()),
     ];
 
-    let snapshot_service: Arc<dyn SnapshotService> = SqliteRepo::new_in_memory()
-        .expect("Failed to create SQLite snapshot repository");
-    let audit_service: Arc<dyn AuditService> = SqliteAuditLogger::new_in_memory()
-        .expect("Failed to create SQLite audit logger");
+    let snapshot_service: Arc<dyn SnapshotService> =
+        SqliteRepo::new_in_memory().expect("Failed to create SQLite snapshot repository");
+    let audit_service: Arc<dyn AuditService> =
+        SqliteAuditLogger::new_in_memory().expect("Failed to create SQLite audit logger");
 
     let engine = Arc::new(TweakEngine::new(tweaks, snapshot_service, audit_service));
     let metrics_collector = Arc::new(MetricsCollector::new());

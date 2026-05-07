@@ -1,7 +1,5 @@
 use async_trait::async_trait;
-use zb_shared::types::{
-    SnapshotData, TweakExplanation, TweakMetadata, TweakResult,
-};
+use zb_shared::types::{SnapshotData, TweakExplanation, TweakMetadata, TweakResult};
 
 use crate::errors::TweakError;
 

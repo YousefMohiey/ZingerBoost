@@ -19,5 +19,8 @@ pub struct BenchmarkResult {
 /// Trait for pluggable benchmarks
 pub trait Benchmark: Send + Sync {
     fn name(&self) -> &str;
-    fn run(&self, tx: mpsc::Sender<BenchmarkProgress>) -> Result<BenchmarkResult, crate::errors::BenchmarkError>;
+    fn run(
+        &self,
+        tx: mpsc::Sender<BenchmarkProgress>,
+    ) -> Result<BenchmarkResult, crate::errors::BenchmarkError>;
 }

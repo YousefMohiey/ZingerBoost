@@ -139,10 +139,21 @@ pub struct TweakExplanation {
 /// Snapshot data captured before applying a tweak
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum SnapshotData {
-    Registry { path: RegPath, name: String, previous: RegValue },
-    Service { name: String, previous_start_type: u32 },
-    PowerPlan { previous_guid: String },
-    UwpApp { package_family_name: String },
+    Registry {
+        path: RegPath,
+        name: String,
+        previous: RegValue,
+    },
+    Service {
+        name: String,
+        previous_start_type: u32,
+    },
+    PowerPlan {
+        previous_guid: String,
+    },
+    UwpApp {
+        package_family_name: String,
+    },
     Other(String),
 }
 

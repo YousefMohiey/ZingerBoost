@@ -20,7 +20,11 @@ pub async fn apply_tweak(
     state: State<'_, AppState>,
     request: ApplyRequestDto,
 ) -> Result<TweakResultDto, AppErrorDto> {
-    let result = state.engine.apply_single(&request.id).await.map_err(app_error_from_tweak)?;
+    let result = state
+        .engine
+        .apply_single(&request.id)
+        .await
+        .map_err(app_error_from_tweak)?;
     Ok(result.into())
 }
 
@@ -29,11 +33,12 @@ pub async fn batch_apply_tweaks(
     state: State<'_, AppState>,
     request: BatchApplyRequestDto,
 ) -> Result<Vec<(String, TweakResultDto)>, AppErrorDto> {
-    let results = state.engine.apply_batch(&request.ids).await.map_err(app_error_from_tweak)?;
-    Ok(results
-        .into_iter()
-        .map(|(id, r)| (id, r.into()))
-        .collect())
+    let results = state
+        .engine
+        .apply_batch(&request.ids)
+        .await
+        .map_err(app_error_from_tweak)?;
+    Ok(results.into_iter().map(|(id, r)| (id, r.into())).collect())
 }
 
 #[tauri::command]
@@ -41,7 +46,11 @@ pub async fn revert_tweak(
     state: State<'_, AppState>,
     request: ApplyRequestDto,
 ) -> Result<TweakResultDto, AppErrorDto> {
-    let result = state.engine.revert(&request.id).await.map_err(app_error_from_tweak)?;
+    let result = state
+        .engine
+        .revert(&request.id)
+        .await
+        .map_err(app_error_from_tweak)?;
     Ok(result.into())
 }
 
@@ -56,20 +65,23 @@ pub async fn get_tweak_explanation(
     state: State<'_, AppState>,
     id: String,
 ) -> Result<TweakExplanationDto, AppErrorDto> {
-    let tweak = state
-        .engine
-        .get_tweak(&id)
-        .ok_or_else(|| AppErrorDto {
-            code: "TWEAK_ERROR".into(),
-            message: format!("Unknown tweak: {}", id),
-            details: None,
-        })?;
+    let tweak = state.engine.get_tweak(&id).ok_or_else(|| AppErrorDto {
+        code: "TWEAK_ERROR".into(),
+        message: format!("Unknown tweak: {}", id),
+        details: None,
+    })?;
     Ok(tweak.explain().into())
 }
 
 #[tauri::command]
-pub async fn list_snapshots(state: State<'_, AppState>) -> Result<Vec<zb_domain::snapshots::SystemSnapshot>, AppErrorDto> {
-    let snapshots = state.engine.snapshot_service().list_snapshots().await
+pub async fn list_snapshots(
+    state: State<'_, AppState>,
+) -> Result<Vec<zb_domain::snapshots::SystemSnapshot>, AppErrorDto> {
+    let snapshots = state
+        .engine
+        .snapshot_service()
+        .list_snapshots()
+        .await
         .map_err(app_error_from_snapshot)?;
     Ok(snapshots)
 }

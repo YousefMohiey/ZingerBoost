@@ -52,10 +52,7 @@ impl TweakEngine {
     }
 
     /// Apply a single tweak with automatic snapshot
-    pub async fn apply_single(
-        &self,
-        id: &str,
-    ) -> Result<TweakResult, TweakError> {
+    pub async fn apply_single(&self, id: &str) -> Result<TweakResult, TweakError> {
         let tweak = self
             .get_tweak(id)
             .ok_or_else(|| TweakError::Validation(format!("Unknown tweak: {}", id)))?;
@@ -86,7 +83,10 @@ impl TweakEngine {
     }
 
     /// Apply a batch of tweaks sequentially with a single snapshot
-    pub async fn apply_batch(&self, ids: &[String]) -> Result<Vec<(String, TweakResult)>, TweakError> {
+    pub async fn apply_batch(
+        &self,
+        ids: &[String],
+    ) -> Result<Vec<(String, TweakResult)>, TweakError> {
         let mut results = Vec::new();
         let mut snapshot = SystemSnapshot::new(format!("Batch apply: {:?}", ids));
         let mut applied = Vec::new();
@@ -113,7 +113,11 @@ impl TweakEngine {
                     // Rollback already applied tweaks
                     for applied_id in applied.iter().rev() {
                         if let Some(t) = self.get_tweak(applied_id) {
-                            if let Some(record) = snapshot.tweak_records.iter().find(|r| &r.tweak_id == applied_id) {
+                            if let Some(record) = snapshot
+                                .tweak_records
+                                .iter()
+                                .find(|r| &r.tweak_id == applied_id)
+                            {
                                 if let Err(revert_err) = t.revert(&record.snapshot_data).await {
                                     error!("Rollback failed for {}: {}", applied_id, revert_err);
                                 }

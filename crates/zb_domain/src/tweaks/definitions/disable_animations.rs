@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use std::sync::Arc;
 use zb_shared::types::{
-    RegPath, RegValue, RiskLevel, SnapshotData, TweakCategory, TweakExplanation,
-    TweakMetadata, TweakResult,
+    RegPath, RegValue, RiskLevel, SnapshotData, TweakCategory, TweakExplanation, TweakMetadata,
+    TweakResult,
 };
 
 use crate::errors::TweakError;
@@ -19,7 +19,9 @@ impl DisableAnimationsTweak {
     }
 
     pub fn with_provider(provider: Arc<dyn crate::registry::RegistryProvider>) -> Self {
-        Self { provider: Some(provider) }
+        Self {
+            provider: Some(provider),
+        }
     }
 }
 
@@ -34,9 +36,7 @@ impl Tweak for DisableAnimationsTweak {
             risk: RiskLevel::Safe,
             requires_reboot: false,
             requires_admin: false,
-            affected_keys: vec![
-                RegPath::hkcu(r"Control Panel\Desktop\WindowMetrics"),
-            ],
+            affected_keys: vec![RegPath::hkcu(r"Control Panel\Desktop\WindowMetrics")],
             source_url: None,
         }
     }
@@ -59,8 +59,13 @@ impl Tweak for DisableAnimationsTweak {
     async fn capture_state(&self) -> Result<SnapshotData, TweakError> {
         if let Some(provider) = &self.provider {
             let path = RegPath::hkcu(r"Control Panel\Desktop");
-            let val = provider.read(&path, "UserPreferencesMask").await
-                .unwrap_or(RegValue::Binary(vec![0x9E, 0x12, 0x03, 0x80, 0x12, 0x00, 0x00, 0x00]));
+            let val =
+                provider
+                    .read(&path, "UserPreferencesMask")
+                    .await
+                    .unwrap_or(RegValue::Binary(vec![
+                        0x9E, 0x12, 0x03, 0x80, 0x12, 0x00, 0x00, 0x00,
+                    ]));
             Ok(SnapshotData::Registry {
                 path,
                 name: "UserPreferencesMask".into(),
@@ -78,13 +83,20 @@ impl Tweak for DisableAnimationsTweak {
     async fn apply(&self) -> Result<TweakResult, TweakError> {
         if let Some(provider) = &self.provider {
             let path = RegPath::hkcu(r"Control Panel\Desktop");
-            let current = provider.read(&path, "UserPreferencesMask").await
-                .unwrap_or(RegValue::Binary(vec![0x9E, 0x12, 0x03, 0x80, 0x12, 0x00, 0x00, 0x00]));
+            let current =
+                provider
+                    .read(&path, "UserPreferencesMask")
+                    .await
+                    .unwrap_or(RegValue::Binary(vec![
+                        0x9E, 0x12, 0x03, 0x80, 0x12, 0x00, 0x00, 0x00,
+                    ]));
             if let RegValue::Binary(mut v) = current {
                 if v.len() >= 1 {
                     v[0] &= !0x02; // Clear animation bit
                 }
-                provider.write(&path, "UserPreferencesMask", &RegValue::Binary(v)).await
+                provider
+                    .write(&path, "UserPreferencesMask", &RegValue::Binary(v))
+                    .await
                     .map_err(|e| TweakError::Registry(e.to_string()))?;
             }
         }
@@ -95,9 +107,16 @@ impl Tweak for DisableAnimationsTweak {
     }
 
     async fn revert(&self, snapshot: &SnapshotData) -> Result<TweakResult, TweakError> {
-        if let SnapshotData::Registry { path, name, previous } = snapshot {
+        if let SnapshotData::Registry {
+            path,
+            name,
+            previous,
+        } = snapshot
+        {
             if let Some(provider) = &self.provider {
-                provider.write(path, name, previous).await
+                provider
+                    .write(path, name, previous)
+                    .await
                     .map_err(|e| TweakError::Registry(e.to_string()))?;
             }
         }

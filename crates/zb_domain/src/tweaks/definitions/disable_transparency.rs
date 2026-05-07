@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use std::sync::Arc;
 use zb_shared::types::{
-    RegPath, RegValue, RiskLevel, SnapshotData, TweakCategory, TweakExplanation,
-    TweakMetadata, TweakResult,
+    RegPath, RegValue, RiskLevel, SnapshotData, TweakCategory, TweakExplanation, TweakMetadata,
+    TweakResult,
 };
 
 use crate::errors::TweakError;
@@ -19,7 +19,9 @@ impl DisableTransparencyTweak {
     }
 
     pub fn with_provider(provider: Arc<dyn crate::registry::RegistryProvider>) -> Self {
-        Self { provider: Some(provider) }
+        Self {
+            provider: Some(provider),
+        }
     }
 }
 
@@ -29,21 +31,23 @@ impl Tweak for DisableTransparencyTweak {
         TweakMetadata {
             id: "visual_disable_transparency".into(),
             name: "Disable Transparency Effects".into(),
-            description: "Turns off acrylic and transparency effects to reduce GPU compositor load.".into(),
+            description:
+                "Turns off acrylic and transparency effects to reduce GPU compositor load.".into(),
             category: TweakCategory::Visual,
             risk: RiskLevel::Safe,
             requires_reboot: false,
             requires_admin: false,
-            affected_keys: vec![
-                RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"),
-            ],
+            affected_keys: vec![RegPath::hkcu(
+                r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
+            )],
             source_url: None,
         }
     }
 
     async fn is_applied(&self) -> Result<bool, TweakError> {
         if let Some(provider) = &self.provider {
-            let path = RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+            let path =
+                RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
             match provider.read(&path, "EnableTransparency").await {
                 Ok(RegValue::Dword(v)) => Ok(v == 0),
                 _ => Ok(false),
@@ -55,12 +59,22 @@ impl Tweak for DisableTransparencyTweak {
 
     async fn capture_state(&self) -> Result<SnapshotData, TweakError> {
         if let Some(provider) = &self.provider {
-            let path = RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
-            let val = provider.read(&path, "EnableTransparency").await.unwrap_or(RegValue::Dword(1));
-            Ok(SnapshotData::Registry { path, name: "EnableTransparency".into(), previous: val })
+            let path =
+                RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+            let val = provider
+                .read(&path, "EnableTransparency")
+                .await
+                .unwrap_or(RegValue::Dword(1));
+            Ok(SnapshotData::Registry {
+                path,
+                name: "EnableTransparency".into(),
+                previous: val,
+            })
         } else {
             Ok(SnapshotData::Registry {
-                path: RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"),
+                path: RegPath::hkcu(
+                    r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize",
+                ),
                 name: "EnableTransparency".into(),
                 previous: RegValue::Dword(1),
             })
@@ -69,8 +83,11 @@ impl Tweak for DisableTransparencyTweak {
 
     async fn apply(&self) -> Result<TweakResult, TweakError> {
         if let Some(provider) = &self.provider {
-            let path = RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
-            provider.write(&path, "EnableTransparency", &RegValue::Dword(0)).await
+            let path =
+                RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+            provider
+                .write(&path, "EnableTransparency", &RegValue::Dword(0))
+                .await
                 .map_err(|e| TweakError::Registry(e.to_string()))?;
         }
         Ok(TweakResult {
@@ -80,9 +97,16 @@ impl Tweak for DisableTransparencyTweak {
     }
 
     async fn revert(&self, snapshot: &SnapshotData) -> Result<TweakResult, TweakError> {
-        if let SnapshotData::Registry { path, name, previous } = snapshot {
+        if let SnapshotData::Registry {
+            path,
+            name,
+            previous,
+        } = snapshot
+        {
             if let Some(provider) = &self.provider {
-                provider.write(path, name, previous).await
+                provider
+                    .write(path, name, previous)
+                    .await
                     .map_err(|e| TweakError::Registry(e.to_string()))?;
             }
         }

@@ -2,10 +2,10 @@ use async_trait::async_trait;
 use std::sync::Arc;
 use windows::Win32::Foundation::ERROR_SUCCESS;
 use windows::Win32::System::Registry::{
-    RegCloseKey, RegDeleteValueW, RegOpenKeyExW, RegQueryValueExW, RegSetValueExW,
-    HKEY, HKEY_CLASSES_ROOT, HKEY_CURRENT_CONFIG, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE,
-    HKEY_USERS, KEY_ALL_ACCESS, KEY_READ, REG_BINARY, REG_DWORD, REG_EXPAND_SZ, REG_QWORD,
-    REG_SZ, REG_VALUE_TYPE,
+    RegCloseKey, RegDeleteValueW, RegOpenKeyExW, RegQueryValueExW, RegSetValueExW, HKEY,
+    HKEY_CLASSES_ROOT, HKEY_CURRENT_CONFIG, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, HKEY_USERS,
+    KEY_ALL_ACCESS, KEY_READ, REG_BINARY, REG_DWORD, REG_EXPAND_SZ, REG_QWORD, REG_SZ,
+    REG_VALUE_TYPE,
 };
 use zb_domain::errors::RegistryError;
 use zb_domain::registry::RegistryProvider;
@@ -32,13 +32,17 @@ impl WinRegistryProvider {
 
     fn open_key(&self, path: &RegPath, access: u32) -> Result<HKEY, RegistryError> {
         let root = self.root_to_hkey(&path.root);
-        let wide_path: Vec<u16> = path
-            .path
-            .encode_utf16()
-            .chain(std::iter::once(0))
-            .collect();
+        let wide_path: Vec<u16> = path.path.encode_utf16().chain(std::iter::once(0)).collect();
         let mut hkey = HKEY::default();
-        let result = unsafe { RegOpenKeyExW(root, windows::core::PCWSTR(wide_path.as_ptr()), 0, access, &mut hkey) };
+        let result = unsafe {
+            RegOpenKeyExW(
+                root,
+                windows::core::PCWSTR(wide_path.as_ptr()),
+                0,
+                access,
+                &mut hkey,
+            )
+        };
         if result == ERROR_SUCCESS {
             Ok(hkey)
         } else {
@@ -46,7 +50,11 @@ impl WinRegistryProvider {
         }
     }
 
-    fn read_raw_value(&self, hkey: HKEY, name: &str) -> Result<(Vec<u8>, REG_VALUE_TYPE), RegistryError> {
+    fn read_raw_value(
+        &self,
+        hkey: HKEY,
+        name: &str,
+    ) -> Result<(Vec<u8>, REG_VALUE_TYPE), RegistryError> {
         let wide_name: Vec<u16> = name.encode_utf16().chain(std::iter::once(0)).collect();
         let mut data_type = REG_VALUE_TYPE(0);
         let mut data_size: u32 = 0;
@@ -79,7 +87,10 @@ impl WinRegistryProvider {
         };
 
         if result != ERROR_SUCCESS {
-            return Err(RegistryError::ReadFailed(format!("Query failed: {:?}", result)));
+            return Err(RegistryError::ReadFailed(format!(
+                "Query failed: {:?}",
+                result
+            )));
         }
 
         buffer.truncate(data_size as usize);
@@ -109,8 +120,8 @@ impl RegistryProvider for WinRegistryProvider {
             REG_QWORD => {
                 if buffer.len() >= 8 {
                     let value = u64::from_le_bytes([
-                        buffer[0], buffer[1], buffer[2], buffer[3],
-                        buffer[4], buffer[5], buffer[6], buffer[7],
+                        buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5],
+                        buffer[6], buffer[7],
                     ]);
                     Ok(RegValue::Qword(value))
                 } else {
@@ -123,8 +134,9 @@ impl RegistryProvider for WinRegistryProvider {
                     .map(|c| u16::from_le_bytes([c[0], c[1]]))
                     .take_while(|&c| c != 0)
                     .collect();
-                let string = String::from_utf16(&wide)
-                    .map_err(|e| RegistryError::ReadFailed(format!("UTF-16 decode error: {}", e)))?;
+                let string = String::from_utf16(&wide).map_err(|e| {
+                    RegistryError::ReadFailed(format!("UTF-16 decode error: {}", e))
+                })?;
                 Ok(RegValue::Sz(string))
             }
             REG_EXPAND_SZ => {
@@ -133,12 +145,16 @@ impl RegistryProvider for WinRegistryProvider {
                     .map(|c| u16::from_le_bytes([c[0], c[1]]))
                     .take_while(|&c| c != 0)
                     .collect();
-                let string = String::from_utf16(&wide)
-                    .map_err(|e| RegistryError::ReadFailed(format!("UTF-16 decode error: {}", e)))?;
+                let string = String::from_utf16(&wide).map_err(|e| {
+                    RegistryError::ReadFailed(format!("UTF-16 decode error: {}", e))
+                })?;
                 Ok(RegValue::ExpandSz(string))
             }
             REG_BINARY => Ok(RegValue::Binary(buffer)),
-            _ => Err(RegistryError::ReadFailed(format!("Unsupported registry type: {:?}", data_type))),
+            _ => Err(RegistryError::ReadFailed(format!(
+                "Unsupported registry type: {:?}",
+                data_type
+            ))),
         }
     }
 
@@ -214,7 +230,10 @@ impl RegistryProvider for WinRegistryProvider {
         if result == ERROR_SUCCESS {
             Ok(())
         } else {
-            Err(RegistryError::WriteFailed(format!("RegSetValueExW failed: {:?}", result)))
+            Err(RegistryError::WriteFailed(format!(
+                "RegSetValueExW failed: {:?}",
+                result
+            )))
         }
     }
 
@@ -230,7 +249,10 @@ impl RegistryProvider for WinRegistryProvider {
         if result == ERROR_SUCCESS {
             Ok(())
         } else {
-            Err(RegistryError::DeleteFailed(format!("RegDeleteValueW failed: {:?}", result)))
+            Err(RegistryError::DeleteFailed(format!(
+                "RegDeleteValueW failed: {:?}",
+                result
+            )))
         }
     }
 }

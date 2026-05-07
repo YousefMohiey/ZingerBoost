@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use std::sync::Arc;
 use zb_shared::types::{
-    RegPath, RegValue, RiskLevel, SnapshotData, TweakCategory, TweakExplanation,
-    TweakMetadata, TweakResult,
+    RegPath, RegValue, RiskLevel, SnapshotData, TweakCategory, TweakExplanation, TweakMetadata,
+    TweakResult,
 };
 
 use crate::errors::TweakError;
@@ -19,7 +19,9 @@ impl DisableGameDvrTweak {
     }
 
     pub fn with_provider(provider: Arc<dyn crate::registry::RegistryProvider>) -> Self {
-        Self { provider: Some(provider) }
+        Self {
+            provider: Some(provider),
+        }
     }
 }
 
@@ -29,7 +31,9 @@ impl Tweak for DisableGameDvrTweak {
         TweakMetadata {
             id: "gaming_disable_dvr".into(),
             name: "Disable Game DVR".into(),
-            description: "Turns off Windows Game DVR background recording to free up CPU/GPU resources.".into(),
+            description:
+                "Turns off Windows Game DVR background recording to free up CPU/GPU resources."
+                    .into(),
             category: TweakCategory::Gaming,
             risk: RiskLevel::Safe,
             requires_reboot: false,
@@ -57,8 +61,15 @@ impl Tweak for DisableGameDvrTweak {
     async fn capture_state(&self) -> Result<SnapshotData, TweakError> {
         if let Some(provider) = &self.provider {
             let path = RegPath::hkcu(r"System\GameConfigStore");
-            let val = provider.read(&path, "GameDVR_Enabled").await.unwrap_or(RegValue::Dword(1));
-            Ok(SnapshotData::Registry { path, name: "GameDVR_Enabled".into(), previous: val })
+            let val = provider
+                .read(&path, "GameDVR_Enabled")
+                .await
+                .unwrap_or(RegValue::Dword(1));
+            Ok(SnapshotData::Registry {
+                path,
+                name: "GameDVR_Enabled".into(),
+                previous: val,
+            })
         } else {
             Ok(SnapshotData::Registry {
                 path: RegPath::hkcu(r"System\GameConfigStore"),
@@ -71,10 +82,14 @@ impl Tweak for DisableGameDvrTweak {
     async fn apply(&self) -> Result<TweakResult, TweakError> {
         if let Some(provider) = &self.provider {
             let path = RegPath::hkcu(r"System\GameConfigStore");
-            provider.write(&path, "GameDVR_Enabled", &RegValue::Dword(0)).await
+            provider
+                .write(&path, "GameDVR_Enabled", &RegValue::Dword(0))
+                .await
                 .map_err(|e| TweakError::Registry(e.to_string()))?;
             let hklm_path = RegPath::hklm(r"SOFTWARE\Policies\Microsoft\Windows\GameDVR");
-            provider.write(&hklm_path, "AllowGameDVR", &RegValue::Dword(0)).await
+            provider
+                .write(&hklm_path, "AllowGameDVR", &RegValue::Dword(0))
+                .await
                 .map_err(|e| TweakError::Registry(e.to_string()))?;
         }
         Ok(TweakResult {
@@ -84,9 +99,16 @@ impl Tweak for DisableGameDvrTweak {
     }
 
     async fn revert(&self, snapshot: &SnapshotData) -> Result<TweakResult, TweakError> {
-        if let SnapshotData::Registry { path, name, previous } = snapshot {
+        if let SnapshotData::Registry {
+            path,
+            name,
+            previous,
+        } = snapshot
+        {
             if let Some(provider) = &self.provider {
-                provider.write(path, name, previous).await
+                provider
+                    .write(path, name, previous)
+                    .await
                     .map_err(|e| TweakError::Registry(e.to_string()))?;
             }
         }

@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use std::sync::Arc;
 use zb_shared::types::{
-    RegPath, RegValue, RiskLevel, SnapshotData, TweakCategory, TweakExplanation,
-    TweakMetadata, TweakResult,
+    RegPath, RegValue, RiskLevel, SnapshotData, TweakCategory, TweakExplanation, TweakMetadata,
+    TweakResult,
 };
 
 use crate::errors::TweakError;
@@ -19,7 +19,9 @@ impl DisableStartupDelayTweak {
     }
 
     pub fn with_provider(provider: Arc<dyn crate::registry::RegistryProvider>) -> Self {
-        Self { provider: Some(provider) }
+        Self {
+            provider: Some(provider),
+        }
     }
 }
 
@@ -34,16 +36,17 @@ impl Tweak for DisableStartupDelayTweak {
             risk: RiskLevel::Safe,
             requires_reboot: true,
             requires_admin: false,
-            affected_keys: vec![
-                RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize"),
-            ],
+            affected_keys: vec![RegPath::hkcu(
+                r"Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize",
+            )],
             source_url: None,
         }
     }
 
     async fn is_applied(&self) -> Result<bool, TweakError> {
         if let Some(provider) = &self.provider {
-            let path = RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize");
+            let path =
+                RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize");
             match provider.read(&path, "StartupDelayInMSec").await {
                 Ok(RegValue::Dword(v)) => Ok(v == 0),
                 _ => Ok(false),
@@ -55,12 +58,22 @@ impl Tweak for DisableStartupDelayTweak {
 
     async fn capture_state(&self) -> Result<SnapshotData, TweakError> {
         if let Some(provider) = &self.provider {
-            let path = RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize");
-            let val = provider.read(&path, "StartupDelayInMSec").await.unwrap_or(RegValue::Dword(10000));
-            Ok(SnapshotData::Registry { path, name: "StartupDelayInMSec".into(), previous: val })
+            let path =
+                RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize");
+            let val = provider
+                .read(&path, "StartupDelayInMSec")
+                .await
+                .unwrap_or(RegValue::Dword(10000));
+            Ok(SnapshotData::Registry {
+                path,
+                name: "StartupDelayInMSec".into(),
+                previous: val,
+            })
         } else {
             Ok(SnapshotData::Registry {
-                path: RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize"),
+                path: RegPath::hkcu(
+                    r"Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize",
+                ),
                 name: "StartupDelayInMSec".into(),
                 previous: RegValue::Dword(10000),
             })
@@ -69,20 +82,31 @@ impl Tweak for DisableStartupDelayTweak {
 
     async fn apply(&self) -> Result<TweakResult, TweakError> {
         if let Some(provider) = &self.provider {
-            let path = RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize");
-            provider.write(&path, "StartupDelayInMSec", &RegValue::Dword(0)).await
+            let path =
+                RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Explorer\Serialize");
+            provider
+                .write(&path, "StartupDelayInMSec", &RegValue::Dword(0))
+                .await
                 .map_err(|e| TweakError::Registry(e.to_string()))?;
         }
         Ok(TweakResult {
             reboot_required: true,
-            message: "Startup delay removed. Startup apps will launch immediately after boot.".into(),
+            message: "Startup delay removed. Startup apps will launch immediately after boot."
+                .into(),
         })
     }
 
     async fn revert(&self, snapshot: &SnapshotData) -> Result<TweakResult, TweakError> {
-        if let SnapshotData::Registry { path, name, previous } = snapshot {
+        if let SnapshotData::Registry {
+            path,
+            name,
+            previous,
+        } = snapshot
+        {
             if let Some(provider) = &self.provider {
-                provider.write(path, name, previous).await
+                provider
+                    .write(path, name, previous)
+                    .await
                     .map_err(|e| TweakError::Registry(e.to_string()))?;
             }
         }

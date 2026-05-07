@@ -1,8 +1,8 @@
 use async_trait::async_trait;
 use std::sync::Arc;
 use zb_shared::types::{
-    RegPath, RegValue, RiskLevel, SnapshotData, TweakCategory, TweakExplanation,
-    TweakMetadata, TweakResult,
+    RegPath, RegValue, RiskLevel, SnapshotData, TweakCategory, TweakExplanation, TweakMetadata,
+    TweakResult,
 };
 
 use crate::errors::TweakError;
@@ -19,7 +19,9 @@ impl DisableStickyKeysTweak {
     }
 
     pub fn with_provider(provider: Arc<dyn crate::registry::RegistryProvider>) -> Self {
-        Self { provider: Some(provider) }
+        Self {
+            provider: Some(provider),
+        }
     }
 }
 
@@ -29,14 +31,14 @@ impl Tweak for DisableStickyKeysTweak {
         TweakMetadata {
             id: "visual_disable_sticky_keys".into(),
             name: "Disable Sticky Keys Popup".into(),
-            description: "Prevents the Sticky Keys dialog from appearing when pressing Shift repeatedly.".into(),
+            description:
+                "Prevents the Sticky Keys dialog from appearing when pressing Shift repeatedly."
+                    .into(),
             category: TweakCategory::Visual,
             risk: RiskLevel::Safe,
             requires_reboot: false,
             requires_admin: false,
-            affected_keys: vec![
-                RegPath::hkcu(r"Control Panel\Accessibility\StickyKeys"),
-            ],
+            affected_keys: vec![RegPath::hkcu(r"Control Panel\Accessibility\StickyKeys")],
             source_url: None,
         }
     }
@@ -45,12 +47,8 @@ impl Tweak for DisableStickyKeysTweak {
         if let Some(provider) = &self.provider {
             let path = RegPath::hkcu(r"Control Panel\Accessibility\StickyKeys");
             match provider.read(&path, "Flags").await {
-                Ok(RegValue::Sz(v)) => {
-                    Ok(v == "506" || v == "0x1FA")
-                }
-                Ok(RegValue::Binary(v)) => {
-                    Ok(v == vec![0xFA, 0x01, 0x00, 0x00])
-                }
+                Ok(RegValue::Sz(v)) => Ok(v == "506" || v == "0x1FA"),
+                Ok(RegValue::Binary(v)) => Ok(v == vec![0xFA, 0x01, 0x00, 0x00]),
                 _ => Ok(false),
             }
         } else {
@@ -61,8 +59,15 @@ impl Tweak for DisableStickyKeysTweak {
     async fn capture_state(&self) -> Result<SnapshotData, TweakError> {
         if let Some(provider) = &self.provider {
             let path = RegPath::hkcu(r"Control Panel\Accessibility\StickyKeys");
-            let val = provider.read(&path, "Flags").await.unwrap_or(RegValue::Sz("510".into()));
-            Ok(SnapshotData::Registry { path, name: "Flags".into(), previous: val })
+            let val = provider
+                .read(&path, "Flags")
+                .await
+                .unwrap_or(RegValue::Sz("510".into()));
+            Ok(SnapshotData::Registry {
+                path,
+                name: "Flags".into(),
+                previous: val,
+            })
         } else {
             Ok(SnapshotData::Registry {
                 path: RegPath::hkcu(r"Control Panel\Accessibility\StickyKeys"),
@@ -75,7 +80,9 @@ impl Tweak for DisableStickyKeysTweak {
     async fn apply(&self) -> Result<TweakResult, TweakError> {
         if let Some(provider) = &self.provider {
             let path = RegPath::hkcu(r"Control Panel\Accessibility\StickyKeys");
-            provider.write(&path, "Flags", &RegValue::Sz("506".into())).await
+            provider
+                .write(&path, "Flags", &RegValue::Sz("506".into()))
+                .await
                 .map_err(|e| TweakError::Registry(e.to_string()))?;
         }
         Ok(TweakResult {
@@ -85,9 +92,16 @@ impl Tweak for DisableStickyKeysTweak {
     }
 
     async fn revert(&self, snapshot: &SnapshotData) -> Result<TweakResult, TweakError> {
-        if let SnapshotData::Registry { path, name, previous } = snapshot {
+        if let SnapshotData::Registry {
+            path,
+            name,
+            previous,
+        } = snapshot
+        {
             if let Some(provider) = &self.provider {
-                provider.write(path, name, previous).await
+                provider
+                    .write(path, name, previous)
+                    .await
                     .map_err(|e| TweakError::Registry(e.to_string()))?;
             }
         }
@@ -99,7 +113,9 @@ impl Tweak for DisableStickyKeysTweak {
 
     fn explain(&self) -> TweakExplanation {
         TweakExplanation {
-            what_it_does: "Disables the Sticky Keys shortcut that appears when you press Shift 5 times.".into(),
+            what_it_does:
+                "Disables the Sticky Keys shortcut that appears when you press Shift 5 times."
+                    .into(),
             why_it_helps: "Eliminates an annoying popup that interrupts gaming and typing.".into(),
             potential_risks: None,
             how_to_revert: "Restores the original Sticky Keys Flags value.".into(),
