@@ -1,7 +1,6 @@
 use async_trait::async_trait;
 use zb_shared::types::{
-    RiskLevel, SnapshotData, TweakCategory, TweakExplanation, TweakMetadata,
-    TweakResult,
+    RiskLevel, SnapshotData, TweakCategory, TweakExplanation, TweakMetadata, TweakResult,
 };
 
 use crate::errors::TweakError;
