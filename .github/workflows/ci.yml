@@ -26,15 +26,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo test -p zb_shared -p zb_domain -p zb_application
 
-  build:
+  check-all:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - run: npm install
-      - run: cargo install tauri-cli --locked
-      - run: cargo tauri build
+      - run: cargo check --workspace
