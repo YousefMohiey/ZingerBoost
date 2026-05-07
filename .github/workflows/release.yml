@@ -24,6 +24,8 @@ jobs:
       - uses: softprops/action-gh-release@v2
         with:
           files: |
+            target/release/bundle/msi/*.msi
+            target/release/bundle/nsis/*.exe
             src-tauri/target/release/bundle/msi/*.msi
             src-tauri/target/release/bundle/nsis/*.exe
           name: "ZingerBoost ${{ github.ref_name }}"
@@ -33,4 +35,4 @@ jobs:
             **Includes:** 10 registry tweaks · 30+ apps via Winget · 21 bloatware removals · snapshot restore · audit logging
 
             Requires Windows 10/11. Built with Rust + Tauri.
-          fail_on_unmatched_files: true
+          fail_on_unmatched_files: false
