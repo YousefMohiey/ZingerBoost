@@ -21,9 +21,10 @@
 |-------|-----------|
 | Backend | Rust (Tauri v2) |
 | Frontend | React 18 + TypeScript + Vite |
-| Styling | Tailwind CSS + shadcn/ui |
+| Styling | Tailwind CSS |
 | State | Zustand (client) + TanStack Query (server) |
 | Charts | Recharts |
+| Animation | Framer Motion |
 | Async | Tokio |
 | Windows API | windows-rs |
 | Database | SQLite (rusqlite) |
@@ -32,26 +33,51 @@
 
 - [x] Workspace + build pipeline
 - [x] Registry read/write via windows-rs
-- [x] Tweak trait + safe implementations
-- [x] Snapshot create/restore
-- [x] Dashboard with live CPU/RAM
-- [x] Tweaks browser with apply/revert
-- [x] Dark mode UI
-- [x] Audit logging
-- [ ] MSI installer
+- [x] Tweak trait + 10 safe implementations
+- [x] Snapshot create/restore with SQLite persistence
+- [x] Dashboard with live CPU/RAM/Disk/Network metrics
+- [x] Tweaks browser with search, filters, risk badges, and explanations
+- [x] Dark mode UI with toast notifications
+- [x] Audit logging with SQLite backend
+- [x] CI/CD with GitHub Actions
 
-## Safe Tweaks (MVP)
+## 10 Safe MVP Tweaks
 
-1. Disable Transparency Effects
-2. Disable Animations
-3. Disable Startup Delay
-4. Disable Game DVR
-5. Disable Hibernation
-6. Show File Extensions
-7. Disable Sticky Keys Popup
-8. Set High Performance Power Plan
-9. Disable Background Apps
-10. Disable Telemetry (Basic)
+1. **Disable Transparency Effects** — Reduce GPU compositor load
+2. **Disable Animations** — Snappier window minimize/maximize
+3. **Disable Startup Delay** — Remove 10-second startup app delay
+4. **Disable Game DVR** — Free up CPU/GPU while gaming
+5. **Disable Hibernation** — Free disk space equal to RAM size
+6. **Show File Extensions** — Security best practice in Explorer
+7. **Disable Sticky Keys Popup** — No more Shift×5 interruptions
+8. **Set High Performance Power Plan** — Maximum CPU responsiveness
+9. **Disable Background Apps** — Stop UWP apps from running in background
+10. **Disable Telemetry (Basic)** — Minimum diagnostic data collection
+
+## Architecture
+
+```
+ZingerBoost/
+├── crates/
+│   ├── zb_shared/        # Common types, errors, constants
+│   ├── zb_domain/        # Core traits (Tweak, RegistryProvider), entities, 10 tweak impls
+│   ├── zb_application/   # TweakEngine, SnapshotService, AuditService, DTOs
+│   ├── zb_infrastructure/# WinRegistryProvider (windows-rs), SQLite repos, metrics
+│   └── zb_app/           # Tauri command router and entry point
+└── src/                  # React frontend
+    ├── components/ui/    # Sidebar, ToastContainer
+    ├── features/         # Dashboard, Tweaks, Snapshots, Settings
+    ├── lib/api.ts        # Typed Tauri invoke wrappers
+    └── store/            # Zustand toast store
+```
+
+## Risk Levels
+
+| Level | Color | Behavior |
+|-------|-------|----------|
+| Safe | Emerald | Toggle immediately, no confirmation |
+| Moderate | Amber | Confirmation dialog, may need reboot |
+| Advanced | Red | Hidden in Expert Mode, detailed warning |
 
 ## Development
 
@@ -70,37 +96,29 @@ cd ZingerBoost
 # Install frontend dependencies
 npm install
 
-# Run in development mode
+# Run in development mode (Windows only)
 cargo tauri dev
 ```
 
 ### Building
 
 ```bash
-# Release build
+# Release build (Windows only)
 cargo tauri build
 ```
 
-## Architecture
+> **Note:** The `windows-rs` crate only compiles on Windows. Linux/macOS can compile `zb_shared`, `zb_domain`, and `zb_application` for code review, but the full app requires a Windows host.
 
-```
-ZingerBoost/
-├── crates/
-│   ├── zb_shared/        # Common types, errors, constants
-│   ├── zb_domain/        # Core traits and entities (pure logic)
-│   ├── zb_application/   # Orchestration services
-│   ├── zb_infrastructure/# OS adapters (registry, services, SQLite)
-│   └── zb_app/           # Tauri command router and entry point
-└── src/                  # React frontend
+## Testing
+
+```bash
+# Run unit tests for platform-agnostic crates
+cargo test -p zb_shared -p zb_domain -p zb_application
 ```
 
-## Risk Levels
+## Screenshots
 
-| Level | Color | Behavior |
-|-------|-------|----------|
-| Safe | Emerald | Toggle immediately, no confirmation |
-| Moderate | Amber | Confirmation dialog, may need reboot |
-| Advanced | Red | Hidden in Expert Mode, detailed warning |
+*Coming soon*
 
 ## Author
 
