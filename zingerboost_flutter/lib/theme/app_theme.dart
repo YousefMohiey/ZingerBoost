@@ -15,7 +15,7 @@ class AppTheme {
       surface: const Color(0xFF171717),
     ),
     appBarTheme: const AppBarTheme(backgroundColor: Color(0xFF171717)),
-    cardTheme: CardThemeData(color: const Color(0xFF171717), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: Color(0xFF262626)))),
+    cardTheme: CardTheme(color: const Color(0xFF171717), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: Color(0xFF262626)))),
   );
 
   static final light = ThemeData(

@@ -56,7 +56,7 @@ class _SnapshotsPageState extends State<SnapshotsPage> {
       final snapshots = await RustBridge.listSnapshots();
       if (mounted) {
         setState(() {
-          _snapshots = snapshots;
+          _snapshots = snapshots.map((s) => s as SnapshotInfo).toList();
           _loading = false;
         });
       }
