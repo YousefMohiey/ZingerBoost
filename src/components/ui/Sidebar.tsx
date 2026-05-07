@@ -1,6 +1,7 @@
 import React from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
+  Download,
   LayoutDashboard,
   SlidersHorizontal,
   History,
@@ -19,6 +20,7 @@ const navItems = [
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/tweaks", icon: SlidersHorizontal, label: "Tweaks" },
   { to: "/snapshots", icon: History, label: "Snapshots" },
+  { to: "/software", icon: Download, label: "Software" },
 ];
 
 const bottomItems = [

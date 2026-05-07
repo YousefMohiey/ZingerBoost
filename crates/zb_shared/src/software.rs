@@ -1,0 +1,386 @@
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SoftwarePackage {
+    pub id: String,
+    pub name: String,
+    pub description: String,
+    pub category: SoftwareCategory,
+    pub winget_id: String,
+    pub website: Option<String>,
+    pub icon_url: Option<String>,
+    pub free: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum SoftwareCategory {
+    Browsers,
+    MediaPlayers,
+    Gaming,
+    Utilities,
+    Drivers,
+    Communication,
+    Development,
+    CloudStorage,
+    Bloatware,
+}
+
+impl std::fmt::Display for SoftwareCategory {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            SoftwareCategory::Browsers => write!(f, "browsers"),
+            SoftwareCategory::MediaPlayers => write!(f, "media_players"),
+            SoftwareCategory::Gaming => write!(f, "gaming"),
+            SoftwareCategory::Utilities => write!(f, "utilities"),
+            SoftwareCategory::Drivers => write!(f, "drivers"),
+            SoftwareCategory::Communication => write!(f, "communication"),
+            SoftwareCategory::Development => write!(f, "development"),
+            SoftwareCategory::CloudStorage => write!(f, "cloud_storage"),
+            SoftwareCategory::Bloatware => write!(f, "bloatware"),
+        }
+    }
+}
+
+pub fn get_software_catalog() -> Vec<SoftwarePackage> {
+    vec![
+        // ===== BROWSERS =====
+        SoftwarePackage {
+            id: "browser_chrome".into(), name: "Google Chrome".into(),
+            description: "Fast, secure, and widely used web browser.".into(),
+            category: SoftwareCategory::Browsers, winget_id: "Google.Chrome".into(),
+            website: Some("https://google.com/chrome".into()), icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "browser_firefox".into(), name: "Mozilla Firefox".into(),
+            description: "Privacy-focused open-source browser.".into(),
+            category: SoftwareCategory::Browsers, winget_id: "Mozilla.Firefox".into(),
+            website: Some("https://mozilla.org/firefox".into()), icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "browser_brave".into(), name: "Brave Browser".into(),
+            description: "Built-in ad blocker and privacy features.".into(),
+            category: SoftwareCategory::Browsers, winget_id: "Brave.Brave".into(),
+            website: Some("https://brave.com".into()), icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "browser_opera".into(), name: "Opera Browser".into(),
+            description: "Feature-rich browser with built-in VPN.".into(),
+            category: SoftwareCategory::Browsers, winget_id: "Opera.Opera".into(),
+            website: Some("https://opera.com".into()), icon_url: None, free: true,
+        },
+        // ===== MEDIA PLAYERS =====
+        SoftwarePackage {
+            id: "media_vlc".into(), name: "VLC Media Player".into(),
+            description: "Plays everything — the universal media player.".into(),
+            category: SoftwareCategory::MediaPlayers, winget_id: "VideoLAN.VLC".into(),
+            website: Some("https://videolan.org/vlc".into()), icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "media_spotify".into(), name: "Spotify".into(),
+            description: "Music streaming with millions of songs.".into(),
+            category: SoftwareCategory::MediaPlayers, winget_id: "Spotify.Spotify".into(),
+            website: Some("https://spotify.com".into()), icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "media_itunes".into(), name: "iTunes".into(),
+            description: "Apple music player and device manager.".into(),
+            category: SoftwareCategory::MediaPlayers, winget_id: "Apple.iTunes".into(),
+            website: Some("https://apple.com/itunes".into()), icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "media_mpv".into(), name: "MPV Player".into(),
+            description: "Minimal, high-quality open-source video player.".into(),
+            category: SoftwareCategory::MediaPlayers, winget_id: "mpv.net".into(),
+            website: Some("https://mpv.io".into()), icon_url: None, free: true,
+        },
+        // ===== GAMING =====
+        SoftwarePackage {
+            id: "gaming_steam".into(), name: "Steam".into(),
+            description: "The largest PC gaming platform with thousands of games.".into(),
+            category: SoftwareCategory::Gaming, winget_id: "Valve.Steam".into(),
+            website: Some("https://store.steampowered.com".into()), icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "gaming_epic".into(), name: "Epic Games Launcher".into(),
+            description: "Free games weekly, Unreal Engine, Fortnite.".into(),
+            category: SoftwareCategory::Gaming, winget_id: "EpicGames.EpicGamesLauncher".into(),
+            website: Some("https://epicgames.com".into()), icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "gaming_riot".into(), name: "Riot Client".into(),
+            description: "League of Legends, VALORANT, Teamfight Tactics.".into(),
+            category: SoftwareCategory::Gaming, winget_id: "RiotGames.LeagueOfLegends".into(),
+            website: Some("https://riotgames.com".into()), icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "gaming_discord".into(), name: "Discord".into(),
+            description: "Voice, video, and text chat for gamers and communities.".into(),
+            category: SoftwareCategory::Gaming, winget_id: "Discord.Discord".into(),
+            website: Some("https://discord.com".into()), icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "gaming_obs".into(), name: "OBS Studio".into(),
+            description: "Free and open-source streaming/recording software.".into(),
+            category: SoftwareCategory::Gaming, winget_id: "OBSProject.OBSStudio".into(),
+            website: Some("https://obsproject.com".into()), icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "gaming_gog".into(), name: "GOG Galaxy".into(),
+            description: "DRM-free game store and launcher.".into(),
+            category: SoftwareCategory::Gaming, winget_id: "GOG.Galaxy".into(),
+            website: Some("https://gog.com/galaxy".into()), icon_url: None, free: true,
+        },
+        // ===== UTILITIES =====
+        SoftwarePackage {
+            id: "util_7zip".into(), name: "7-Zip".into(),
+            description: "Best file archiver — open-source, supports all formats.".into(),
+            category: SoftwareCategory::Utilities, winget_id: "7zip.7zip".into(),
+            website: Some("https://7-zip.org".into()), icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "util_notepadpp".into(), name: "Notepad++".into(),
+            description: "Powerful text and source code editor.".into(),
+            category: SoftwareCategory::Utilities, winget_id: "Notepad++.Notepad++".into(),
+            website: Some("https://notepad-plus-plus.org".into()), icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "util_everything".into(), name: "Everything Search".into(),
+            description: "Instantly find any file or folder on your PC.".into(),
+            category: SoftwareCategory::Utilities, winget_id: "voidtools.Everything".into(),
+            website: Some("https://voidtools.com".into()), icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "util_sharex".into(), name: "ShareX".into(),
+            description: "Screen capture, recording, and sharing tool.".into(),
+            category: SoftwareCategory::Utilities, winget_id: "ShareX.ShareX".into(),
+            website: Some("https://getsharex.com".into()), icon_url: None, free: true,
+        },
+        // ===== DRIVERS =====
+        SoftwarePackage {
+            id: "drivers_nvidia".into(), name: "NVIDIA GeForce Experience".into(),
+            description: "GPU driver updates and game optimization for NVIDIA.".into(),
+            category: SoftwareCategory::Drivers, winget_id: "Nvidia.GeForceExperience".into(),
+            website: Some("https://nvidia.com/geforce".into()), icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "drivers_amd".into(), name: "AMD Adrenalin Software".into(),
+            description: "GPU drivers and tuning for AMD Radeon graphics.".into(),
+            category: SoftwareCategory::Drivers, winget_id: "AMD.AdrenalinEdition".into(),
+            website: Some("https://amd.com/adrenalin".into()), icon_url: None, free: true,
+        },
+        // ===== COMMUNICATION =====
+        SoftwarePackage {
+            id: "comm_telegram".into(), name: "Telegram Desktop".into(),
+            description: "Fast and secure messaging app with cloud sync.".into(),
+            category: SoftwareCategory::Communication, winget_id: "Telegram.TelegramDesktop".into(),
+            website: Some("https://telegram.org".into()), icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "comm_zoom".into(), name: "Zoom".into(),
+            description: "Video conferencing and online meetings.".into(),
+            category: SoftwareCategory::Communication, winget_id: "Zoom.Zoom".into(),
+            website: Some("https://zoom.us".into()), icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "comm_slack".into(), name: "Slack".into(),
+            description: "Team communication and collaboration platform.".into(),
+            category: SoftwareCategory::Communication, winget_id: "SlackTechnologies.Slack".into(),
+            website: Some("https://slack.com".into()), icon_url: None, free: true,
+        },
+        // ===== DEVELOPMENT =====
+        SoftwarePackage {
+            id: "dev_vscode".into(), name: "Visual Studio Code".into(),
+            description: "Most popular code editor with rich extension ecosystem.".into(),
+            category: SoftwareCategory::Development, winget_id: "Microsoft.VisualStudioCode".into(),
+            website: Some("https://code.visualstudio.com".into()), icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "dev_git".into(), name: "Git".into(),
+            description: "Distributed version control system.".into(),
+            category: SoftwareCategory::Development, winget_id: "Git.Git".into(),
+            website: Some("https://git-scm.com".into()), icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "dev_python".into(), name: "Python".into(),
+            description: "Popular programming language for everything.".into(),
+            category: SoftwareCategory::Development, winget_id: "Python.Python.3.12".into(),
+            website: Some("https://python.org".into()), icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "dev_nodejs".into(), name: "Node.js".into(),
+            description: "JavaScript runtime for server-side and tooling.".into(),
+            category: SoftwareCategory::Development, winget_id: "OpenJS.NodeJS.LTS".into(),
+            website: Some("https://nodejs.org".into()), icon_url: None, free: true,
+        },
+        // ===== CLOUD STORAGE =====
+        SoftwarePackage {
+            id: "cloud_gdrive".into(), name: "Google Drive".into(),
+            description: "Cloud storage and file sync from Google.".into(),
+            category: SoftwareCategory::CloudStorage, winget_id: "Google.Drive".into(),
+            website: Some("https://google.com/drive".into()), icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "cloud_dropbox".into(), name: "Dropbox".into(),
+            description: "Cloud file storage, sync, and sharing.".into(),
+            category: SoftwareCategory::CloudStorage, winget_id: "Dropbox.Dropbox".into(),
+            website: Some("https://dropbox.com".into()), icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "cloud_mega".into(), name: "MEGA".into(),
+            description: "Encrypted cloud storage with generous free tier.".into(),
+            category: SoftwareCategory::CloudStorage, winget_id: "Mega.MEGASync".into(),
+            website: Some("https://mega.io".into()), icon_url: None, free: true,
+        },
+    ]
+}
+
+/// Bloatware packages that can be safely removed
+pub fn get_bloatware_catalog() -> Vec<SoftwarePackage> {
+    vec![
+        SoftwarePackage {
+            id: "bloat_candycrush".into(), name: "Candy Crush Saga".into(),
+            description: "Pre-installed game — safe to remove.".into(),
+            category: SoftwareCategory::Bloatware, winget_id: "king.com.CandyCrushSaga".into(),
+            website: None, icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "bloat_solitaire".into(), name: "Microsoft Solitaire Collection".into(),
+            description: "Pre-installed game — safe to remove.".into(),
+            category: SoftwareCategory::Bloatware, winget_id: "Microsoft.MicrosoftSolitaireCollection".into(),
+            website: None, icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "bloat_xbox".into(), name: "Xbox Console Companion".into(),
+            description: "Xbox app for Windows — safe to remove if not gaming on Xbox.".into(),
+            category: SoftwareCategory::Bloatware, winget_id: "Microsoft.XboxApp".into(),
+            website: None, icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "bloat_bingweather".into(), name: "Bing Weather".into(),
+            description: "Pre-installed weather app — safe to remove.".into(),
+            category: SoftwareCategory::Bloatware, winget_id: "Microsoft.BingWeather".into(),
+            website: None, icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "bloat_bingnews".into(), name: "Bing News".into(),
+            description: "Pre-installed news app — safe to remove.".into(),
+            category: SoftwareCategory::Bloatware, winget_id: "Microsoft.BingNews".into(),
+            website: None, icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "bloat_bingsports".into(), name: "Bing Sports".into(),
+            description: "Pre-installed sports app — safe to remove.".into(),
+            category: SoftwareCategory::Bloatware, winget_id: "Microsoft.BingSports".into(),
+            website: None, icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "bloat_bingfinance".into(), name: "Bing Finance".into(),
+            description: "Pre-installed finance app — safe to remove.".into(),
+            category: SoftwareCategory::Bloatware, winget_id: "Microsoft.BingFinance".into(),
+            website: None, icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "bloat_gethelp".into(), name: "Get Help".into(),
+            description: "Windows help app — safe to remove.".into(),
+            category: SoftwareCategory::Bloatware, winget_id: "Microsoft.GetHelp".into(),
+            website: None, icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "bloat_getstarted".into(), name: "Microsoft Tips".into(),
+            description: "Pre-installed tips app — safe to remove.".into(),
+            category: SoftwareCategory::Bloatware, winget_id: "Microsoft.Getstarted".into(),
+            website: None, icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "bloat_feedback".into(), name: "Feedback Hub".into(),
+            description: "Windows feedback app — safe to remove.".into(),
+            category: SoftwareCategory::Bloatware, winget_id: "Microsoft.WindowsFeedbackHub".into(),
+            website: None, icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "bloat_officehub".into(), name: "Microsoft Office Hub".into(),
+            description: "Office app launcher — safe to remove if Office is not used.".into(),
+            category: SoftwareCategory::Bloatware, winget_id: "Microsoft.MicrosoftOfficeHub".into(),
+            website: None, icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "bloat_mixedreality".into(), name: "Mixed Reality Portal".into(),
+            description: "Windows Mixed Reality — only needed for VR headsets.".into(),
+            category: SoftwareCategory::Bloatware, winget_id: "Microsoft.MixedReality.Portal".into(),
+            website: None, icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "bloat_3dviewer".into(), name: "3D Viewer".into(),
+            description: "Pre-installed 3D model viewer — safe to remove.".into(),
+            category: SoftwareCategory::Bloatware, winget_id: "Microsoft.Microsoft3DViewer".into(),
+            website: None, icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "bloat_paint3d".into(), name: "Paint 3D".into(),
+            description: "Pre-installed 3D paint app — safe to remove.".into(),
+            category: SoftwareCategory::Bloatware, winget_id: "Microsoft.MSPaint".into(),
+            website: None, icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "bloat_skype".into(), name: "Skype".into(),
+            description: "Pre-installed communication app — safe to remove.".into(),
+            category: SoftwareCategory::Bloatware, winget_id: "Microsoft.SkypeApp".into(),
+            website: None, icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "bloat_mail".into(), name: "Mail and Calendar".into(),
+            description: "Windows Mail/Calendar app — safe to remove if using webmail.".into(),
+            category: SoftwareCategory::Bloatware, winget_id: "microsoft.windowscommunicationsapps".into(),
+            website: None, icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "bloat_people".into(), name: "Microsoft People".into(),
+            description: "Contact management app — safe to remove.".into(),
+            category: SoftwareCategory::Bloatware, winget_id: "Microsoft.People".into(),
+            website: None, icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "bloat_groove".into(), name: "Groove Music".into(),
+            description: "Pre-installed music player — safe to remove.".into(),
+            category: SoftwareCategory::Bloatware, winget_id: "Microsoft.ZuneMusic".into(),
+            website: None, icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "bloat_movies".into(), name: "Movies & TV".into(),
+            description: "Pre-installed video player — safe to remove.".into(),
+            category: SoftwareCategory::Bloatware, winget_id: "Microsoft.ZuneVideo".into(),
+            website: None, icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "bloat_maps".into(), name: "Windows Maps".into(),
+            description: "Pre-installed maps app — safe to remove.".into(),
+            category: SoftwareCategory::Bloatware, winget_id: "Microsoft.WindowsMaps".into(),
+            website: None, icon_url: None, free: true,
+        },
+        SoftwarePackage {
+            id: "bloat_onenote".into(), name: "OneNote".into(),
+            description: "Pre-installed note-taking app — safe to remove if not used.".into(),
+            category: SoftwareCategory::Bloatware, winget_id: "Microsoft.Office.OneNote".into(),
+            website: None, icon_url: None, free: true,
+        },
+    ]
+}
+
+/// Apps that should NEVER be removed (essential/system)
+pub fn get_protected_apps() -> Vec<&'static str> {
+    vec![
+        "Microsoft.WindowsStore",
+        "Microsoft.WindowsCalculator",
+        "Microsoft.WindowsNotepad",
+        "Microsoft.Windows.Photos",
+        "Microsoft.WindowsCamera",
+        "Microsoft.ScreenSketch",
+        "Microsoft.WindowsTerminal",
+        "Microsoft.WindowsSoundRecorder",
+        "Microsoft.StorePurchaseApp",
+        "Microsoft.VCLibs",
+        "Microsoft.NET.Native.Framework",
+        "Microsoft.NET.Native.Runtime",
+        "Microsoft.UI.Xaml",
+    ]
+}

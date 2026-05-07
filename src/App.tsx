@@ -6,6 +6,7 @@ import Dashboard from "./features/dashboard/Dashboard";
 import TweaksPage from "./features/tweaks/TweaksPage";
 import SnapshotsPage from "./features/snapshots/SnapshotsPage";
 import SettingsPage from "./features/settings/SettingsPage";
+import SoftwarePage from "./features/software/SoftwarePage";
 
 const App: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -18,6 +19,7 @@ const App: React.FC = () => {
           <Route path="/" element={<Dashboard />} />
           <Route path="/tweaks" element={<TweaksPage />} />
           <Route path="/snapshots" element={<SnapshotsPage />} />
+          <Route path="/software" element={<SoftwarePage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </main>
