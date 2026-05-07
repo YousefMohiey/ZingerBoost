@@ -115,6 +115,18 @@ impl SnapshotService for SqliteRepo {
 
         tx.commit()
             .map_err(|e| SnapshotError::Storage(e.to_string()))?;
+        drop(tx);
+
+        // Retention: keep only last 50 snapshots
+        if let Ok(()) = conn.execute(
+            "DELETE FROM snapshots WHERE id NOT IN (
+                SELECT id FROM snapshots ORDER BY created_at DESC LIMIT 50
+            )",
+            [],
+        ) {
+            tracing::debug!("Snapshot retention purge completed");
+        }
+
         Ok(())
     }
 
@@ -210,7 +222,27 @@ impl SnapshotService for SqliteRepo {
     }
 
     async fn restore_snapshot(&self, id: &str) -> Result<(), SnapshotError> {
-        let _ = id;
+        let conn = self.conn.lock().await;
+        let mut stmt = conn
+            .prepare("SELECT tweak_id, snapshot_data FROM snapshot_tweaks WHERE snapshot_id = ?1")
+            .map_err(|e| SnapshotError::Storage(e.to_string()))?;
+        let rows: Vec<(String, String)> = stmt
+            .query_map([id], |row| Ok((row.get(0)?, row.get(1)?)))
+            .map_err(|e| SnapshotError::Storage(e.to_string()))?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        for (tweak_id, json) in rows {
+            conn.execute(
+                "INSERT INTO tweak_states (tweak_id, snapshot_data, updated_at)
+                 VALUES (?1, ?2, ?3)
+                 ON CONFLICT(tweak_id) DO UPDATE SET
+                 snapshot_data = excluded.snapshot_data,
+                 updated_at = excluded.updated_at",
+                [&tweak_id, &json, &chrono::Utc::now().to_rfc3339()],
+            )
+            .map_err(|e| SnapshotError::Storage(e.to_string()))?;
+        }
         Ok(())
     }
 }

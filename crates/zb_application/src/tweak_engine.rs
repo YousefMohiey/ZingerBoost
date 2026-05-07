@@ -73,7 +73,14 @@ impl TweakEngine {
             .await;
 
         self.snapshot_service
-            .save_applied(id, snapshot_data)
+            .save_applied(id, snapshot_data.clone())
+            .await
+            .map_err(|e| TweakError::Unknown(e.to_string()))?;
+
+        let mut snapshot = SystemSnapshot::new(format!("Applied tweak: {}", id));
+        snapshot.add_record(id.to_string(), snapshot_data);
+        self.snapshot_service
+            .save_snapshot(snapshot)
             .await
             .map_err(|e| TweakError::Unknown(e.to_string()))?;
 
