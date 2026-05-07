@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use windows::core::PCWSTR;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WindowsService {
@@ -19,31 +20,28 @@ impl ServiceController {
     }
 
     pub fn query_services(&self) -> Vec<WindowsService> {
-        let safe_to_disable = get_safe_to_disable_list();
-        let mut services = Vec::new();
-
-        for (name, description) in SAFE_SERVICES {
-            let info = self.get_service_info(name);
-            services.push(WindowsService {
-                name: name.to_string(),
-                display_name: info.0,
-                status: info.1,
-                start_type: info.2,
-                safe_to_disable: safe_to_disable.contains(name),
-                description: description.to_string(),
-            });
-        }
-
-        services
+        let safe = get_safe_to_disable_list();
+        SAFE_SERVICES
+            .iter()
+            .map(|(name, desc)| {
+                let info = self.get_service_info(name);
+                WindowsService {
+                    name: name.to_string(),
+                    display_name: info.0,
+                    status: info.1,
+                    start_type: info.2,
+                    safe_to_disable: safe.contains(name),
+                    description: desc.to_string(),
+                }
+            })
+            .collect()
     }
 
     pub fn get_service_info(&self, name: &str) -> (String, String, String) {
-        use windows::core::PCWSTR;
         use windows::Win32::System::Services::{
             CloseServiceHandle, OpenSCManagerW, OpenServiceW, QueryServiceConfigW,
-            QueryServiceStatus, SC_MANAGER_CONNECT, SERVICE_AUTO_START, SERVICE_BOOT_START,
-            SERVICE_CONFIG, SERVICE_DEMAND_START, SERVICE_DISABLED, SERVICE_QUERY_CONFIG,
-            SERVICE_QUERY_STATUS, SERVICE_STATUS, SERVICE_SYSTEM_START,
+            QueryServiceStatus, SC_MANAGER_CONNECT, SERVICE_CONFIG, SERVICE_QUERY_CONFIG,
+            SERVICE_QUERY_STATUS,
         };
 
         unsafe {
@@ -65,19 +63,19 @@ impl ServiceController {
                 }
             };
 
-            let status = query_status(svc);
-            let config = query_config(svc);
+            let status = get_status(svc);
+            let config = get_config(svc);
 
-            let start_type = match config.dwStartType {
-                SERVICE_BOOT_START => "Boot",
-                SERVICE_SYSTEM_START => "System",
-                SERVICE_AUTO_START => "Auto",
-                SERVICE_DEMAND_START => "Manual",
-                SERVICE_DISABLED => "Disabled",
+            let start_type = match config.0.dwStartType {
+                s if s == 0 => "Boot",
+                s if s == 1 => "System",
+                s if s == 2 => "Auto",
+                s if s == 3 => "Manual",
+                s if s == 4 => "Disabled",
                 _ => "Unknown",
             };
 
-            let state = match status.dwCurrentState {
+            let state = match status.dwCurrentState.0 {
                 1 => "Stopped",
                 2 => "Starting",
                 3 => "Stopping",
@@ -85,22 +83,15 @@ impl ServiceController {
                 _ => "Unknown",
             };
 
-            let display_name = String::from_utf16_lossy(
-                std::slice::from_raw_parts(config.lpDisplayName.as_ptr() as *const u16, 64)
-                    .split(|&c| c == 0)
-                    .next()
-                    .unwrap_or(&[]),
-            );
+            let display = extract_display(&config);
 
             let _ = CloseServiceHandle(svc);
             let _ = CloseServiceHandle(scm);
-
-            (display_name, state.to_string(), start_type.to_string())
+            (display, state.to_string(), start_type.to_string())
         }
     }
 
     pub fn stop_service(&self, name: &str) -> Result<String, String> {
-        use windows::core::PCWSTR;
         use windows::Win32::System::Services::{
             CloseServiceHandle, ControlService, OpenSCManagerW, OpenServiceW, SC_MANAGER_CONNECT,
             SERVICE_CONTROL_STOP, SERVICE_QUERY_STATUS, SERVICE_STATUS, SERVICE_STOP,
@@ -108,8 +99,7 @@ impl ServiceController {
 
         unsafe {
             let scm = OpenSCManagerW(PCWSTR::null(), PCWSTR::null(), SC_MANAGER_CONNECT)
-                .map_err(|e| format!("SCM open failed: {:?}", e))?;
-
+                .map_err(|e| format!("SCM: {:?}", e))?;
             let wide = to_wide(name);
             let svc = OpenServiceW(
                 scm,
@@ -118,44 +108,36 @@ impl ServiceController {
             )
             .map_err(|e| {
                 let _ = CloseServiceHandle(scm);
-                format!("Service not found: {:?}", e)
+                format!("OpenService: {:?}", e)
             })?;
-
-            let mut status = SERVICE_STATUS::default();
-            let result = ControlService(svc, SERVICE_CONTROL_STOP, &mut status);
+            let mut s = SERVICE_STATUS::default();
+            let _ = ControlService(svc, SERVICE_CONTROL_STOP, &mut s);
             let _ = CloseServiceHandle(svc);
             let _ = CloseServiceHandle(scm);
-
-            if result.is_ok() {
-                Ok(format!("Service {} stopping", name))
-            } else {
-                Err(format!("Failed to stop: {:?}", result))
-            }
+            Ok(format!("{} stopping", name))
         }
     }
 
     pub fn set_startup_type(&self, name: &str, _start_type: u32) -> Result<String, String> {
-        use windows::core::PCWSTR;
         use windows::Win32::System::Services::{
             ChangeServiceConfigW, CloseServiceHandle, OpenSCManagerW, OpenServiceW,
-            SC_MANAGER_CONNECT, SERVICE_NO_CHANGE, SERVICE_QUERY_CONFIG,
+            SC_MANAGER_CONNECT, SERVICE_QUERY_CONFIG,
         };
 
         unsafe {
             let scm = OpenSCManagerW(PCWSTR::null(), PCWSTR::null(), SC_MANAGER_CONNECT)
-                .map_err(|e| format!("SCM open failed: {:?}", e))?;
-
+                .map_err(|e| format!("SCM: {:?}", e))?;
             let wide = to_wide(name);
             let svc = OpenServiceW(scm, PCWSTR::from_raw(wide.as_ptr()), SERVICE_QUERY_CONFIG)
                 .map_err(|e| {
                     let _ = CloseServiceHandle(scm);
-                    format!("Service not found: {:?}", e)
+                    format!("OpenService: {:?}", e)
                 })?;
 
             let _ = ChangeServiceConfigW(
                 svc,
-                SERVICE_NO_CHANGE,
-                SERVICE_NO_CHANGE,
+                0x10u32,
+                4u32,
                 PCWSTR::null(),
                 PCWSTR::null(),
                 None,
@@ -168,7 +150,7 @@ impl ServiceController {
 
             let _ = CloseServiceHandle(svc);
             let _ = CloseServiceHandle(scm);
-            Ok(format!("Service {} configured", name))
+            Ok(format!("{} configured", name))
         }
     }
 }
@@ -177,27 +159,40 @@ fn to_wide(s: &str) -> Vec<u16> {
     s.encode_utf16().chain(std::iter::once(0)).collect()
 }
 
-unsafe fn query_status(
+unsafe fn get_status(
     svc: windows::Win32::System::Services::SC_HANDLE,
 ) -> windows::Win32::System::Services::SERVICE_STATUS {
-    let mut status = windows::Win32::System::Services::SERVICE_STATUS::default();
-    let _ = windows::Win32::System::Services::QueryServiceStatus(svc, &mut status);
-    status
+    let mut s = windows::Win32::System::Services::SERVICE_STATUS::default();
+    let _ = windows::Win32::System::Services::QueryServiceStatus(svc, &mut s);
+    s
 }
 
-unsafe fn query_config(
+unsafe fn get_config(
     svc: windows::Win32::System::Services::SC_HANDLE,
 ) -> windows::Win32::System::Services::SERVICE_CONFIG {
+    use windows::Win32::System::Services::QueryServiceConfigW;
     let mut needed: u32 = 0;
-    let _ = windows::Win32::System::Services::QueryServiceConfigW(svc, None, 0, &mut needed);
+    let _ = QueryServiceConfigW(svc, None, 0, &mut needed);
     let mut buf = vec![0u8; needed as usize + 1024];
-    let _ = windows::Win32::System::Services::QueryServiceConfigW(
+    let _ = QueryServiceConfigW(
         svc,
         Some(buf.as_mut_ptr() as *mut _),
-        (buf.len()) as u32,
+        buf.len() as u32,
         &mut needed,
     );
-    unsafe { std::mem::transmute_copy(&buf[0]) }
+    std::mem::transmute_copy(&buf[0])
+}
+
+unsafe fn extract_display(config: &windows::Win32::System::Services::SERVICE_CONFIG) -> String {
+    if config.Host.dwMajorVersion == 0 {
+        return "Unknown".to_string();
+    }
+    String::from_utf16_lossy(
+        std::slice::from_raw_parts(config.0.lpDisplayName.0, 128)
+            .split(|&c| c == 0)
+            .next()
+            .unwrap_or(&[]),
+    )
 }
 
 fn get_safe_to_disable_list() -> Vec<&'static str> {
@@ -228,11 +223,8 @@ const SAFE_SERVICES: &[(&str, &str)] = &[
     ("DiagTrack", "Connected User Experiences and Telemetry"),
     ("dmwappushservice", "Device Management WAP Push"),
     ("SysMain", "SysMain/Superfetch — preloads apps into RAM"),
-    (
-        "WSearch",
-        "Windows Search — indexing service, heavy on SSD/CPU",
-    ),
-    ("Fax", "Fax Service — legacy fax support"),
+    ("WSearch", "Windows Search — indexing service"),
+    ("Fax", "Fax Service"),
     ("XboxNetApiSvc", "Xbox Live Networking"),
     ("XblAuthManager", "Xbox Live Auth Manager"),
     ("XblGameSave", "Xbox Live Game Save"),
@@ -241,7 +233,7 @@ const SAFE_SERVICES: &[(&str, &str)] = &[
     ("lfsvc", "Geolocation Service"),
     ("wcncsvc", "Windows Connect Now"),
     ("WMPNetworkSvc", "Windows Media Player Network Sharing"),
-    ("RemoteRegistry", "Remote Registry — security risk"),
+    ("RemoteRegistry", "Remote Registry"),
     ("SharedAccess", "Internet Connection Sharing"),
     ("WerSvc", "Windows Error Reporting"),
     ("WpnService", "Windows Push Notifications"),

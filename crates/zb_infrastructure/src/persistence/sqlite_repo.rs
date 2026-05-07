@@ -117,15 +117,12 @@ impl SnapshotService for SqliteRepo {
             .map_err(|e| SnapshotError::Storage(e.to_string()))?;
         drop(tx);
 
-        // Retention: keep only last 50 snapshots
-        if let Ok(()) = conn.execute(
+        let _ = conn.execute(
             "DELETE FROM snapshots WHERE id NOT IN (
                 SELECT id FROM snapshots ORDER BY created_at DESC LIMIT 50
             )",
             [],
-        ) {
-            tracing::debug!("Snapshot retention purge completed");
-        }
+        );
 
         Ok(())
     }
