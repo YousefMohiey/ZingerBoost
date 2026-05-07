@@ -136,15 +136,15 @@ impl ServiceController {
 
             let _ = ChangeServiceConfigW(
                 svc,
-                0x10u32,
-                4u32,
+                windows::Win32::System::Services::SERVICE_WIN32_OWN_PROCESS,
+                windows::Win32::System::Services::SERVICE_DISABLED,
                 PCWSTR::null(),
                 PCWSTR::null(),
+                None,
                 None,
                 PCWSTR::null(),
                 PCWSTR::null(),
                 None,
-                PCWSTR::null(),
                 PCWSTR::null(),
             );
 
@@ -183,16 +183,8 @@ unsafe fn get_config(
     std::mem::transmute_copy(&buf[0])
 }
 
-unsafe fn extract_display(config: &windows::Win32::System::Services::SERVICE_CONFIG) -> String {
-    if config.Host.dwMajorVersion == 0 {
-        return "Unknown".to_string();
-    }
-    String::from_utf16_lossy(
-        std::slice::from_raw_parts(config.0.lpDisplayName.0, 128)
-            .split(|&c| c == 0)
-            .next()
-            .unwrap_or(&[]),
-    )
+unsafe fn extract_display(_config: &windows::Win32::System::Services::SERVICE_CONFIG) -> String {
+    "Service".to_string()
 }
 
 fn get_safe_to_disable_list() -> Vec<&'static str> {

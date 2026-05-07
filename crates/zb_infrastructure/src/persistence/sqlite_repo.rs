@@ -115,7 +115,6 @@ impl SnapshotService for SqliteRepo {
 
         tx.commit()
             .map_err(|e| SnapshotError::Storage(e.to_string()))?;
-        drop(tx);
 
         let _ = conn.execute(
             "DELETE FROM snapshots WHERE id NOT IN (

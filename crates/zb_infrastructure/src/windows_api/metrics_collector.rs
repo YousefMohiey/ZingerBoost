@@ -36,7 +36,7 @@ fn read_cpu_counter() -> f64 {
 
         unsafe {
             let mut query = std::mem::zeroed();
-            if PdhOpenQueryW(PCWSTR::null(), 0, &mut query).0 != 0 {
+            if PdhOpenQueryW(PCWSTR::null(), 0, &mut query) != 0 {
                 return 15.0;
             }
 
@@ -55,7 +55,7 @@ fn read_cpu_counter() -> f64 {
             let _ = PdhCollectQueryData(query);
 
             let mut value = std::mem::zeroed();
-            if PdhGetFormattedCounterValue(counter, PDH_FMT_DOUBLE, None, &mut value).0 == 0 {
+            if PdhGetFormattedCounterValue(counter, PDH_FMT_DOUBLE, None, &mut value) == 0 {
                 return value.Anonymous.doubleValue;
             }
         }
@@ -74,7 +74,7 @@ fn read_disk_counter() -> f64 {
 
         unsafe {
             let mut query = std::mem::zeroed();
-            if PdhOpenQueryW(PCWSTR::null(), 0, &mut query).0 != 0 {
+            if PdhOpenQueryW(PCWSTR::null(), 0, &mut query) != 0 {
                 return 5.0;
             }
 
@@ -93,7 +93,7 @@ fn read_disk_counter() -> f64 {
             let _ = PdhCollectQueryData(query);
 
             let mut value = std::mem::zeroed();
-            if PdhGetFormattedCounterValue(counter, PDH_FMT_DOUBLE, None, &mut value).0 == 0 {
+            if PdhGetFormattedCounterValue(counter, PDH_FMT_DOUBLE, None, &mut value) == 0 {
                 return value.Anonymous.doubleValue;
             }
         }
