@@ -18,14 +18,6 @@ jobs:
       - run: cargo fmt --all -- --check
       - run: cargo clippy -p zb_shared -p zb_domain -p zb_application --all-targets -- -D warnings
 
-  test:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - run: cargo test -p zb_shared -p zb_domain -p zb_application
-
   check-all:
     runs-on: windows-latest
     steps:

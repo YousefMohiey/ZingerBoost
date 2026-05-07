@@ -1,113 +1,91 @@
-# ZingerBoost — Agent Instructions
+# ZingerBoost — Agent Instructions (v0.2.0 Flutter)
 
-## Quick Check (Linux — run before every push)
+## Quick Check (Linux)
 
 ```bash
 cargo check -p zb_shared -p zb_domain -p zb_application
 cargo fmt --all
 cargo clippy -p zb_shared -p zb_domain -p zb_application --all-targets -- -D warnings
-npx tsc --noEmit
 ```
 
 ## Windows-Only Crates
 
-`zb_infrastructure` and `src-tauri` depend on `windows-rs` and only compile on **Windows**. On Linux, only check the cross-platform crates above. CI runs `cargo check --workspace` on `windows-latest` to catch full build errors.
+`zb_infrastructure`, `bridge` depend on `windows-rs` — only compile on Windows. CI runs `cargo check --workspace` on `windows-latest`.
 
-## Architecture: Tauri v2 Standard Layout
+## Architecture (v0.2.0 — Flutter + Rust FFI)
 
 ```
-src-tauri/          ← Tauri binary + config (cargo tauri dev works from root)
-  tauri.conf.json   → frontendDist: "../dist", devUrl: "http://localhost:1420"
-crates/zb_app/      ← Library only: AppState + command handlers (NO binary)
-crates/zb_domain/   ← Tweak trait, entities, RegistryProvider trait
-crates/zb_infrastructure/ ← WinRegistryProvider, SQLite, Winget, Metrics
+bridge/                      # Rust FFI bridge (cdylib + staticlib)
+  Cargo.toml                 # Depends on all 4 core crates
+  src/lib.rs                 # AppState + OnceLock<AppState> + init_app() FFI
+  src/api.rs                 # 11 FFI functions returning JSON Strings
+crates/
+  zb_shared/                 # Types, constants, software catalog
+  zb_domain/                 # Tweak trait + 25 implementations + RegistryProvider trait
+  zb_application/            # TweakEngine, SnapshotService, AuditService
+  zb_infrastructure/         # WinRegistryProvider, SQLite, Winget, PDH, DebloatEngine
+zingerboost_flutter/         # Flutter desktop app
+  lib/
+    models/                  # TweakMetadata, SystemMetrics, SystemSnapshot, etc.
+    services/rust_bridge.dart # FFI wrapper (flutter_rust_bridge-ready)
+    pages/                   # 6 pages: dashboard, tweaks, snapshots, debloat, software, settings
+    widgets/                 # app_sidebar, metric_card, risk_badge, tweak_card, toast_overlay
+    theme/                   # Dark/light ThemeData + Riverpod theme provider
 ```
-
-`zb_app` is a **library** — its old `main.rs` and `build.rs` were deleted. The binary lives in `src-tauri/`.
-
-## Dependency Rules
-
-- `RegistryProvider` trait lives in **`zb_domain`**, not `zb_infrastructure` (avoids circular dep)
-- `zb_infrastructure` depends on ALL: `zb_shared`, `zb_domain`, `zb_application`
-- `src-tauri/Cargo.toml` depends on `zb_app`, `zb_domain`, `zb_application`, `zb_infrastructure`
 
 ## Critical Gotchas
 
 ### 1. `#![allow(clippy::new_without_default)]` in `zb_domain/src/lib.rs`
-Do NOT remove this. Every tweak struct has `pub fn new()` without `Default`. Clippy fails otherwise.
+Every tweak struct has `pub fn new()` without `Default`.
 
-### 2. Migrations MUST be a `fn`, not `const`
-```
-// WRONG: const MIGRATIONS: Migrations<'static> = Migrations::new(vec![...]);
-// RIGHT: fn migrations() -> Migrations<'static> { Migrations::new(vec![...]) }
-```
-Rust 2024 edition forbids `Migrations::new()` in const context. Use `concat!()` for multi-line SQL strings inside the function.
-
-### 3. `REG_SAM_FLAGS`, NOT bare `u32` for registry access
+### 2. Migrations MUST be `fn migrations()`, not `const`
 ```rust
-// WRONG: self.open_key(path, KEY_READ.0)
-// RIGHT: self.open_key(path, KEY_READ)
+fn migrations() -> Migrations<'static> { Migrations::new(vec![...]) }
+// NOT: const MIGRATIONS: Migrations<'static> = ...
+```
+Rust 2024 forbids `Migrations::new()` in const.
+
+### 3. `REG_SAM_FLAGS`, NOT bare `u32`
+```rust
 fn open_key(&self, path: &RegPath, access: REG_SAM_FLAGS) -> Result<HKEY, ...>
 ```
 
-### 4. `init_database()` returns `anyhow::Error`, not `rusqlite::Error`
-Because `rusqlite_migration::Error` has no `From` impl into `rusqlite::Error`.
+### 4. `init_database()` returns `anyhow::Error`
+Because `rusqlite_migration::Error` has no `From` into `rusqlite::Error`.
 
 ### 5. `package-lock.json` is gitignored
-Platform-specific (Linux-generated lock misses `@rollup/rollup-win32-x64-msvc`). CI uses `npm install` (not `npm ci`). If the lock file appears in git, remove it and add to `.gitignore`.
+Platform-specific. CI uses `npm install` not `npm ci`.
 
-### 6. PostCSS and Tailwind configs are `.cjs`
-`package.json` has `"type": "module"`. CommonJS configs MUST be `postcss.config.cjs` and `tailwind.config.cjs`.
+### 6. PostCSS/Tailwind configs must be `.cjs`
+`package.json` has `"type": "module"`. CommonJS configs need `.cjs` extension.
 
-### 7. SnapshotService + AuditService share ONE SQLite connection
-`init_database()` returns `Arc<Mutex<Connection>>`. Both `SqliteRepo::from_connection()` and `SqliteAuditLogger::from_connection()` take clones of the same Arc.
+### 7. Shared SQLite connection
+Both `SqliteRepo` and `SqliteAuditLogger` share one `Arc<Mutex<Connection>>` via `from_connection()`.
 
-### 8. Tweaks: always add `pub fn new()` → `Self`
-Every tweak struct needs `new()` and optionally `with_provider(Arc<dyn RegistryProvider>)`. No `#[derive(Debug)]` on tweaks containing `Arc<dyn RegistryProvider>` (trait objects don't implement Debug).
+### 8. Tweak structs: no `#[derive(Debug)]` if containing `Arc<dyn RegistryProvider>`
+Trait objects don't implement Debug.
 
-### 9. Snapshot types MUST be re-exported
-`crates/zb_domain/src/snapshots/mod.rs` must have `pub use entities::{SystemSnapshot, AppliedTweakRecord};`. Other crates import from `zb_domain::snapshots::SystemSnapshot`.
+### 9. RegistryProvider trait lives in `zb_domain`
+Not `zb_infrastructure` — avoids circular dependency.
 
-### 10. UI import paths
-Components in `src/components/ui/` import store as `../../store/toast` (2 levels up to `src/`).
+### 10. Bridge crate uses `OnceLock<AppState>` for global state
+`init_app()` must be called before any API function. All API functions access `APP.get().unwrap()`.
 
 ## Adding a New Tweak
 
 1. Create file in `crates/zb_domain/src/tweaks/definitions/`
-2. Implement `Tweak` trait (6 methods: `metadata`, `is_applied`, `capture_state`, `apply`, `revert`, `explain`)
-3. Add `pub fn new()` → `Self` and `Default` impl (or rely on crate-level `#[allow]`)
-4. If using registry: add `provider: Option<Arc<RegistryProvider>>` field + `with_provider()` builder
-5. Add to `definitions/mod.rs`: `pub mod` + `pub use`
-6. Register in `src-tauri/src/main.rs`: add to `tweaks` vec
+2. Implement `Tweak` trait (6 methods)
+3. Add `pub fn new() -> Self` + `pub fn with_provider(provider: Arc<RegistryProvider>) -> Self`
+4. Register in `definitions/mod.rs`
+5. Register in `bridge/src/lib.rs` tweaks vec
 
 ## CI
 
 | Job | Runner | Command |
 |-----|--------|---------|
 | `check` | ubuntu | `cargo fmt --all -- --check` + `cargo clippy -p zb_shared -p zb_domain -p zb_application --all-targets -- -D warnings` |
-| `test` | windows | `cargo test -p zb_shared -p zb_domain -p zb_application` |
-| `check-all` | windows | `cargo check --workspace` (fast compile check, ~3min) |
+| `check-all` | windows | `cargo check --workspace` |
 
 ## Release
 
-Trigger: push tag `v*` or manual `workflow_dispatch` from Actions tab.
-```bash
-git tag v0.2.0
-git push origin v0.2.0
-```
-
-Release workflow builds `.msi` + `.exe` on `windows-latest` and attaches them to the GitHub Release. MSI output paths checked: `target/release/bundle/msi/*.msi` and `src-tauri/target/release/bundle/msi/*.msi`.
-
-## More Context
-
-See `SESSION.md` for full project history, architecture decisions, and known issues.
-
-## graphify
-
-This project has a graphify knowledge graph at graphify-out/.
-
-Rules:
-- Before answering architecture or codebase questions, read graphify-out/GRAPH_REPORT.md for god nodes and community structure
-- If graphify-out/wiki/index.md exists, navigate it instead of reading raw files
-- For cross-module "how does X relate to Y" questions, prefer `graphify query "<question>"`, `graphify path "<A>" "<B>"`, or `graphify explain "<concept>"` over grep — these traverse the graph's EXTRACTED + INFERRED edges instead of scanning files
-- After modifying code files in this session, run `graphify update .` to keep the graph current (AST-only, no API cost)
+Trigger: push tag `v*` or `workflow_dispatch`. Builds via `flutter build windows` + `cargo build --release` for the `.dll`.

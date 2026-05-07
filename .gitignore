@@ -1,13 +1,34 @@
-node_modules/
-dist/
+# Rust
 /target/
+
+# Flutter
+zingerboost_flutter/build/
+zingerboost_flutter/.dart_tool/
+zingerboost_flutter/pubspec.lock
+zingerboost_flutter/android/
+zingerboost_flutter/ios/
+zingerboost_flutter/linux/
+zingerboost_flutter/macos/
+zingerboost_flutter/web/
+zingerboost_flutter/test/
+
+# Node (legacy — if required for any tooling)
+node_modules/
+package-lock.json
+
+# Data files
 *.log
-.DS_Store
-.env
-.env.local
 *.db
 *.db-shm
 *.db-wal
+
+# OS
+.DS_Store
+
+# Secrets
+.env
+.env.local
+
+# Cargo (workspace)
 /crates/**/Cargo.lock
 !Cargo.lock
-package-lock.json

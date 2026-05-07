@@ -4,14 +4,12 @@ members = [
     "crates/zb_domain",
     "crates/zb_application",
     "crates/zb_infrastructure",
-    "crates/zb_app",
     "bridge",
-    "src-tauri",
 ]
 resolver = "2"
 
 [workspace.package]
-version = "0.1.0"
+version = "0.2.0"
 authors = ["YousefMohiey <yousefmohiey@gmail.com>"]
 edition = "2021"
 license = "MIT"
@@ -28,10 +26,6 @@ tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.11", features = ["v4", "serde"] }
 async-trait = "0.1"
-
-tauri = { version = "2", features = [] }
-tauri-build = { version = "2" }
-tauri-plugin-shell = "2"
 
 windows = { version = "0.58", features = [
     "Win32_Foundation",
@@ -56,4 +50,3 @@ zb_shared = { path = "crates/zb_shared" }
 zb_domain = { path = "crates/zb_domain" }
 zb_application = { path = "crates/zb_application" }
 zb_infrastructure = { path = "crates/zb_infrastructure" }
-zb_app = { path = "crates/zb_app" }
