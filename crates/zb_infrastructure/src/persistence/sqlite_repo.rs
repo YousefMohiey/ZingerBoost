@@ -10,61 +10,55 @@ use zb_domain::errors::SnapshotError;
 use zb_domain::snapshots::SystemSnapshot;
 use zb_shared::types::SnapshotData;
 
-const MIGRATIONS: Migrations<'static> = Migrations::new(vec![
-    M::up(
-        r#"
-        CREATE TABLE IF NOT EXISTS snapshots (
-            id TEXT PRIMARY KEY,
-            created_at TEXT NOT NULL,
-            description TEXT NOT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS snapshot_tweaks (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            snapshot_id TEXT NOT NULL REFERENCES snapshots(id) ON DELETE CASCADE,
-            tweak_id TEXT NOT NULL,
-            snapshot_data TEXT NOT NULL
-        );
-
-        CREATE TABLE IF NOT EXISTS tweak_states (
-            tweak_id TEXT PRIMARY KEY,
-            last_snapshot_id TEXT,
-            snapshot_data TEXT,
-            updated_at TEXT NOT NULL
-        );
-
-        CREATE INDEX idx_snapshot_tweaks_snapshot_id ON snapshot_tweaks(snapshot_id);
-        CREATE INDEX idx_snapshot_tweaks_tweak_id ON snapshot_tweaks(tweak_id);
-        "#,
-    ),
-    M::up(
-        r#"
-        CREATE TABLE IF NOT EXISTS audit_log (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            timestamp TEXT NOT NULL,
-            level TEXT NOT NULL,
-            category TEXT NOT NULL,
-            message TEXT NOT NULL,
-            details TEXT
-        );
-
-        CREATE INDEX idx_audit_timestamp ON audit_log(timestamp);
-        CREATE INDEX idx_audit_category ON audit_log(category);
-        "#,
-    ),
-]);
+fn migrations() -> Migrations<'static> {
+    Migrations::new(vec![
+        M::up(concat!(
+            "CREATE TABLE IF NOT EXISTS snapshots (",
+            "id TEXT PRIMARY KEY,",
+            "created_at TEXT NOT NULL,",
+            "description TEXT NOT NULL",
+            ");",
+            "CREATE TABLE IF NOT EXISTS snapshot_tweaks (",
+            "id INTEGER PRIMARY KEY AUTOINCREMENT,",
+            "snapshot_id TEXT NOT NULL REFERENCES snapshots(id) ON DELETE CASCADE,",
+            "tweak_id TEXT NOT NULL,",
+            "snapshot_data TEXT NOT NULL",
+            ");",
+            "CREATE TABLE IF NOT EXISTS tweak_states (",
+            "tweak_id TEXT PRIMARY KEY,",
+            "last_snapshot_id TEXT,",
+            "snapshot_data TEXT,",
+            "updated_at TEXT NOT NULL",
+            ");",
+            "CREATE INDEX idx_snapshot_tweaks_snapshot_id ON snapshot_tweaks(snapshot_id);",
+            "CREATE INDEX idx_snapshot_tweaks_tweak_id ON snapshot_tweaks(tweak_id);",
+        )),
+        M::up(concat!(
+            "CREATE TABLE IF NOT EXISTS audit_log (",
+            "id INTEGER PRIMARY KEY AUTOINCREMENT,",
+            "timestamp TEXT NOT NULL,",
+            "level TEXT NOT NULL,",
+            "category TEXT NOT NULL,",
+            "message TEXT NOT NULL,",
+            "details TEXT",
+            ");",
+            "CREATE INDEX idx_audit_timestamp ON audit_log(timestamp);",
+            "CREATE INDEX idx_audit_category ON audit_log(category);",
+        )),
+    ])
+}
 
 /// Initialize the ZingerBoost database at LOCALAPPDATA
-pub fn init_database() -> Result<Arc<Mutex<Connection>>, rusqlite::Error> {
+pub fn init_database() -> Result<Arc<Mutex<Connection>>, anyhow::Error> {
     let local_app_data = std::env::var("LOCALAPPDATA")
         .unwrap_or_else(|_| std::env::var("APPDATA").unwrap_or_else(|_| ".".into()));
     let dir = PathBuf::from(&local_app_data).join("ZingerBoost");
-    std::fs::create_dir_all(&dir).expect("Failed to create ZingerBoost data directory");
+    std::fs::create_dir_all(&dir)?;
     let db_path = dir.join("data.db");
 
     let mut conn = Connection::open(&db_path)?;
     conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")?;
-    MIGRATIONS.to_latest(&mut conn)?;
+    migrations().to_latest(&mut conn)?;
 
     Ok(Arc::new(Mutex::new(conn)))
 }
@@ -75,21 +69,13 @@ pub struct SqliteRepo {
 }
 
 impl SqliteRepo {
-    pub fn new(db_path: PathBuf) -> Result<Arc<dyn SnapshotService>, rusqlite::Error> {
-        let mut conn = Connection::open(db_path)?;
-        MIGRATIONS.to_latest(&mut conn)?;
-        Ok(Arc::new(Self {
-            conn: Arc::new(Mutex::new(conn)),
-        }))
-    }
-
     pub fn from_connection(conn: Arc<Mutex<Connection>>) -> Arc<dyn SnapshotService> {
         Arc::new(Self { conn })
     }
 
-    pub fn new_in_memory() -> Result<Arc<dyn SnapshotService>, rusqlite::Error> {
+    pub fn new_in_memory() -> Result<Arc<dyn SnapshotService>, anyhow::Error> {
         let mut conn = Connection::open_in_memory()?;
-        MIGRATIONS.to_latest(&mut conn)?;
+        migrations().to_latest(&mut conn)?;
         Ok(Arc::new(Self {
             conn: Arc::new(Mutex::new(conn)),
         }))
@@ -225,7 +211,6 @@ impl SnapshotService for SqliteRepo {
 
     async fn restore_snapshot(&self, id: &str) -> Result<(), SnapshotError> {
         let _ = id;
-        // Real implementation would iterate tweak_records and call revert
         Ok(())
     }
 }

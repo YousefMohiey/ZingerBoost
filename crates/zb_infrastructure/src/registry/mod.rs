@@ -30,7 +30,11 @@ impl WinRegistryProvider {
         }
     }
 
-    fn open_key(&self, path: &RegPath, access: u32) -> Result<HKEY, RegistryError> {
+    fn open_key(
+        &self,
+        path: &RegPath,
+        access: windows::Win32::System::Registry::REG_SAM_FLAGS,
+    ) -> Result<HKEY, RegistryError> {
         let root = self.root_to_hkey(&path.root);
         let wide_path: Vec<u16> = path.path.encode_utf16().chain(std::iter::once(0)).collect();
         let mut hkey = HKEY::default();
@@ -101,7 +105,7 @@ impl WinRegistryProvider {
 #[async_trait]
 impl RegistryProvider for WinRegistryProvider {
     async fn read(&self, path: &RegPath, name: &str) -> Result<RegValue, RegistryError> {
-        let hkey = self.open_key(path, KEY_READ.0)?;
+        let hkey = self.open_key(path, KEY_READ)?;
         let (buffer, data_type) = self.read_raw_value(hkey, name)?;
         let result = unsafe { RegCloseKey(hkey) };
         if result != ERROR_SUCCESS {
@@ -159,7 +163,7 @@ impl RegistryProvider for WinRegistryProvider {
     }
 
     async fn write(&self, path: &RegPath, name: &str, val: &RegValue) -> Result<(), RegistryError> {
-        let hkey = self.open_key(path, KEY_ALL_ACCESS.0)?;
+        let hkey = self.open_key(path, KEY_ALL_ACCESS)?;
         let wide_name: Vec<u16> = name.encode_utf16().chain(std::iter::once(0)).collect();
 
         let result = match val {
@@ -238,7 +242,7 @@ impl RegistryProvider for WinRegistryProvider {
     }
 
     async fn delete(&self, path: &RegPath, name: &str) -> Result<(), RegistryError> {
-        let hkey = self.open_key(path, KEY_ALL_ACCESS.0)?;
+        let hkey = self.open_key(path, KEY_ALL_ACCESS)?;
         let wide_name: Vec<u16> = name.encode_utf16().chain(std::iter::once(0)).collect();
         let result = unsafe { RegDeleteValueW(hkey, windows::core::PCWSTR(wide_name.as_ptr())) };
         let close_result = unsafe { RegCloseKey(hkey) };
