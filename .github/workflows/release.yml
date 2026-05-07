@@ -13,17 +13,26 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --release -p zingerboost_bridge
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22'
+      - working-directory: zingerboost_flutter
+        run: |
+          flutter create --platforms windows .
+          flutter pub get
+          flutter build windows
+
       - uses: softprops/action-gh-release@v2
         with:
           files: |
             target/release/zingerboost_core.dll
-            target/release/zingerboost_core.lib
+            zingerboost_flutter/build/windows/x64/runner/Release/*.exe
+            zingerboost_flutter/build/windows/x64/runner/Release/*.dll
           name: "ZingerBoost ${{ github.ref_name }}"
-          body: |
-            Safe, open-source Windows optimizer. 25 tweaks, 19 services, 9 cleaner categories, 34 debloat targets — all reversible.
-
-            Built with Rust + Flutter.
+          body: "25 tweaks, 19 services, 9 cleaner categories, 34 debloat targets. Built with Rust + Flutter."
           fail_on_unmatched_files: false
