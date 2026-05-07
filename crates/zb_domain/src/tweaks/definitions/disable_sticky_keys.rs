@@ -9,9 +9,8 @@ use crate::errors::TweakError;
 use crate::tweaks::traits::Tweak;
 
 /// Disable Sticky Keys popup that appears on rapid Shift presses
-#[derive(Debug)]
 pub struct DisableStickyKeysTweak {
-    pub provider: Option<Arc<dyn zb_domain::registry::RegistryProvider>>,
+    pub provider: Option<Arc<dyn crate::registry::RegistryProvider>>,
 }
 
 impl DisableStickyKeysTweak {
@@ -19,7 +18,7 @@ impl DisableStickyKeysTweak {
         Self { provider: None }
     }
 
-    pub fn with_provider(provider: Arc<dyn zb_domain::registry::RegistryProvider>) -> Self {
+    pub fn with_provider(provider: Arc<dyn crate::registry::RegistryProvider>) -> Self {
         Self { provider: Some(provider) }
     }
 }
@@ -46,9 +45,11 @@ impl Tweak for DisableStickyKeysTweak {
         if let Some(provider) = &self.provider {
             let path = RegPath::hkcu(r"Control Panel\Accessibility\StickyKeys");
             match provider.read(&path, "Flags").await {
-                Ok(RegValue::Sz(v)) | Ok(RegValue::Binary(v)) => {
-                    // Flags = 506 (0x1FA) means hotkey disabled
-                    Ok(v == vec![0xFA, 0x01, 0x00, 0x00] || v == b"506".to_vec())
+                Ok(RegValue::Sz(v)) => {
+                    Ok(v == "506" || v == "0x1FA")
+                }
+                Ok(RegValue::Binary(v)) => {
+                    Ok(v == vec![0xFA, 0x01, 0x00, 0x00])
                 }
                 _ => Ok(false),
             }

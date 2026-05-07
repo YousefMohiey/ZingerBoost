@@ -9,9 +9,8 @@ use crate::errors::TweakError;
 use crate::tweaks::traits::Tweak;
 
 /// Disable startup delay to open apps faster after boot
-#[derive(Debug)]
 pub struct DisableStartupDelayTweak {
-    pub provider: Option<Arc<dyn zb_domain::registry::RegistryProvider>>,
+    pub provider: Option<Arc<dyn crate::registry::RegistryProvider>>,
 }
 
 impl DisableStartupDelayTweak {
@@ -19,7 +18,7 @@ impl DisableStartupDelayTweak {
         Self { provider: None }
     }
 
-    pub fn with_provider(provider: Arc<dyn zb_domain::registry::RegistryProvider>) -> Self {
+    pub fn with_provider(provider: Arc<dyn crate::registry::RegistryProvider>) -> Self {
         Self { provider: Some(provider) }
     }
 }

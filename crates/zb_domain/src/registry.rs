@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use std::sync::Arc;
-use zb_domain::errors::RegistryError;
+use crate::errors::RegistryError;
 use zb_shared::types::{RegPath, RegValue};
 
 /// Abstract registry provider for testability

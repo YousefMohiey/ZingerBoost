@@ -89,33 +89,29 @@ impl From<TweakExplanation> for TweakExplanationDto {
     }
 }
 
-/// Error mapping
-impl From<zb_domain::errors::TweakError> for AppErrorDto {
-    fn from(e: zb_domain::errors::TweakError) -> Self {
-        AppErrorDto {
-            code: "TWEAK_ERROR".into(),
-            message: e.to_string(),
-            details: None,
-        }
+/// Helper to create AppErrorDto from TweakError
+pub fn app_error_from_tweak(e: zb_domain::errors::TweakError) -> AppErrorDto {
+    AppErrorDto {
+        code: "TWEAK_ERROR".into(),
+        message: e.to_string(),
+        details: None,
     }
 }
 
-impl From<zb_domain::errors::SnapshotError> for AppErrorDto {
-    fn from(e: zb_domain::errors::SnapshotError) -> Self {
-        AppErrorDto {
-            code: "SNAPSHOT_ERROR".into(),
-            message: e.to_string(),
-            details: None,
-        }
+/// Helper to create AppErrorDto from SnapshotError
+pub fn app_error_from_snapshot(e: zb_domain::errors::SnapshotError) -> AppErrorDto {
+    AppErrorDto {
+        code: "SNAPSHOT_ERROR".into(),
+        message: e.to_string(),
+        details: None,
     }
 }
 
-impl From<anyhow::Error> for AppErrorDto {
-    fn from(e: anyhow::Error) -> Self {
-        AppErrorDto {
-            code: "INTERNAL_ERROR".into(),
-            message: e.to_string(),
-            details: None,
-        }
+/// Helper to create AppErrorDto from anyhow::Error
+pub fn app_error_from_anyhow(e: anyhow::Error) -> AppErrorDto {
+    AppErrorDto {
+        code: "INTERNAL_ERROR".into(),
+        message: e.to_string(),
+        details: None,
     }
 }

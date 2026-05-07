@@ -9,9 +9,8 @@ use crate::errors::TweakError;
 use crate::tweaks::traits::Tweak;
 
 /// Disable Windows transparency effects for better performance
-#[derive(Debug)]
 pub struct DisableTransparencyTweak {
-    pub provider: Option<Arc<dyn zb_domain::registry::RegistryProvider>>,
+    pub provider: Option<Arc<dyn crate::registry::RegistryProvider>>,
 }
 
 impl DisableTransparencyTweak {
@@ -19,7 +18,7 @@ impl DisableTransparencyTweak {
         Self { provider: None }
     }
 
-    pub fn with_provider(provider: Arc<dyn zb_domain::registry::RegistryProvider>) -> Self {
+    pub fn with_provider(provider: Arc<dyn crate::registry::RegistryProvider>) -> Self {
         Self { provider: Some(provider) }
     }
 }

@@ -12,7 +12,6 @@ use crate::audit_service::AuditService;
 use crate::snapshot_service::SnapshotService;
 
 /// Orchestrates the application of tweaks with safety guarantees.
-#[derive(Debug)]
 pub struct TweakEngine {
     tweaks: Vec<Arc<dyn Tweak>>,
     snapshot_service: Arc<dyn SnapshotService>,

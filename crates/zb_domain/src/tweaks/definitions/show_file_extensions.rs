@@ -9,9 +9,8 @@ use crate::errors::TweakError;
 use crate::tweaks::traits::Tweak;
 
 /// Show file extensions in Explorer
-#[derive(Debug)]
 pub struct ShowFileExtensionsTweak {
-    pub provider: Option<Arc<dyn zb_domain::registry::RegistryProvider>>,
+    pub provider: Option<Arc<dyn crate::registry::RegistryProvider>>,
 }
 
 impl ShowFileExtensionsTweak {
@@ -19,7 +18,7 @@ impl ShowFileExtensionsTweak {
         Self { provider: None }
     }
 
-    pub fn with_provider(provider: Arc<dyn zb_domain::registry::RegistryProvider>) -> Self {
+    pub fn with_provider(provider: Arc<dyn crate::registry::RegistryProvider>) -> Self {
         Self { provider: Some(provider) }
     }
 }

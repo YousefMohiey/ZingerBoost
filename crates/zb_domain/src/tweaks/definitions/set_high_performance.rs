@@ -9,7 +9,6 @@ use crate::errors::TweakError;
 use crate::tweaks::traits::Tweak;
 
 /// Set High Performance power plan
-#[derive(Debug)]
 pub struct SetHighPerformanceTweak;
 
 #[async_trait]

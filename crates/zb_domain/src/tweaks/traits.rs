@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use std::fmt::Debug;
 use zb_shared::types::{
     SnapshotData, TweakExplanation, TweakMetadata, TweakResult,
 };
@@ -8,7 +7,7 @@ use crate::errors::TweakError;
 
 /// Core trait for all tweaks in ZingerBoost.
 #[async_trait]
-pub trait Tweak: Send + Sync + Debug {
+pub trait Tweak: Send + Sync {
     /// Returns metadata describing this tweak
     fn metadata(&self) -> TweakMetadata;
 

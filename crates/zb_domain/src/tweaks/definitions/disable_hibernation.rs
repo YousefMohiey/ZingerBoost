@@ -9,7 +9,6 @@ use crate::errors::TweakError;
 use crate::tweaks::traits::Tweak;
 
 /// Disable hibernation to free up disk space and reduce SSD wear
-#[derive(Debug)]
 pub struct DisableHibernationTweak;
 
 #[async_trait]
