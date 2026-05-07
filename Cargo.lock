@@ -5117,8 +5117,10 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tracing",
+ "tracing-subscriber",
  "uuid",
  "windows 0.58.0",
+ "zb_application",
  "zb_domain",
  "zb_shared",
 ]
