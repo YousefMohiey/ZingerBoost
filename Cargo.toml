@@ -5,6 +5,7 @@ members = [
     "crates/zb_application",
     "crates/zb_infrastructure",
     "crates/zb_app",
+    "bridge",
     "src-tauri",
 ]
 resolver = "2"
