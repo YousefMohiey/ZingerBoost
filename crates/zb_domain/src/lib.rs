@@ -4,6 +4,7 @@ pub mod registry;
 pub mod snapshots;
 pub mod tweaks;
 
+pub use benchmarks::entities::{Benchmark, BenchmarkProgress, BenchmarkResult};
 pub use errors::*;
 pub use registry::*;
 pub use snapshots::*;

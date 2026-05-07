@@ -58,7 +58,7 @@ fn main() {
     let audit_service: Arc<dyn AuditService> = SqliteAuditLogger::from_connection(db_conn);
 
     let engine = Arc::new(TweakEngine::new(tweaks, snapshot_service, audit_service));
-    let metrics_collector = Arc::new(MetricsCollector::new());
+    let metrics_collector = MetricsCollector::new();
     let winget = WingetInstaller::new();
 
     tauri::Builder::default()

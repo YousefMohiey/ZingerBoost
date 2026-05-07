@@ -76,4 +76,26 @@ export const api = {
 
   getAuditLog: (): Promise<{ entries: AuditEntry[] }> =>
     invoke("get_audit_log"),
+
+  listSoftware: (): Promise<SoftwarePackage[]> =>
+    invoke("list_software"),
+
+  listBloatware: (): Promise<{ bloatware: SoftwarePackage[]; protected: string[] }> =>
+    invoke("list_bloatware"),
+
+  installSoftware: (wingetId: string): Promise<{ success: boolean; message: string }> =>
+    invoke("install_software", { request: { winget_id: wingetId } }),
+
+  removeBloatware: (packageIds: string[]): Promise<{ success: boolean; message: string }[]> =>
+    invoke("remove_bloatware", { request: { package_ids: packageIds } }),
 };
+
+export interface SoftwarePackage {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  winget_id: string;
+  website: string | null;
+  free: boolean;
+}

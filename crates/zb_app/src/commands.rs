@@ -1,9 +1,8 @@
 use serde::{Deserialize, Serialize};
 use tauri::State;
 use zb_application::dto::{
-    app_error_from_anyhow, app_error_from_snapshot, app_error_from_tweak, ApplyRequestDto,
-    AuditLogDto, BatchApplyRequestDto, SystemMetricsDto, TweakExplanationDto, TweakListDto,
-    TweakResultDto,
+    app_error_from_snapshot, app_error_from_tweak, ApplyRequestDto, AuditLogDto,
+    BatchApplyRequestDto, SystemMetricsDto, TweakExplanationDto, TweakListDto, TweakResultDto,
 };
 use zb_shared::software::{get_bloatware_catalog, get_protected_apps, get_software_catalog};
 use zb_shared::types::AppErrorDto;

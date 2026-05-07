@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use tokio::sync::Mutex;
 use zb_shared::types::SystemMetrics;
 
 /// Collects live system metrics for the dashboard
