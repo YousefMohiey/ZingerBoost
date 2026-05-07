@@ -25,4 +25,5 @@ jobs:
           files: |
             src-tauri/target/release/bundle/msi/*.msi
             src-tauri/target/release/bundle/nsis/*.exe
-          generate_release_notes: true
+          name: "ZingerBoost ${{ github.ref_name }}"
+          fail_on_unmatched_files: true
