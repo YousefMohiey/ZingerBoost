@@ -13,6 +13,12 @@ pub struct DisableAnimationsTweak {
     pub provider: Option<Arc<dyn crate::registry::RegistryProvider>>,
 }
 
+impl Default for DisableAnimationsTweak {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DisableAnimationsTweak {
     pub fn new() -> Self {
         Self { provider: None }
@@ -91,7 +97,7 @@ impl Tweak for DisableAnimationsTweak {
                         0x9E, 0x12, 0x03, 0x80, 0x12, 0x00, 0x00, 0x00,
                     ]));
             if let RegValue::Binary(mut v) = current {
-                if v.len() >= 1 {
+                if !v.is_empty() {
                     v[0] &= !0x02; // Clear animation bit
                 }
                 provider

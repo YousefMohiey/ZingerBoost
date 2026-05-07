@@ -13,6 +13,12 @@ pub struct ShowFileExtensionsTweak {
     pub provider: Option<Arc<dyn crate::registry::RegistryProvider>>,
 }
 
+impl Default for ShowFileExtensionsTweak {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ShowFileExtensionsTweak {
     pub fn new() -> Self {
         Self { provider: None }

@@ -1,7 +1,6 @@
 use async_trait::async_trait;
-use std::sync::Arc;
 use zb_shared::types::{
-    RegPath, RegValue, RiskLevel, SnapshotData, TweakCategory, TweakExplanation, TweakMetadata,
+    RiskLevel, SnapshotData, TweakCategory, TweakExplanation, TweakMetadata,
     TweakResult,
 };
 

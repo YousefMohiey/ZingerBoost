@@ -13,6 +13,12 @@ pub struct DisableStartupDelayTweak {
     pub provider: Option<Arc<dyn crate::registry::RegistryProvider>>,
 }
 
+impl Default for DisableStartupDelayTweak {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DisableStartupDelayTweak {
     pub fn new() -> Self {
         Self { provider: None }

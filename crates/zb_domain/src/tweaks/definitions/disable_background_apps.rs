@@ -13,6 +13,12 @@ pub struct DisableBackgroundAppsTweak {
     pub provider: Option<Arc<dyn crate::registry::RegistryProvider>>,
 }
 
+impl Default for DisableBackgroundAppsTweak {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DisableBackgroundAppsTweak {
     pub fn new() -> Self {
         Self { provider: None }

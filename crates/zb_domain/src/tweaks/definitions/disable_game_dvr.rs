@@ -13,6 +13,12 @@ pub struct DisableGameDvrTweak {
     pub provider: Option<Arc<dyn crate::registry::RegistryProvider>>,
 }
 
+impl Default for DisableGameDvrTweak {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DisableGameDvrTweak {
     pub fn new() -> Self {
         Self { provider: None }

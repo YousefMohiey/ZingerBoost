@@ -13,6 +13,12 @@ pub struct DisableTransparencyTweak {
     pub provider: Option<Arc<dyn crate::registry::RegistryProvider>>,
 }
 
+impl Default for DisableTransparencyTweak {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DisableTransparencyTweak {
     pub fn new() -> Self {
         Self { provider: None }

@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use zb_domain::errors::SnapshotError;
 use zb_domain::snapshots::SystemSnapshot;
-use zb_shared::types::{Id, SnapshotData};
+use zb_shared::types::SnapshotData;
 
 #[async_trait]
 pub trait SnapshotService: Send + Sync {

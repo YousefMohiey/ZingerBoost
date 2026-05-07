@@ -1,12 +1,10 @@
 use chrono::Utc;
 use std::sync::Arc;
-use tokio::sync::Mutex;
-use tracing::{error, info, warn};
-use uuid::Uuid;
-use zb_domain::errors::{SnapshotError, TweakError};
+use tracing::{error, warn};
+use zb_domain::errors::TweakError;
 use zb_domain::snapshots::SystemSnapshot;
 use zb_domain::tweaks::Tweak;
-use zb_shared::types::{AuditEntry, AuditLevel, Id, TweakResult};
+use zb_shared::types::{AuditEntry, AuditLevel, TweakResult};
 
 use crate::audit_service::AuditService;
 use crate::snapshot_service::SnapshotService;
@@ -157,7 +155,7 @@ impl TweakEngine {
             .snapshot_service
             .get_last_snapshot_data(id)
             .await
-            .map_err(|e| TweakError::SnapshotMissing)?;
+            .map_err(|_e| TweakError::SnapshotMissing)?;
 
         let result = tweak.revert(&snapshot_data).await?;
 

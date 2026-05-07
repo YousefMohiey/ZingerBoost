@@ -13,6 +13,12 @@ pub struct DisableTelemetryTweak {
     pub provider: Option<Arc<dyn crate::registry::RegistryProvider>>,
 }
 
+impl Default for DisableTelemetryTweak {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DisableTelemetryTweak {
     pub fn new() -> Self {
         Self { provider: None }

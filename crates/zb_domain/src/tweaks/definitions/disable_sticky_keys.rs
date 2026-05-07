@@ -13,6 +13,12 @@ pub struct DisableStickyKeysTweak {
     pub provider: Option<Arc<dyn crate::registry::RegistryProvider>>,
 }
 
+impl Default for DisableStickyKeysTweak {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DisableStickyKeysTweak {
     pub fn new() -> Self {
         Self { provider: None }

@@ -1,4 +1,4 @@
-/// Core constants used across ZingerBoost.
+//! Core constants used across ZingerBoost.
 
 /// App name for directories, registry, etc.
 pub const APP_NAME: &str = "ZingerBoost";
