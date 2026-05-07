@@ -42,7 +42,11 @@ A professional Windows tuning utility. 25 tweaks, 19 service controls, 9 disk cl
 
 ## Quick Start
 
-Download the latest release from [Releases](https://github.com/YousefMohiey/ZingerBoost/releases), extract all files, and run `zingerboost_flutter.exe`.
+Download the latest release from [Releases](https://github.com/YousefMohiey/ZingerBoost/releases), extract all files to the same folder.
+
+> **Requires:** [Visual C++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe) (one-time install)
+
+Run `zingerboost_flutter.exe`.
 
 ```powershell
 # Or build from source:
