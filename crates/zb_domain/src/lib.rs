@@ -1,3 +1,5 @@
+#![allow(clippy::new_without_default)]
+
 pub mod benchmarks;
 pub mod errors;
 pub mod registry;

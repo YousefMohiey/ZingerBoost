@@ -15,6 +15,12 @@ impl DisableHibernationTweak {
     }
 }
 
+impl Default for DisableHibernationTweak {
+    fn default() -> Self {
+        Self
+    }
+}
+
 #[async_trait]
 impl Tweak for DisableHibernationTweak {
     fn metadata(&self) -> TweakMetadata {

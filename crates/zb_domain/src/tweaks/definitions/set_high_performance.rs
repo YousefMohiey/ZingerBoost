@@ -15,6 +15,12 @@ impl SetHighPerformanceTweak {
     }
 }
 
+impl Default for SetHighPerformanceTweak {
+    fn default() -> Self {
+        Self
+    }
+}
+
 #[async_trait]
 impl Tweak for SetHighPerformanceTweak {
     fn metadata(&self) -> TweakMetadata {
