@@ -1,120 +1,86 @@
 import 'package:flutter/material.dart';
 
-class AppSidebar extends StatefulWidget {
-  const AppSidebar({super.key});
+class AppSidebar extends StatelessWidget {
+  final int selectedIndex;
+  final Function(int) onSelect;
 
-  @override
-  State<AppSidebar> createState() => _AppSidebarState();
-}
-
-class _AppSidebarState extends State<AppSidebar> {
-  int _selected = 0;
-
-  void _navigate(int index) {
-    setState(() => _selected = index);
-    switch (index) {
-      case 0:
-        Navigator.pushNamedAndRemoveUntil(context, '/', (_) => false);
-      case 1:
-        Navigator.pushNamed(context, '/tweaks');
-      case 2:
-        Navigator.pushNamed(context, '/snapshots');
-      case 3:
-        Navigator.pushNamed(context, '/debloat');
-      case 4:
-        Navigator.pushNamed(context, '/software');
-      case 5:
-        Navigator.pushNamed(context, '/settings');
-    }
-  }
-
-  static const _brand = Color(0xFF0EA5E9);
+  const AppSidebar({super.key, required this.selectedIndex, required this.onSelect});
 
   static const _items = [
-    _NavItem(Icons.dashboard, 'Dashboard'),
-    _NavItem(Icons.tune, 'Tweaks'),
-    _NavItem(Icons.history, 'Snapshots'),
-    _NavItem(Icons.cleaning_services, 'Debloat'),
-    _NavItem(Icons.apps, 'Software'),
-    _NavItem(Icons.settings, 'Settings'),
+    ('Dashboard', Icons.dashboard),
+    ('Tweaks', Icons.tune),
+    ('Snapshots', Icons.history),
+    ('Debloat', Icons.delete),
+    ('Software', Icons.download),
+    ('Services', Icons.settings),
+    ('Cleaner', Icons.cleaning_services),
+    ('Settings', Icons.settings_applications),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: 220,
-      color: const Color(0xFF0D0D0D),
+      color: const Color(0xFF171717),
       child: Column(
         children: [
-          const SizedBox(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: _brand.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(Icons.bolt, color: _brand, size: 20),
-              ),
-              const SizedBox(width: 10),
-              const Text(
-                'ZingerBoost',
-                style: TextStyle(
-                  fontSize: 17,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 32),
-          ...List.generate(_items.length, (i) {
-            final item = _items[i];
-            final active = _selected == i;
-            return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-              child: InkWell(
+          const SizedBox(height: 16),
+          Row(children: [
+            const SizedBox(width: 16),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0EA5E9).withOpacity(0.15),
                 borderRadius: BorderRadius.circular(8),
-                onTap: () => _navigate(i),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  decoration: BoxDecoration(
-                    color: active ? _brand.withOpacity(0.1) : null,
+              ),
+              child: const Icon(Icons.shield, color: Color(0xFF0EA5E9), size: 22),
+            ),
+            const SizedBox(width: 12),
+            const Text('ZingerBoost', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+          ]),
+          const SizedBox(height: 20),
+          Expanded(
+            child: ListView(
+              children: List.generate(_items.length, (i) {
+                final selected = i == selectedIndex;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  child: Material(
+                    color: selected ? const Color(0xFF0EA5E9).withOpacity(0.15) : Colors.transparent,
                     borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        item.icon,
-                        size: 18,
-                        color: active ? _brand : Colors.grey,
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        item.label,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: active ? FontWeight.w600 : FontWeight.normal,
-                          color: active ? Colors.white : Colors.grey,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () => onSelect(i),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        child: Row(
+                          children: [
+                            Icon(_items[i].$2, size: 20, color: selected ? const Color(0xFF0EA5E9) : Colors.grey),
+                            const SizedBox(width: 12),
+                            Text(_items[i].$1, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: selected ? const Color(0xFF0EA5E9) : Colors.grey)),
+                          ],
                         ),
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
-            );
-          }),
+                );
+              }),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Icon(Icons.admin_panel_settings, size: 14, color: Colors.green.withOpacity(0.7)),
+                const SizedBox(width: 8),
+                Text('Admin', style: TextStyle(fontSize: 11, color: Colors.green.withOpacity(0.7))),
+              ],
+            ),
+          ),
+          const SizedBox(height: 8),
         ],
       ),
     );
   }
-}
-
-class _NavItem {
-  final IconData icon;
-  final String label;
-  const _NavItem(this.icon, this.label);
 }

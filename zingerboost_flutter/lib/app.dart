@@ -4,11 +4,6 @@ import 'theme/app_theme.dart';
 import 'theme/theme_provider.dart';
 import 'widgets/app_sidebar.dart';
 import 'pages/dashboard_page.dart';
-import 'pages/tweaks_page.dart';
-import 'pages/snapshots_page.dart';
-import 'pages/debloat_page.dart';
-import 'pages/software_page.dart';
-import 'pages/settings_page.dart';
 import 'services/rust_bridge.dart';
 
 class ZingerBoostApp extends ConsumerStatefulWidget {
@@ -22,7 +17,9 @@ class _ZingerBoostAppState extends ConsumerState<ZingerBoostApp> {
   @override
   void initState() {
     super.initState();
-    RustBridge.init();
+    try {
+      RustBridge.init();
+    } catch (_) {}
   }
 
   @override
@@ -39,25 +36,32 @@ class _ZingerBoostAppState extends ConsumerState<ZingerBoostApp> {
   }
 }
 
-class MainShell extends ConsumerWidget {
+class MainShell extends StatefulWidget {
   const MainShell({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  State<MainShell> createState() => _MainShellState();
+}
+
+class _MainShellState extends State<MainShell> {
+  int _currentIndex = 0;
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       body: Row(
         children: [
-          const AppSidebar(),
-          Expanded(
-            child: Navigator(
-              onPopPage: (route, result) => route.didPop(result),
-              pages: const [
-                MaterialPage(child: DashboardPage()),
-              ],
-            ),
+          AppSidebar(
+            selectedIndex: _currentIndex,
+            onSelect: (i) => setState(() => _currentIndex = i),
           ),
+          Expanded(child: _buildPage()),
         ],
       ),
     );
+  }
+
+  Widget _buildPage() {
+    return const DashboardPage();
   }
 }

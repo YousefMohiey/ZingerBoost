@@ -5,12 +5,18 @@ import 'app.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   await windowManager.ensureInitialized();
 
-  windowManager.waitUntilReadyToShow().then((_) async {
-    await windowManager.setSize(const Size(1200, 800));
-    await windowManager.setMinimumSize(const Size(900, 600));
-    await windowManager.center();
+  final options = WindowOptions(
+    size: const Size(1200, 800),
+    minimumSize: const Size(900, 600),
+    center: true,
+    title: 'ZingerBoost',
+    skipTaskbar: false,
+  );
+
+  await windowManager.waitUntilReadyToShow(options, () async {
     await windowManager.show();
     await windowManager.focus();
   });
