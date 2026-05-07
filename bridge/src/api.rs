@@ -138,8 +138,7 @@ pub fn stop_service(name: String) -> String {
 
 pub fn disable_service(name: String) -> String {
     let sc = ServiceController::new();
-    match sc.set_startup_type(&name, 4) {
-        // SERVICE_DISABLED = 4
+    match sc.disable_service(&name) {
         Ok(msg) => serde_json::json!({"success": true, "message": msg}).to_string(),
         Err(e) => serde_json::json!({"success": false, "message": e}).to_string(),
     }
