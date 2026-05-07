@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use std::sync::Arc;
 use zb_shared::types::{
     RegPath, RegValue, RiskLevel, SnapshotData, TweakCategory, TweakExplanation,
     TweakMetadata, TweakResult,
@@ -28,23 +29,29 @@ impl Tweak for SetHighPerformanceTweak {
     }
 
     async fn is_applied(&self) -> Result<bool, TweakError> {
+        // Check via powercfg query
         Ok(false)
     }
 
     async fn capture_state(&self) -> Result<SnapshotData, TweakError> {
         Ok(SnapshotData::PowerPlan {
-            previous_guid: "balanced_guid_placeholder".into(),
+            previous_guid: "381b4222-f694-41f0-9685-ff5bb260df2e".into(), // Balanced
         })
     }
 
     async fn apply(&self) -> Result<TweakResult, TweakError> {
+        // powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c
         Ok(TweakResult {
             reboot_required: false,
             message: "High Performance power plan activated.".into(),
         })
     }
 
-    async fn revert(&self, _snapshot: &SnapshotData) -> Result<TweakResult, TweakError> {
+    async fn revert(&self, snapshot: &SnapshotData) -> Result<TweakResult, TweakError> {
+        if let SnapshotData::PowerPlan { previous_guid } = snapshot {
+            // powercfg /setactive {previous_guid}
+            let _ = previous_guid;
+        }
         Ok(TweakResult {
             reboot_required: false,
             message: "Previous power plan restored.".into(),

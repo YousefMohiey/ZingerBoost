@@ -34,6 +34,24 @@ export interface TweakExplanation {
   how_to_revert: string;
 }
 
+export interface SystemSnapshot {
+  id: string;
+  created_at: string;
+  description: string;
+  tweak_records: {
+    tweak_id: string;
+    snapshot_data: unknown;
+  }[];
+}
+
+export interface AuditEntry {
+  timestamp: string;
+  level: "Info" | "Warn" | "Error" | "Debug";
+  category: string;
+  message: string;
+  details: unknown | null;
+}
+
 export const api = {
   listTweaks: (): Promise<{ tweaks: TweakMetadata[] }> =>
     invoke("list_tweaks"),
@@ -52,4 +70,10 @@ export const api = {
 
   getTweakExplanation: (id: string): Promise<TweakExplanation> =>
     invoke("get_tweak_explanation", { id }),
+
+  listSnapshots: (): Promise<SystemSnapshot[]> =>
+    invoke("list_snapshots"),
+
+  getAuditLog: (): Promise<{ entries: AuditEntry[] }> =>
+    invoke("get_audit_log"),
 };

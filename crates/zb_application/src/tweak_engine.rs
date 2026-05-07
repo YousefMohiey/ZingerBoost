@@ -42,6 +42,16 @@ impl TweakEngine {
         self.tweaks.iter().find(|t| t.metadata().id == id).cloned()
     }
 
+    /// Access the snapshot service
+    pub fn snapshot_service(&self) -> Arc<dyn SnapshotService> {
+        self.snapshot_service.clone()
+    }
+
+    /// Access the audit service
+    pub fn audit_service(&self) -> Arc<dyn AuditService> {
+        self.audit_service.clone()
+    }
+
     /// Apply a single tweak with automatic snapshot
     pub async fn apply_single(
         &self,

@@ -8,13 +8,13 @@ use zb_shared::types::{
 use crate::errors::TweakError;
 use crate::tweaks::traits::Tweak;
 
-/// Disable Windows transparency effects for better performance
+/// Disable background apps to free up resources
 #[derive(Debug)]
-pub struct DisableTransparencyTweak {
+pub struct DisableBackgroundAppsTweak {
     pub provider: Option<Arc<dyn zb_domain::registry::RegistryProvider>>,
 }
 
-impl DisableTransparencyTweak {
+impl DisableBackgroundAppsTweak {
     pub fn new() -> Self {
         Self { provider: None }
     }
@@ -25,18 +25,18 @@ impl DisableTransparencyTweak {
 }
 
 #[async_trait]
-impl Tweak for DisableTransparencyTweak {
+impl Tweak for DisableBackgroundAppsTweak {
     fn metadata(&self) -> TweakMetadata {
         TweakMetadata {
-            id: "visual_disable_transparency".into(),
-            name: "Disable Transparency Effects".into(),
-            description: "Turns off acrylic and transparency effects to reduce GPU compositor load.".into(),
-            category: TweakCategory::Visual,
+            id: "privacy_disable_background_apps".into(),
+            name: "Disable Background Apps".into(),
+            description: "Prevents UWP apps from running in the background.".into(),
+            category: TweakCategory::Privacy,
             risk: RiskLevel::Safe,
             requires_reboot: false,
             requires_admin: false,
             affected_keys: vec![
-                RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"),
+                RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications"),
             ],
             source_url: None,
         }
@@ -44,9 +44,9 @@ impl Tweak for DisableTransparencyTweak {
 
     async fn is_applied(&self) -> Result<bool, TweakError> {
         if let Some(provider) = &self.provider {
-            let path = RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
-            match provider.read(&path, "EnableTransparency").await {
-                Ok(RegValue::Dword(v)) => Ok(v == 0),
+            let path = RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications");
+            match provider.read(&path, "GlobalUserDisabled").await {
+                Ok(RegValue::Dword(v)) => Ok(v == 1),
                 _ => Ok(false),
             }
         } else {
@@ -56,27 +56,27 @@ impl Tweak for DisableTransparencyTweak {
 
     async fn capture_state(&self) -> Result<SnapshotData, TweakError> {
         if let Some(provider) = &self.provider {
-            let path = RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
-            let val = provider.read(&path, "EnableTransparency").await.unwrap_or(RegValue::Dword(1));
-            Ok(SnapshotData::Registry { path, name: "EnableTransparency".into(), previous: val })
+            let path = RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications");
+            let val = provider.read(&path, "GlobalUserDisabled").await.unwrap_or(RegValue::Dword(0));
+            Ok(SnapshotData::Registry { path, name: "GlobalUserDisabled".into(), previous: val })
         } else {
             Ok(SnapshotData::Registry {
-                path: RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"),
-                name: "EnableTransparency".into(),
-                previous: RegValue::Dword(1),
+                path: RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications"),
+                name: "GlobalUserDisabled".into(),
+                previous: RegValue::Dword(0),
             })
         }
     }
 
     async fn apply(&self) -> Result<TweakResult, TweakError> {
         if let Some(provider) = &self.provider {
-            let path = RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
-            provider.write(&path, "EnableTransparency", &RegValue::Dword(0)).await
+            let path = RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications");
+            provider.write(&path, "GlobalUserDisabled", &RegValue::Dword(1)).await
                 .map_err(|e| TweakError::Registry(e.to_string()))?;
         }
         Ok(TweakResult {
             reboot_required: false,
-            message: "Transparency effects disabled.".into(),
+            message: "Background apps disabled. UWP apps will no longer run in the background.".into(),
         })
     }
 
@@ -89,16 +89,16 @@ impl Tweak for DisableTransparencyTweak {
         }
         Ok(TweakResult {
             reboot_required: false,
-            message: "Transparency effects restored.".into(),
+            message: "Background apps restored to previous state.".into(),
         })
     }
 
     fn explain(&self) -> TweakExplanation {
         TweakExplanation {
-            what_it_does: "Disables the transparent acrylic effects in the taskbar, Start menu, and windows.".into(),
-            why_it_helps: "Reduces GPU compositor workload, which can improve responsiveness on lower-end GPUs.".into(),
-            potential_risks: None,
-            how_to_revert: "Restores the original transparency setting.".into(),
+            what_it_does: "Prevents Windows Store apps from running in the background.".into(),
+            why_it_helps: "Reduces CPU, RAM, and battery usage by stopping background UWP app processes.".into(),
+            potential_risks: Some("Live tiles will not update, and some apps may not receive push notifications.".into()),
+            how_to_revert: "Restores the original GlobalUserDisabled registry value.".into(),
         }
     }
 }

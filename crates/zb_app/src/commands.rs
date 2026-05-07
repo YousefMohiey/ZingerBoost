@@ -1,9 +1,9 @@
 use tauri::State;
 use zb_application::dto::{
-    AppErrorDto, ApplyRequestDto, BatchApplyRequestDto, SystemMetricsDto, TweakExplanationDto,
-    TweakListDto, TweakResultDto,
+    AppErrorDto, ApplyRequestDto, AuditLogDto, BatchApplyRequestDto, SystemMetricsDto,
+    TweakExplanationDto, TweakListDto, TweakResultDto,
 };
-use zb_shared::types::{AppErrorDto as AppError, TweakExplanation};
+use zb_shared::types::AppErrorDto as AppError;
 
 use crate::AppState;
 
@@ -60,4 +60,17 @@ pub async fn get_tweak_explanation(
         .get_tweak(&id)
         .ok_or_else(|| AppErrorDto::from(zb_domain::errors::TweakError::Validation(format!("Unknown tweak: {}", id))))?;
     Ok(tweak.explain().into())
+}
+
+#[tauri::command]
+pub async fn list_snapshots(state: State<'_, AppState>) -> Result<Vec<zb_domain::snapshots::SystemSnapshot>, AppError> {
+    let snapshots = state.engine.snapshot_service().list_snapshots().await
+        .map_err(|e| AppErrorDto::from(zb_domain::errors::SnapshotError::Storage(e.to_string())))?;
+    Ok(snapshots)
+}
+
+#[tauri::command]
+pub async fn get_audit_log(state: State<'_, AppState>) -> Result<AuditLogDto, AppError> {
+    let entries = state.engine.audit_service().get_recent(100).await;
+    Ok(AuditLogDto { entries })
 }

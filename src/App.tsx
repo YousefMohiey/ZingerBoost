@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Routes, Route } from "react-router-dom";
 import Sidebar from "./components/ui/Sidebar";
+import ToastContainer from "./components/ui/ToastContainer";
 import Dashboard from "./features/dashboard/Dashboard";
 import TweaksPage from "./features/tweaks/TweaksPage";
 import SnapshotsPage from "./features/snapshots/SnapshotsPage";
@@ -20,6 +21,7 @@ const App: React.FC = () => {
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </main>
+      <ToastContainer />
     </div>
   );
 };

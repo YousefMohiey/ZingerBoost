@@ -1,10 +1,10 @@
 {
-  "$schema": "../node_modules/@tauri-apps/cli/schema.json",
+  "$schema": "../../node_modules/@tauri-apps/cli/schema.json",
   "build": {
     "beforeBuildCommand": "npm run build",
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
-    "frontendDist": "../dist"
+    "frontendDist": "../../dist"
   },
   "bundle": {
     "active": true,
@@ -36,7 +36,8 @@
   "plugins": {},
   "app": {
     "security": {
-      "csp": null
+      "csp": null,
+      "capabilities": ["default"]
     },
     "windows": [
       {

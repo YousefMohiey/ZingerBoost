@@ -8,13 +8,13 @@ use zb_shared::types::{
 use crate::errors::TweakError;
 use crate::tweaks::traits::Tweak;
 
-/// Disable Windows transparency effects for better performance
+/// Disable basic Windows telemetry
 #[derive(Debug)]
-pub struct DisableTransparencyTweak {
+pub struct DisableTelemetryTweak {
     pub provider: Option<Arc<dyn zb_domain::registry::RegistryProvider>>,
 }
 
-impl DisableTransparencyTweak {
+impl DisableTelemetryTweak {
     pub fn new() -> Self {
         Self { provider: None }
     }
@@ -25,18 +25,18 @@ impl DisableTransparencyTweak {
 }
 
 #[async_trait]
-impl Tweak for DisableTransparencyTweak {
+impl Tweak for DisableTelemetryTweak {
     fn metadata(&self) -> TweakMetadata {
         TweakMetadata {
-            id: "visual_disable_transparency".into(),
-            name: "Disable Transparency Effects".into(),
-            description: "Turns off acrylic and transparency effects to reduce GPU compositor load.".into(),
-            category: TweakCategory::Visual,
+            id: "privacy_disable_telemetry".into(),
+            name: "Disable Telemetry (Basic)".into(),
+            description: "Sets telemetry to the minimum level to reduce data collection.".into(),
+            category: TweakCategory::Privacy,
             risk: RiskLevel::Safe,
             requires_reboot: false,
-            requires_admin: false,
+            requires_admin: true,
             affected_keys: vec![
-                RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"),
+                RegPath::hklm(r"SOFTWARE\Policies\Microsoft\Windows\DataCollection"),
             ],
             source_url: None,
         }
@@ -44,8 +44,8 @@ impl Tweak for DisableTransparencyTweak {
 
     async fn is_applied(&self) -> Result<bool, TweakError> {
         if let Some(provider) = &self.provider {
-            let path = RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
-            match provider.read(&path, "EnableTransparency").await {
+            let path = RegPath::hklm(r"SOFTWARE\Policies\Microsoft\Windows\DataCollection");
+            match provider.read(&path, "AllowTelemetry").await {
                 Ok(RegValue::Dword(v)) => Ok(v == 0),
                 _ => Ok(false),
             }
@@ -56,13 +56,13 @@ impl Tweak for DisableTransparencyTweak {
 
     async fn capture_state(&self) -> Result<SnapshotData, TweakError> {
         if let Some(provider) = &self.provider {
-            let path = RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
-            let val = provider.read(&path, "EnableTransparency").await.unwrap_or(RegValue::Dword(1));
-            Ok(SnapshotData::Registry { path, name: "EnableTransparency".into(), previous: val })
+            let path = RegPath::hklm(r"SOFTWARE\Policies\Microsoft\Windows\DataCollection");
+            let val = provider.read(&path, "AllowTelemetry").await.unwrap_or(RegValue::Dword(1));
+            Ok(SnapshotData::Registry { path, name: "AllowTelemetry".into(), previous: val })
         } else {
             Ok(SnapshotData::Registry {
-                path: RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"),
-                name: "EnableTransparency".into(),
+                path: RegPath::hklm(r"SOFTWARE\Policies\Microsoft\Windows\DataCollection"),
+                name: "AllowTelemetry".into(),
                 previous: RegValue::Dword(1),
             })
         }
@@ -70,13 +70,13 @@ impl Tweak for DisableTransparencyTweak {
 
     async fn apply(&self) -> Result<TweakResult, TweakError> {
         if let Some(provider) = &self.provider {
-            let path = RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
-            provider.write(&path, "EnableTransparency", &RegValue::Dword(0)).await
+            let path = RegPath::hklm(r"SOFTWARE\Policies\Microsoft\Windows\DataCollection");
+            provider.write(&path, "AllowTelemetry", &RegValue::Dword(0)).await
                 .map_err(|e| TweakError::Registry(e.to_string()))?;
         }
         Ok(TweakResult {
             reboot_required: false,
-            message: "Transparency effects disabled.".into(),
+            message: "Telemetry set to minimum (Security level). Windows will collect the least amount of diagnostic data.".into(),
         })
     }
 
@@ -89,16 +89,16 @@ impl Tweak for DisableTransparencyTweak {
         }
         Ok(TweakResult {
             reboot_required: false,
-            message: "Transparency effects restored.".into(),
+            message: "Telemetry restored to previous level.".into(),
         })
     }
 
     fn explain(&self) -> TweakExplanation {
         TweakExplanation {
-            what_it_does: "Disables the transparent acrylic effects in the taskbar, Start menu, and windows.".into(),
-            why_it_helps: "Reduces GPU compositor workload, which can improve responsiveness on lower-end GPUs.".into(),
-            potential_risks: None,
-            how_to_revert: "Restores the original transparency setting.".into(),
+            what_it_does: "Sets the Windows telemetry level to Security (0), the minimum possible.".into(),
+            why_it_helps: "Reduces the amount of diagnostic and usage data sent to Microsoft, improving privacy.".into(),
+            potential_risks: Some("Some Windows Insider features and advanced diagnostics may be limited. Windows Update still works fully.".into()),
+            how_to_revert: "Restores the original AllowTelemetry value (typically Basic or Full).".into(),
         }
     }
 }

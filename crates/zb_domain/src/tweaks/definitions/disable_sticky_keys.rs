@@ -8,13 +8,13 @@ use zb_shared::types::{
 use crate::errors::TweakError;
 use crate::tweaks::traits::Tweak;
 
-/// Disable Windows transparency effects for better performance
+/// Disable Sticky Keys popup that appears on rapid Shift presses
 #[derive(Debug)]
-pub struct DisableTransparencyTweak {
+pub struct DisableStickyKeysTweak {
     pub provider: Option<Arc<dyn zb_domain::registry::RegistryProvider>>,
 }
 
-impl DisableTransparencyTweak {
+impl DisableStickyKeysTweak {
     pub fn new() -> Self {
         Self { provider: None }
     }
@@ -25,18 +25,18 @@ impl DisableTransparencyTweak {
 }
 
 #[async_trait]
-impl Tweak for DisableTransparencyTweak {
+impl Tweak for DisableStickyKeysTweak {
     fn metadata(&self) -> TweakMetadata {
         TweakMetadata {
-            id: "visual_disable_transparency".into(),
-            name: "Disable Transparency Effects".into(),
-            description: "Turns off acrylic and transparency effects to reduce GPU compositor load.".into(),
+            id: "visual_disable_sticky_keys".into(),
+            name: "Disable Sticky Keys Popup".into(),
+            description: "Prevents the Sticky Keys dialog from appearing when pressing Shift repeatedly.".into(),
             category: TweakCategory::Visual,
             risk: RiskLevel::Safe,
             requires_reboot: false,
             requires_admin: false,
             affected_keys: vec![
-                RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"),
+                RegPath::hkcu(r"Control Panel\Accessibility\StickyKeys"),
             ],
             source_url: None,
         }
@@ -44,9 +44,12 @@ impl Tweak for DisableTransparencyTweak {
 
     async fn is_applied(&self) -> Result<bool, TweakError> {
         if let Some(provider) = &self.provider {
-            let path = RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
-            match provider.read(&path, "EnableTransparency").await {
-                Ok(RegValue::Dword(v)) => Ok(v == 0),
+            let path = RegPath::hkcu(r"Control Panel\Accessibility\StickyKeys");
+            match provider.read(&path, "Flags").await {
+                Ok(RegValue::Sz(v)) | Ok(RegValue::Binary(v)) => {
+                    // Flags = 506 (0x1FA) means hotkey disabled
+                    Ok(v == vec![0xFA, 0x01, 0x00, 0x00] || v == b"506".to_vec())
+                }
                 _ => Ok(false),
             }
         } else {
@@ -56,27 +59,27 @@ impl Tweak for DisableTransparencyTweak {
 
     async fn capture_state(&self) -> Result<SnapshotData, TweakError> {
         if let Some(provider) = &self.provider {
-            let path = RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
-            let val = provider.read(&path, "EnableTransparency").await.unwrap_or(RegValue::Dword(1));
-            Ok(SnapshotData::Registry { path, name: "EnableTransparency".into(), previous: val })
+            let path = RegPath::hkcu(r"Control Panel\Accessibility\StickyKeys");
+            let val = provider.read(&path, "Flags").await.unwrap_or(RegValue::Sz("510".into()));
+            Ok(SnapshotData::Registry { path, name: "Flags".into(), previous: val })
         } else {
             Ok(SnapshotData::Registry {
-                path: RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"),
-                name: "EnableTransparency".into(),
-                previous: RegValue::Dword(1),
+                path: RegPath::hkcu(r"Control Panel\Accessibility\StickyKeys"),
+                name: "Flags".into(),
+                previous: RegValue::Sz("510".into()),
             })
         }
     }
 
     async fn apply(&self) -> Result<TweakResult, TweakError> {
         if let Some(provider) = &self.provider {
-            let path = RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
-            provider.write(&path, "EnableTransparency", &RegValue::Dword(0)).await
+            let path = RegPath::hkcu(r"Control Panel\Accessibility\StickyKeys");
+            provider.write(&path, "Flags", &RegValue::Sz("506".into())).await
                 .map_err(|e| TweakError::Registry(e.to_string()))?;
         }
         Ok(TweakResult {
             reboot_required: false,
-            message: "Transparency effects disabled.".into(),
+            message: "Sticky Keys popup disabled. No more interruptions during gaming.".into(),
         })
     }
 
@@ -89,16 +92,16 @@ impl Tweak for DisableTransparencyTweak {
         }
         Ok(TweakResult {
             reboot_required: false,
-            message: "Transparency effects restored.".into(),
+            message: "Sticky Keys popup restored.".into(),
         })
     }
 
     fn explain(&self) -> TweakExplanation {
         TweakExplanation {
-            what_it_does: "Disables the transparent acrylic effects in the taskbar, Start menu, and windows.".into(),
-            why_it_helps: "Reduces GPU compositor workload, which can improve responsiveness on lower-end GPUs.".into(),
+            what_it_does: "Disables the Sticky Keys shortcut that appears when you press Shift 5 times.".into(),
+            why_it_helps: "Eliminates an annoying popup that interrupts gaming and typing.".into(),
             potential_risks: None,
-            how_to_revert: "Restores the original transparency setting.".into(),
+            how_to_revert: "Restores the original Sticky Keys Flags value.".into(),
         }
     }
 }
