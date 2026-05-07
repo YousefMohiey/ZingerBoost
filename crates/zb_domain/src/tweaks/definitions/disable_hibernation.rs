@@ -9,6 +9,12 @@ use crate::tweaks::traits::Tweak;
 /// Disable hibernation to free up disk space and reduce SSD wear
 pub struct DisableHibernationTweak;
 
+impl DisableHibernationTweak {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
 #[async_trait]
 impl Tweak for DisableHibernationTweak {
     fn metadata(&self) -> TweakMetadata {

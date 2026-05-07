@@ -9,6 +9,12 @@ use crate::tweaks::traits::Tweak;
 /// Set High Performance power plan
 pub struct SetHighPerformanceTweak;
 
+impl SetHighPerformanceTweak {
+    pub fn new() -> Self {
+        Self
+    }
+}
+
 #[async_trait]
 impl Tweak for SetHighPerformanceTweak {
     fn metadata(&self) -> TweakMetadata {
