@@ -1,8 +1,9 @@
 use crate::{get_app, AppState};
 use serde::{Deserialize, Serialize};
+use zb_infrastructure::services::ServiceController;
 use zb_infrastructure::windows_api::debloat_engine::DebloatEngine;
+use zb_infrastructure::windows_api::system_cleaner::SystemCleaner;
 use zb_shared::software::{get_bloatware_catalog, get_protected_apps, get_software_catalog};
-use zb_shared::types::{AppErrorDto, AuditEntry, AuditLevel, SystemMetrics, TweakResult};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FfiResult<T: Serialize> {
@@ -117,4 +118,43 @@ pub fn remove_bloatware(package_ids_json: String) -> String {
         }
     }
     serde_json::to_string(&results).unwrap_or_default()
+}
+
+// --- Services ---
+
+pub fn list_services() -> String {
+    let sc = ServiceController::new();
+    let services = sc.query_services();
+    serde_json::to_string(&services).unwrap_or_default()
+}
+
+pub fn stop_service(name: String) -> String {
+    let sc = ServiceController::new();
+    match sc.stop_service(&name) {
+        Ok(msg) => serde_json::json!({"success": true, "message": msg}).to_string(),
+        Err(e) => serde_json::json!({"success": false, "message": e}).to_string(),
+    }
+}
+
+pub fn disable_service(name: String) -> String {
+    let sc = ServiceController::new();
+    match sc.set_startup_type(&name, 4) {
+        // SERVICE_DISABLED = 4
+        Ok(msg) => serde_json::json!({"success": true, "message": msg}).to_string(),
+        Err(e) => serde_json::json!({"success": false, "message": e}).to_string(),
+    }
+}
+
+// --- System Cleaner ---
+
+pub fn scan_cleaner() -> String {
+    let cleaner = SystemCleaner::new();
+    let categories = cleaner.scan_categories();
+    serde_json::to_string(&categories).unwrap_or_default()
+}
+
+pub fn run_cleaner(category: String) -> String {
+    let cleaner = SystemCleaner::new();
+    let result = cleaner.clean_category(&category);
+    serde_json::to_string(&result).unwrap_or_default()
 }
