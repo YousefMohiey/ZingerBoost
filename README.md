@@ -6,59 +6,56 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/license-MIT-success?style=flat-square" alt="License">
-  <img src="https://img.shields.io/badge/open--source-trust-green?style=flat-square" alt="Open Source">
+  <img src="https://img.shields.io/github/downloads/YousefMohiey/ZingerBoost/total?style=flat-square&color=0ea5e9" alt="Downloads">
+  <img src="https://img.shields.io/github/v/release/YousefMohiey/ZingerBoost?style=flat-square&color=0ea5e9" alt="Release">
+  <img src="https://img.shields.io/badge/license-MIT-success?style=flat-square" alt="MIT">
   <img src="https://img.shields.io/badge/telemetry-none-red?style=flat-square" alt="No Telemetry">
-  <img src="https://img.shields.io/badge/offline--first-yes-blue?style=flat-square" alt="Offline First">
 </p>
-
----
 
 # ZingerBoost
 
-### Safe, Reversible, Transparent — Windows Optimization Done Right
+### Safe, Reversible Windows Optimization
 
-**ZingerBoost** is a professional Windows optimization utility built with **Rust** and **Flutter**. 25 safe, reversible tweaks, a 34-app bloatware removal engine, and a 30+ app software installer — all in a beautiful Material 3 dark UI.
-
-> **Every tweak is reversible. Every change is logged. Nothing is hidden.**
+A professional Windows tuning utility. 25 tweaks, 19 service controls, 9 disk cleaners, 34 bloatware targets — all reversible, all logged, zero telemetry.
 
 ---
 
 ## Features
 
-### 25 Tweaks
+| Category | Count | Details |
+|----------|-------|---------|
+| **Registry Tweaks** | 25 | Visual, Privacy, Performance, Gaming |
+| **Service Manager** | 19 | Stop/disable resource-heavy Windows services |
+| **System Cleaner** | 9 | Cache, temp files, logs, browser data |
+| **Debloat Engine** | 34 | Remove pre-installed Windows bloatware |
+| **Software Installer** | 30+ | Install apps via Winget across 9 categories |
 
-| Category | Count | Examples |
-|----------|-------|----------|
-| Visual | 14 | Transparency, Animations, Menu Delay, Cursor Shadow, Aero Shake, Smooth Scroll, Taskbar Badges |
-| Privacy | 7 | Telemetry, Background Apps, Lock Screen Ads, Start Ads, Advertising ID |
-| Performance | 3 | Startup Delay, Hibernation, High Performance Power Plan |
-| Gaming | 1 | Game DVR |
+### Safety Guarantees
 
-### Debloat Engine (34 targets)
-Removes pre-installed Windows bloatware via PowerShell + takeown + icacls + DISM. Keeps Notepad, Calculator, Store, Photos, Camera, Terminal, Snipping Tool, and system runtimes.
-
-### Software Installer (30+ apps)
-Install apps via Winget across 9 categories: Browsers, Media Players, Music, Gaming, Utilities, Drivers, Communication, Development, Cloud Storage.
-
-### Safety
-- Auto-snapshots before every tweak, one-click rollback
-- 50-snapshot retention with SQLite persistence
-- Full audit log of every operation
-- Zero telemetry, fully offline
+- **Every tweak is reversible** — state captured before changes
+- **50-snapshot retention** — restore to any previous state
+- **Full audit log** — every operation recorded in SQLite
+- **Zero telemetry** — no network calls, fully offline
+- **Open source** — MIT licensed, anyone can audit
 
 ---
 
 ## Quick Start
 
-```bash
+Download the latest release from [Releases](https://github.com/YousefMohiey/ZingerBoost/releases), extract all files, and run `zingerboost_flutter.exe`.
+
+```powershell
+# Or build from source:
 git clone https://github.com/YousefMohiey/ZingerBoost.git
-cd ZingerBoost/zingerboost_flutter
+cd ZingerBoost
 
-# Install Flutter deps
+# Build the Rust backend
+cargo build --release -p zingerboost_bridge
+
+# Build the Flutter frontend (requires Flutter SDK)
+cd zingerboost_flutter
+flutter create --platforms windows .
 flutter pub get
-
-# Build and run on Windows
 flutter build windows
 ```
 
@@ -68,40 +65,20 @@ flutter build windows
 
 ```
 ZingerBoost/
-├── bridge/                  # Rust FFI bridge (cdylib)
-│   └── src/
-│       ├── lib.rs           # AppState + init_app() FFI entry
-│       └── api.rs           # 11 FFI functions (JSON-based)
-├── crates/                  # Rust workspace
+├── bridge/                  # Rust FFI (cdylib)
+├── crates/
 │   ├── zb_shared/           # Types, constants, software catalog
 │   ├── zb_domain/           # Tweak trait + 25 implementations
-│   ├── zb_application/      # TweakEngine, SnapshotService, AuditService
-│   └── zb_infrastructure/   # WinRegistryProvider, SQLite, Winget, PDH, Debloat
+│   ├── zb_application/      # TweakEngine, SnapshotService
+│   └── zb_infrastructure/   # WinRegistry, SQLite, Winget, PDH
 └── zingerboost_flutter/     # Flutter desktop app
     └── lib/
-        ├── models/          # Tweak, Metrics, Snapshot, Software, Audit
-        ├── services/        # RustBridge FFI wrapper
-        ├── providers/       # Riverpod state
-        ├── widgets/         # Sidebar, MetricCard, RiskBadge, TweakCard, Toast
-        ├── pages/           # Dashboard, Tweaks, Snapshots, Debloat, Software, Settings
-        └── theme/           # Dark/light ThemeData + theme provider
+        ├── models/          # Data classes
+        ├── services/        # Rust bridge
+        ├── pages/           # 7 pages
+        ├── widgets/         # Reusable components
+        └── theme/           # Dark/light theme
 ```
-
----
-
-## Development
-
-```bash
-# Check Rust cross-platform crates (Linux/macOS)
-cargo check -p zb_shared -p zb_domain -p zb_application
-cargo fmt --all
-cargo clippy -p zb_shared -p zb_domain -p zb_application --all-targets -- -D warnings
-
-# On Windows: build all
-cargo check --workspace
-```
-
-> The full workspace only compiles on Windows (windows-rs dependency).
 
 ---
 
@@ -109,6 +86,4 @@ cargo check --workspace
 
 **YousefMohiey** — [yousefmohiey@gmail.com](mailto:yousefmohiey@gmail.com) · [github.com/YousefMohiey](https://github.com/YousefMohiey)
 
-## License
-
-MIT © 2026 YousefMohiey
+MIT License
