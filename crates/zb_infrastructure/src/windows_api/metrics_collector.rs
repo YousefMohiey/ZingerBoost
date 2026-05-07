@@ -44,7 +44,7 @@ fn read_cpu_counter() -> f64 {
                 .encode_utf16()
                 .collect();
             let mut counter = std::mem::zeroed();
-            if PdhAddEnglishCounterW(query, PCWSTR::from_raw(cpu_path.as_ptr()), 0, &mut counter).0
+            if PdhAddEnglishCounterW(query, PCWSTR::from_raw(cpu_path.as_ptr()), 0, &mut counter)
                 != 0
             {
                 return 15.0;
@@ -82,7 +82,7 @@ fn read_disk_counter() -> f64 {
                 .encode_utf16()
                 .collect();
             let mut counter = std::mem::zeroed();
-            if PdhAddEnglishCounterW(query, PCWSTR::from_raw(disk_path.as_ptr()), 0, &mut counter).0
+            if PdhAddEnglishCounterW(query, PCWSTR::from_raw(disk_path.as_ptr()), 0, &mut counter)
                 != 0
             {
                 return 5.0;
