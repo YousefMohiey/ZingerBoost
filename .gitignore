@@ -1,0 +1,12 @@
+node_modules/
+dist/
+/target/
+*.log
+.DS_Store
+.env
+.env.local
+*.db
+*.db-shm
+*.db-wal
+/crates/**/Cargo.lock
+!Cargo.lock
