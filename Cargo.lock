@@ -5058,12 +5058,10 @@ dependencies = [
  "serde",
  "serde_json",
  "tauri",
- "tauri-build",
  "tauri-plugin-shell",
  "thiserror 2.0.18",
  "tokio",
  "tracing",
- "tracing-subscriber",
  "zb_application",
  "zb_domain",
  "zb_infrastructure",
@@ -5208,6 +5206,23 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.117",
+]
+
+[[package]]
+name = "zingerboost"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-shell",
+ "tracing",
+ "tracing-subscriber",
+ "zb_app",
+ "zb_application",
+ "zb_domain",
+ "zb_infrastructure",
 ]
 
 [[package]]

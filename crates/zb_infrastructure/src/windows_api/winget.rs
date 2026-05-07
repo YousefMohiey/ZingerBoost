@@ -18,7 +18,14 @@ impl WingetInstaller {
 
     pub fn install(&self, package_id: &str) -> Result<String, String> {
         let output = Command::new("winget")
-            .args(["install", "--id", package_id, "--accept-source-agreements", "--accept-package-agreements", "--silent"])
+            .args([
+                "install",
+                "--id",
+                package_id,
+                "--accept-source-agreements",
+                "--accept-package-agreements",
+                "--silent",
+            ])
             .output()
             .map_err(|e| format!("Failed to run winget: {}", e))?;
 
@@ -27,7 +34,9 @@ impl WingetInstaller {
 
         if output.status.success() {
             Ok(format!("{} installed successfully", package_id))
-        } else if stderr.contains("No installed package found") || stdout.contains("No installed package found") {
+        } else if stderr.contains("No installed package found")
+            || stdout.contains("No installed package found")
+        {
             Ok(format!("{} is already installed", package_id))
         } else {
             Err(format!("Winget error: {} {}", stdout, stderr))
@@ -37,8 +46,14 @@ impl WingetInstaller {
     pub fn remove_appx(&self, package_family_name: &str) -> Result<String, String> {
         let output = Command::new("powershell")
             .args([
-                "-NoProfile", "-WindowStyle", "Hidden", "-Command",
-                &format!("Get-AppxPackage *{}* | Remove-AppxPackage", package_family_name),
+                "-NoProfile",
+                "-WindowStyle",
+                "Hidden",
+                "-Command",
+                &format!(
+                    "Get-AppxPackage *{}* | Remove-AppxPackage",
+                    package_family_name
+                ),
             ])
             .output()
             .map_err(|e| format!("Failed to run PowerShell: {}", e))?;

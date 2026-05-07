@@ -16,12 +16,5 @@ thiserror = { workspace = true }
 anyhow = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
 tauri = { workspace = true }
 tauri-plugin-shell = { workspace = true }
-
-[build-dependencies]
-tauri-build = { workspace = true }
-
-[features]
-custom-protocol = ["tauri/custom-protocol"]

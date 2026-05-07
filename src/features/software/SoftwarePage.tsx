@@ -209,13 +209,24 @@ const SoftwarePage: React.FC = () => {
         </>
       ) : (
         <>
-          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex items-start gap-3 mb-4">
+            <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex items-start gap-3 mb-4">
             <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
             <div>
               <div className="text-sm font-medium text-amber-400">Protected apps will be kept</div>
               <p className="text-xs text-amber-400/80 mt-1">
                 Notepad, Calculator, Microsoft Store, Photos, Camera, Snipping Tool, and system
                 runtimes will NOT be removed.
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-brand-500/10 border border-brand-500/20 rounded-xl p-4 flex items-start gap-3 mb-4">
+            <Globe className="w-5 h-5 text-brand-400 shrink-0 mt-0.5" />
+            <div>
+              <div className="text-sm font-medium text-brand-400">Everything can be reinstalled</div>
+              <p className="text-xs text-brand-400/80 mt-1">
+                Any removed app can be reinstalled anytime from the Microsoft Store or via winget. 
+                ZingerBoost is designed so nothing is permanently lost.
               </p>
             </div>
           </div>

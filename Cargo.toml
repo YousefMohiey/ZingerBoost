@@ -5,6 +5,7 @@ members = [
     "crates/zb_application",
     "crates/zb_infrastructure",
     "crates/zb_app",
+    "src-tauri",
 ]
 resolver = "2"
 
@@ -27,12 +28,10 @@ chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.11", features = ["v4", "serde"] }
 async-trait = "0.1"
 
-# Tauri (v2)
 tauri = { version = "2", features = [] }
 tauri-build = { version = "2" }
 tauri-plugin-shell = "2"
 
-# Windows APIs
 windows = { version = "0.58", features = [
     "Win32_Foundation",
     "Win32_System_Registry",
@@ -47,15 +46,13 @@ windows = { version = "0.58", features = [
     "Win32_UI_WindowsAndMessaging",
 ] }
 
-# Database
 rusqlite = { version = "0.32", features = ["bundled", "chrono", "uuid"] }
 rusqlite_migration = "1.3"
 
-# Testing
 mockall = "0.13"
 
-# Shared internal crates
 zb_shared = { path = "crates/zb_shared" }
 zb_domain = { path = "crates/zb_domain" }
 zb_application = { path = "crates/zb_application" }
 zb_infrastructure = { path = "crates/zb_infrastructure" }
+zb_app = { path = "crates/zb_app" }
