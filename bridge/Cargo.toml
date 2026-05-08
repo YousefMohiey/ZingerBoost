@@ -6,8 +6,12 @@ edition.workspace = true
 license.workspace = true
 
 [lib]
-crate-type = ["cdylib", "staticlib"]
+crate-type = ["cdylib", "staticlib", "rlib"]
 name = "zingerboost_core"
+
+[[bin]]
+name = "zingerboost"
+path = "src/bin.rs"
 
 [dependencies]
 zb_shared = { workspace = true }

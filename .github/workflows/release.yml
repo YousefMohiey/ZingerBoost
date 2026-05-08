@@ -26,33 +26,19 @@ jobs:
           flutter pub get
           flutter build windows
 
-      - name: Collect release files
+      - name: Collect build output
         shell: cmd
         run: |
           mkdir release
           copy target\release\zingerboost_core.dll release\
-          echo === Flutter output ===
-          dir /s zingerboost_flutter\build\windows\
-          echo === Copying ===
           for /r zingerboost_flutter\build\windows %%f in (*.exe) do copy "%%f" release\
           for /r zingerboost_flutter\build\windows %%f in (*.dll) do copy "%%f" release\
-          echo === Release folder ===
-          dir release\
-
-      - name: Build installer
-        run: |
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" setup.iss
 
       - uses: softprops/action-gh-release@v2
         with:
-          files: installer/ZingerBoost_Setup.exe
+          files: release/*
           name: "ZingerBoost ${{ github.ref_name }}"
           body: |
-            ## Download & Install
-            1. Download `ZingerBoost_Setup.exe`
-            2. Run the installer (includes all dependencies, one-click)
-            3. Requires [VC++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe) if not already installed
-
-            **25 Tweaks · 19 Services · 9 Cleaner Categories · 34 Debloat Targets**
-            Built with Rust + Flutter. MIT License.
+            Extract all files to a folder. Run `zingerboost.exe`.
+            Requires [VC++ Redist](https://aka.ms/vs/17/release/vc_redist.x64.exe) (one-time).
           fail_on_unmatched_files: false
