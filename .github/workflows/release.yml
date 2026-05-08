@@ -12,33 +12,25 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo build --release -p zingerboost_bridge
-
-      - uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.22'
-      - working-directory: zingerboost_flutter
-        run: |
-          flutter create --platforms windows .
-          flutter pub get
-          flutter build windows
-
-      - name: Collect build output
-        shell: cmd
-        run: |
-          mkdir release
-          copy target\release\zingerboost_core.dll release\
-          for /r zingerboost_flutter\build\windows %%f in (*.exe) do copy "%%f" release\
-          for /r zingerboost_flutter\build\windows %%f in (*.dll) do copy "%%f" release\
-
       - uses: softprops/action-gh-release@v2
         with:
-          files: release/*
+          files: |
+            target/release/zingerboost.exe
+            target/release/zingerboost_core.dll
           name: "ZingerBoost ${{ github.ref_name }}"
           body: |
-            Extract all files to a folder. Run `zingerboost.exe`.
-            Requires [VC++ Redist](https://aka.ms/vs/17/release/vc_redist.x64.exe) (one-time).
+            **Rust backend** — contains all 25 tweaks, services, cleaner, and debloat engine.
+
+            **For the full GUI:** build Flutter locally on Windows:
+            ```
+            cd zingerboost_flutter
+            flutter create --platforms windows .
+            flutter pub get
+            flutter build windows
+            ```
+
+            Requires [VC++ Redist](https://aka.ms/vs/17/release/vc_redist.x64.exe).
           fail_on_unmatched_files: false
