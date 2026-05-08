@@ -27,12 +27,16 @@ jobs:
           flutter build windows
 
       - name: Collect release files
+        shell: cmd
         run: |
           mkdir release
           copy target\release\zingerboost_core.dll release\
-          dir zingerboost_flutter\build\windows\x64\runner\Release\
-          copy "zingerboost_flutter\build\windows\x64\runner\Release\zingerboost.exe" release\
-          copy "zingerboost_flutter\build\windows\x64\runner\Release\*.dll" release\
+          echo === Flutter output ===
+          dir /s zingerboost_flutter\build\windows\
+          echo === Copying ===
+          for /r zingerboost_flutter\build\windows %%f in (*.exe) do copy "%%f" release\
+          for /r zingerboost_flutter\build\windows %%f in (*.dll) do copy "%%f" release\
+          echo === Release folder ===
           dir release\
 
       - name: Build installer
