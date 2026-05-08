@@ -59,6 +59,10 @@ pub extern "C" fn init_app() -> i32 {
         Arc::new(DisableExplorerAdsTweak::with_provider(rp.clone())),
         Arc::new(DisableAdvertisingIdTweak::with_provider(rp.clone())),
         Arc::new(DisableMeetNowTweak::with_provider(rp.clone())),
+        Arc::new(DisableAllVisualEffectsTweak::with_provider(rp.clone())),
+        Arc::new(DisableDropShadowsTweak::with_provider(rp.clone())),
+        Arc::new(DisableThumbnailsTweak::with_provider(rp.clone())),
+        Arc::new(DisableMinMaxAnimTweak::with_provider(rp.clone())),
         Arc::new(DisableHibernationTweak::new()),
         Arc::new(SetHighPerformanceTweak::new()),
     ];
