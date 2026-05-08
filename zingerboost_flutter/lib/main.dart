@@ -1,25 +1,38 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:window_manager/window_manager.dart';
-import 'app.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  runApp(const ZingerBoostApp());
+}
 
-  await windowManager.ensureInitialized();
+class ZingerBoostApp extends StatelessWidget {
+  const ZingerBoostApp({super.key});
 
-  final options = WindowOptions(
-    size: const Size(1200, 800),
-    minimumSize: const Size(900, 600),
-    center: true,
-    title: 'ZingerBoost',
-    skipTaskbar: false,
-  );
-
-  await windowManager.waitUntilReadyToShow(options, () async {
-    await windowManager.show();
-    await windowManager.focus();
-  });
-
-  runApp(const ProviderScope(child: ZingerBoostApp()));
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'ZingerBoost',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData.dark().copyWith(
+        scaffoldBackgroundColor: const Color(0xFF0A0A0A),
+        colorScheme: ColorScheme.dark(primary: const Color(0xFF0EA5E9)),
+      ),
+      home: const Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.shield, size: 64, color: Color(0xFF0EA5E9)),
+              SizedBox(height: 16),
+              Text('ZingerBoost', style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.white)),
+              SizedBox(height: 8),
+              Text('v0.2.3', style: TextStyle(fontSize: 16, color: Colors.grey)),
+              SizedBox(height: 24),
+              Text('Safe Windows Optimization Utility', style: TextStyle(color: Colors.grey, fontSize: 14)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
