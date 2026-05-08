@@ -2,8 +2,7 @@ name: Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    tags: ['v*']
   workflow_dispatch:
 
 jobs:
@@ -27,12 +26,30 @@ jobs:
           flutter pub get
           flutter build windows
 
+      - name: Collect release files
+        run: |
+          mkdir release
+          copy target\release\zingerboost_core.dll release\
+          copy zingerboost_flutter\build\windows\x64\runner\Release\zingerboost_flutter.exe release\
+          copy zingerboost_flutter\build\windows\x64\runner\Release\flutter_windows.dll release\
+          copy zingerboost_flutter\build\windows\x64\runner\Release\window_manager_plugin.dll release\
+          copy zingerboost_flutter\build\windows\x64\runner\Release\screen_retriever_plugin.dll release\
+          copy zingerboost_flutter\build\windows\x64\runner\Release\*.* release\
+
+      - name: Build installer
+        run: |
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" setup.iss
+
       - uses: softprops/action-gh-release@v2
         with:
-          files: |
-            target/release/zingerboost_core.dll
-            zingerboost_flutter/build/windows/x64/runner/Release/*.exe
-            zingerboost_flutter/build/windows/x64/runner/Release/*.dll
+          files: installer/ZingerBoost_Setup.exe
           name: "ZingerBoost ${{ github.ref_name }}"
-          body: "25 tweaks, 19 services, 9 cleaner categories, 34 debloat targets. Built with Rust + Flutter."
+          body: |
+            ## Download & Install
+            1. Download `ZingerBoost_Setup.exe`
+            2. Run the installer (includes all dependencies, one-click)
+            3. Requires [VC++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe) if not already installed
+
+            **25 Tweaks · 19 Services · 9 Cleaner Categories · 34 Debloat Targets**
+            Built with Rust + Flutter. MIT License.
           fail_on_unmatched_files: false
