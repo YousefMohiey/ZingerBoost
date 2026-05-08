@@ -30,11 +30,10 @@ jobs:
         run: |
           mkdir release
           copy target\release\zingerboost_core.dll release\
-          copy zingerboost_flutter\build\windows\x64\runner\Release\zingerboost_flutter.exe release\
-          copy zingerboost_flutter\build\windows\x64\runner\Release\flutter_windows.dll release\
-          copy zingerboost_flutter\build\windows\x64\runner\Release\window_manager_plugin.dll release\
-          copy zingerboost_flutter\build\windows\x64\runner\Release\screen_retriever_plugin.dll release\
-          copy zingerboost_flutter\build\windows\x64\runner\Release\*.* release\
+          dir zingerboost_flutter\build\windows\x64\runner\Release\
+          copy "zingerboost_flutter\build\windows\x64\runner\Release\zingerboost.exe" release\
+          copy "zingerboost_flutter\build\windows\x64\runner\Release\*.dll" release\
+          dir release\
 
       - name: Build installer
         run: |
