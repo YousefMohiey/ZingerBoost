@@ -16,11 +16,14 @@ class SnapshotInfo {
   });
 
   factory SnapshotInfo.fromJson(Map<String, dynamic> json) {
+    final records = json['tweak_records'];
     return SnapshotInfo(
       id: json['id'] ?? '',
-      date: DateTime.tryParse(json['date'] ?? '') ?? DateTime.now(),
+      date: DateTime.tryParse(json['created_at'] ?? json['date'] ?? '') ??
+          DateTime.now(),
       description: json['description'] ?? '',
-      tweakCount: json['tweak_count'] ?? 0,
+      tweakCount: json['tweak_count'] ??
+          (records is List ? records.length : 0),
     );
   }
 }
@@ -56,7 +59,10 @@ class _SnapshotsPageState extends State<SnapshotsPage> {
       final snapshots = await RustBridge.listSnapshots();
       if (mounted) {
         setState(() {
-          _snapshots = snapshots.map((s) => s as SnapshotInfo).toList();
+          _snapshots = snapshots
+              .whereType<Map<String, dynamic>>()
+              .map(SnapshotInfo.fromJson)
+              .toList();
           _loading = false;
         });
       }

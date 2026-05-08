@@ -32,11 +32,11 @@ class _TweaksPageState extends State<TweaksPage> {
     'All',
     'Performance',
     'Privacy',
-    'UI',
-    'System',
+    'Visual',
+    'Startup',
+    'Debloat',
     'Gaming',
     'Network',
-    'Security',
   ];
 
   @override
@@ -133,10 +133,12 @@ class _TweaksPageState extends State<TweaksPage> {
         return Icons.speed;
       case 'Privacy':
         return Icons.shield;
-      case 'UI':
+      case 'Visual':
         return Icons.palette;
-      case 'System':
-        return Icons.settings;
+      case 'Startup':
+        return Icons.rocket_launch;
+      case 'Debloat':
+        return Icons.delete_sweep;
       case 'Gaming':
         return Icons.sports_esports;
       case 'Network':

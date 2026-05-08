@@ -26,13 +26,52 @@ class _MaintenancePageState extends State<MaintenancePage> with SingleTickerProv
   }
 
   Future<void> _loadServices() async {
-    // TODO: connect to real RustBridge.listServices()
-    setState(() => _loadingServices = false);
+    try {
+      final services = await RustBridge.listServices();
+      if (mounted) {
+        setState(() {
+          _services = services;
+          _loadingServices = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingServices = false);
+    }
   }
 
   Future<void> _loadCleaner() async {
-    // TODO: connect to real RustBridge.scanCleaner()
-    setState(() => _loadingCleaner = false);
+    try {
+      final categories = await RustBridge.scanCleaner();
+      if (mounted) {
+        setState(() {
+          _cleanCategories = categories;
+          _loadingCleaner = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingCleaner = false);
+    }
+  }
+
+  Future<void> _stopService(String name) async {
+    try {
+      await RustBridge.stopService(name);
+      await _loadServices();
+    } catch (_) {}
+  }
+
+  Future<void> _disableService(String name) async {
+    try {
+      await RustBridge.disableService(name);
+      await _loadServices();
+    } catch (_) {}
+  }
+
+  Future<void> _runCleaner(String id) async {
+    try {
+      await RustBridge.runCleaner(id);
+      await _loadCleaner();
+    } catch (_) {}
   }
 
   @override
@@ -114,13 +153,13 @@ class _MaintenancePageState extends State<MaintenancePage> with SingleTickerProv
             children: [
               if (svc['status'] == 'Running')
                 TextButton.icon(
-                  onPressed: () {},
+                  onPressed: () => _stopService(svc['name'] ?? ''),
                   icon: Icon(Icons.stop_circle_outlined, size: 16, color: Colors.amber),
                   label: Text('Stop', style: TextStyle(color: Colors.amber, fontSize: 12)),
                 ),
               SizedBox(width: 8),
               TextButton.icon(
-                onPressed: () {},
+                onPressed: () => _disableService(svc['name'] ?? ''),
                 icon: Icon(Icons.block, size: 16, color: Colors.red.withOpacity(0.8)),
                 label: Text('Disable', style: TextStyle(color: Colors.red.withOpacity(0.8), fontSize: 12)),
               ),
@@ -143,7 +182,10 @@ class _MaintenancePageState extends State<MaintenancePage> with SingleTickerProv
               children: [
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: () {},
+                    onPressed: () async {
+                      setState(() => _loadingCleaner = true);
+                      await _loadCleaner();
+                    },
                     icon: Icon(Icons.search, size: 16),
                     label: Text('Scan'),
                     style: ElevatedButton.styleFrom(backgroundColor: Color(0xFF0EA5E9), foregroundColor: Colors.white),
@@ -152,7 +194,16 @@ class _MaintenancePageState extends State<MaintenancePage> with SingleTickerProv
                 SizedBox(width: 8),
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: () {},
+                    onPressed: () async {
+                      final safeCategories = _cleanCategories
+                          .where((cat) => cat['risk'] == 'safe')
+                          .map((cat) => cat['id']?.toString() ?? '')
+                          .where((id) => id.isNotEmpty)
+                          .toList();
+                      for (final id in safeCategories) {
+                        await _runCleaner(id);
+                      }
+                    },
                     icon: Icon(Icons.cleaning_services, size: 16),
                     label: Text('Clean All Safe'),
                     style: ElevatedButton.styleFrom(backgroundColor: Color(0xFF10B981), foregroundColor: Colors.white),
@@ -203,7 +254,7 @@ class _MaintenancePageState extends State<MaintenancePage> with SingleTickerProv
               SizedBox(
                 height: 28,
                 child: ElevatedButton(
-                  onPressed: () {},
+                  onPressed: () => _runCleaner(cat['id'] ?? ''),
                   style: ElevatedButton.styleFrom(backgroundColor: riskColor, foregroundColor: Colors.white, padding: EdgeInsets.symmetric(horizontal: 12), textStyle: TextStyle(fontSize: 11)),
                   child: Text('Clean'),
                 ),

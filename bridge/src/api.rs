@@ -79,6 +79,15 @@ pub fn list_snapshots() -> String {
     }
 }
 
+pub fn restore_snapshot(id: String) -> String {
+    let app = get_app();
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    match rt.block_on(app.engine.snapshot_service().restore_snapshot(&id)) {
+        Ok(()) => serde_json::json!({"success": true}).to_string(),
+        Err(e) => serde_json::json!({"success": false, "message": e.to_string()}).to_string(),
+    }
+}
+
 pub fn get_audit_log(limit: i32) -> String {
     let app = get_app();
     let rt = tokio::runtime::Runtime::new().unwrap();

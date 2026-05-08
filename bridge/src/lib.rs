@@ -1,3 +1,5 @@
+use std::ffi::{CStr, CString};
+use std::os::raw::c_char;
 use std::sync::{Arc, OnceLock};
 use tokio::sync::Mutex;
 use zb_application::audit_service::AuditService;
@@ -74,4 +76,112 @@ pub extern "C" fn init_app() -> i32 {
     };
     APP.set(state).map(|_| 0).unwrap_or(0);
     0
+}
+
+fn c_string(value: String) -> *mut c_char {
+    match CString::new(value) {
+        Ok(s) => s.into_raw(),
+        Err(_) => CString::new("{\"error\":\"invalid string\"}")
+            .expect("static error string is valid")
+            .into_raw(),
+    }
+}
+
+unsafe fn string_from_ptr(ptr: *const c_char) -> String {
+    if ptr.is_null() {
+        return String::new();
+    }
+    CStr::from_ptr(ptr).to_string_lossy().into_owned()
+}
+
+#[no_mangle]
+pub extern "C" fn zingerboost_free_string(ptr: *mut c_char) {
+    if ptr.is_null() {
+        return;
+    }
+    unsafe {
+        let _ = CString::from_raw(ptr);
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn zingerboost_list_tweaks() -> *mut c_char {
+    c_string(api::list_tweaks())
+}
+
+#[no_mangle]
+pub extern "C" fn zingerboost_apply_tweak(id: *const c_char) -> *mut c_char {
+    c_string(api::apply_tweak(unsafe { string_from_ptr(id) }))
+}
+
+#[no_mangle]
+pub extern "C" fn zingerboost_revert_tweak(id: *const c_char) -> *mut c_char {
+    c_string(api::revert_tweak(unsafe { string_from_ptr(id) }))
+}
+
+#[no_mangle]
+pub extern "C" fn zingerboost_get_metrics() -> *mut c_char {
+    c_string(api::get_metrics())
+}
+
+#[no_mangle]
+pub extern "C" fn zingerboost_get_tweak_explanation(id: *const c_char) -> *mut c_char {
+    c_string(api::get_tweak_explanation(unsafe { string_from_ptr(id) }))
+}
+
+#[no_mangle]
+pub extern "C" fn zingerboost_list_snapshots() -> *mut c_char {
+    c_string(api::list_snapshots())
+}
+
+#[no_mangle]
+pub extern "C" fn zingerboost_restore_snapshot(id: *const c_char) -> *mut c_char {
+    c_string(api::restore_snapshot(unsafe { string_from_ptr(id) }))
+}
+
+#[no_mangle]
+pub extern "C" fn zingerboost_list_software() -> *mut c_char {
+    c_string(api::list_software())
+}
+
+#[no_mangle]
+pub extern "C" fn zingerboost_list_bloatware() -> *mut c_char {
+    c_string(api::list_bloatware())
+}
+
+#[no_mangle]
+pub extern "C" fn zingerboost_install_software(winget_id: *const c_char) -> *mut c_char {
+    c_string(api::install_software(unsafe { string_from_ptr(winget_id) }))
+}
+
+#[no_mangle]
+pub extern "C" fn zingerboost_remove_bloatware(package_ids_json: *const c_char) -> *mut c_char {
+    c_string(api::remove_bloatware(unsafe {
+        string_from_ptr(package_ids_json)
+    }))
+}
+
+#[no_mangle]
+pub extern "C" fn zingerboost_list_services() -> *mut c_char {
+    c_string(api::list_services())
+}
+
+#[no_mangle]
+pub extern "C" fn zingerboost_stop_service(name: *const c_char) -> *mut c_char {
+    c_string(api::stop_service(unsafe { string_from_ptr(name) }))
+}
+
+#[no_mangle]
+pub extern "C" fn zingerboost_disable_service(name: *const c_char) -> *mut c_char {
+    c_string(api::disable_service(unsafe { string_from_ptr(name) }))
+}
+
+#[no_mangle]
+pub extern "C" fn zingerboost_scan_cleaner() -> *mut c_char {
+    c_string(api::scan_cleaner())
+}
+
+#[no_mangle]
+pub extern "C" fn zingerboost_run_cleaner(category: *const c_char) -> *mut c_char {
+    c_string(api::run_cleaner(unsafe { string_from_ptr(category) }))
 }
