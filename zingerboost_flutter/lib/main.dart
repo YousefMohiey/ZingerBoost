@@ -88,7 +88,7 @@ class _DashState extends State<Dash> {
   Timer? _timer;
   @override void initState() { super.initState(); _timer = Timer.periodic(const Duration(seconds: 2), (_) => mounted ? setState(() {}) : null); }
   @override void dispose() { _timer?.cancel(); super.dispose(); }
-  final _recs = const [
+  final _recs = [
     'Disable Transparency Effects — reduce GPU load',
     'Disable Game DVR — free CPU while gaming',
     'Show File Extensions — security best practice',
@@ -123,11 +123,12 @@ class _DashState extends State<Dash> {
             const Text('Recommended Actions', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
           ]),
           const SizedBox(height: 10),
-          ..._recs.map((e) => Padding(padding: const EdgeInsets.only(bottom: 6), child: Row(children: [
-            Icon(Icons.check_circle_outline, color: const Color(0xFF10B981), size: 14),
-            const SizedBox(width: 8),
-            Expanded(child: Text(e, style: const TextStyle(fontSize: 12))),
-          ]))),
+          for (final e in _recs)
+            Padding(padding: const EdgeInsets.only(bottom: 6), child: Row(children: [
+              Icon(Icons.check_circle_outline, color: const Color(0xFF10B981), size: 14),
+              const SizedBox(width: 8),
+              Expanded(child: Text(e, style: const TextStyle(fontSize: 12))),
+            ])),
         ]))),
     ]);
   }
@@ -546,9 +547,10 @@ class _SoftwareState extends State<Software> with SingleTickerProviderStateMixin
             ])));
         }),
       )),
-    ]);
+    ];
   }
 }
+
 class _A { final String name, cat; final IconData ic; const _A(this.name, String _, this.cat, this.ic); }
 
 // =============================================
