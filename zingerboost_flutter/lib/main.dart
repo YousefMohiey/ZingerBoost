@@ -147,9 +147,44 @@ class _DashboardPageState extends State<DashboardPage> {
         'Show File Extensions — security best practice',
       ]),
     ]);}
-  Widget _metricCard(IconData icon, String label, String value, String sub, Color c) => Card(color: const Color(0xFF171717), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: Color(0xFF262626))), child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: c.withOpacity(0.15), borderRadius: BorderRadius.circular(8)), child: Icon(icon, color: c, size: 20)), const Spacer(), Text(label, style: TextStyle(color: Colors.grey.shade400, fontSize: 12)), const SizedBox(height: 4), Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)), if(sub.isNotEmpty) Text(sub, style: TextStyle(color: Colors.grey.shade500, fontSize: 11))]))));
-  Widget _buildCard(Color c, String title, List<String> items) => Card(color: const Color(0xFF171717), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: Color(0xFF262626))), child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: c.withOpacity(0.15), borderRadius: BorderRadius.circular(6)), child: Icon(Icons.tips_and_updates, color: c, size: 16)), const SizedBox(width: 8), Text(title, style: TextStyle(color: c, fontWeight: FontWeight.w600, fontSize: 14))]), const SizedBox(height: 10), ...items.map((e) => Padding(padding: const EdgeInsets.only(bottom: 6), child: Row(children: [Icon(Icons.check_circle_outline, color: c, size: 14), const SizedBox(width: 8), Expanded(child: Text(e, style: const TextStyle(fontSize: 12)))])),)]))));
-}
+  Widget _metricCard(IconData icon, String label, String value, String sub, Color c) {
+    return Card(
+      color: const Color(0xFF171717),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: Color(0xFF262626))),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: c.withOpacity(0.15), borderRadius: BorderRadius.circular(8)), child: Icon(icon, color: c, size: 20)),
+          const Spacer(),
+          Text(label, style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+          const SizedBox(height: 4),
+          Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          if (sub.isNotEmpty) Text(sub, style: TextStyle(color: Colors.grey.shade500, fontSize: 11)),
+        ])));
+  }
+  Widget _buildCard(Color c, String title, List<String> items) {
+    return Card(
+      color: const Color(0xFF171717),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: Color(0xFF262626))),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: c.withOpacity(0.15), borderRadius: BorderRadius.circular(6)), child: Icon(Icons.tips_and_updates, color: c, size: 16)),
+            const SizedBox(width: 8),
+            Text(title, style: TextStyle(color: c, fontWeight: FontWeight.w600, fontSize: 14)),
+          ]),
+          const SizedBox(height: 10),
+          ...items.map((e) => Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(children: [
+              Icon(Icons.check_circle_outline, color: c, size: 14),
+              const SizedBox(width: 8),
+              Expanded(child: Text(e, style: const TextStyle(fontSize: 12))),
+            ]),
+          )),
+        ])));
+  }
 
 class TweaksPage extends StatefulWidget {
   const TweaksPage({super.key});
