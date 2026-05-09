@@ -12,51 +12,20 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-
-      - name: Build Rust backend
-        run: cargo build --release -p zingerboost_bridge
-
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.22'
-
-      - name: Build Flutter app
-        working-directory: zingerboost_flutter
-        run: |
-          flutter create --platforms windows .
-          flutter pub get
-          flutter build windows
-
-      - name: Package release
-        shell: pwsh
-        run: |
-          $flutterBuild = "zingerboost_flutter\build\windows\x64\runner\Release"
-          $releaseDir = "release\ZingerBoost"
-          mkdir $releaseDir
-
-          # Rust DLL
-          copy target\release\zingerboost_core.dll $releaseDir\
-
-          # Flutter output — EVERYTHING including data folder
-          Copy-Item -Path "$flutterBuild\*" -Destination $releaseDir -Recurse
-
-          # List for verification
-          Get-ChildItem $releaseDir -Recurse
-
-          # Create ZIP
-          Compress-Archive -Path "$releaseDir\*" -DestinationPath release\ZingerBoost.zip
-
+      - run: cargo build --release -p zingerboost
+      - run: |
+          mkdir release
+          copy target\release\zingerboost.exe release\
       - uses: softprops/action-gh-release@v2
         with:
-          files: release/ZingerBoost.zip
+          files: release/zingerboost.exe
           name: "ZingerBoost ${{ github.ref_name }}"
           body: |
-            Extract `ZingerBoost.zip` to any folder and run `zingerboost.exe`.
+            ## ZingerBoost v0.5.0
 
-            Requires [VC++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe) (one-time install).
+            Pure Rust desktop server. Run `zingerboost.exe` and open http://127.0.0.1:19999 in your browser.
+
+            **29 real tweaks** · **19 real services** · **9 real cleaner categories** · **34 real debloat targets**
           fail_on_unmatched_files: false
