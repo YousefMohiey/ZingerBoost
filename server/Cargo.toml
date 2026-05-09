@@ -21,3 +21,4 @@ uuid = { workspace = true }
 warp = "0.3"
 rust-embed = "8.0"
 mime_guess = "2.0"
+rusqlite = { workspace = true }

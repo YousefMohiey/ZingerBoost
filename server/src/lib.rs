@@ -1,3 +1,4 @@
+use std::convert::warp::Rejection;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use warp::Filter;
@@ -7,133 +8,125 @@ mod app;
 
 pub use app::AppState;
 
-pub async fn run() {
-    let state = Arc::new(Mutex::new(app::AppState::new().await));
-
-    // API routes
-    let api = warp::path("api");
-
-    // CORS
-    let cors = warp::cors()
-        .allow_any_origin()
-        .allow_headers(vec!["content-type"])
-        .allow_methods(vec!["GET", "POST"]);
-
-    // Static files
-    let static_files = warp::path::end().and(warp::fs::dir("server/static")).or(
-        warp::path("static").and(warp::fs::dir("server/static")),
-    );
-
-    let routes = api.and(api_routes(state.clone())).with(cors).or(static_files);
-
-    println!("Starting ZingerBoost server on http://127.0.0.1:19999");
-    warp::serve(routes).run(([127, 0, 0, 1], 19999)).await;
+fn json_response(v: serde_json::Value) -> Box<dyn warp::Reply> {
+    Box::new(warp::reply::json(&v))
 }
 
-fn api_routes(
-    state: Arc<Mutex<app::AppState>>,
-) -> impl Filter<Extract = impl warp::Reply, Error = warp::Rejection> + Clone {
-    let s = warp::any().map(move || state.clone());
+type AppRef = Arc<Mutex<AppState>>;
+type ApiResult = Result<Box<dyn warp::Reply>, warp::Rejection>;
+
+pub async fn run() {
+    let state: AppRef = Arc::new(Mutex::new(app::AppState::new().await));
+
+    let state_filter = warp::any().map(move || state.clone());
+
+    let api_prefix = warp::path("api");
 
     // GET /api/metrics
-    let metrics = warp::path("metrics")
+    let metrics = api_prefix
+        .and(warp::path("metrics"))
         .and(warp::get())
-        .and(s.clone())
-        .and_then(api::get_metrics);
+        .and(state_filter.clone())
+        .and_then(|s: AppRef| async move { api::get_metrics(s).await });
 
     // GET /api/tweaks
-    let tweaks = warp::path("tweaks")
+    let tweaks = api_prefix
+        .and(warp::path("tweaks"))
         .and(warp::get())
-        .and(s.clone())
-        .and_then(api::list_tweaks);
+        .and(state_filter.clone())
+        .and_then(|s: AppRef| async move { api::list_tweaks(s).await });
 
     // POST /api/tweaks/apply
-    let apply = warp::path("tweaks")
-        .and(warp::path("apply"))
+    let apply = api_prefix
+        .and(warp::path("tweaks").and(warp::path("apply")))
         .and(warp::post())
         .and(warp::body::json())
-        .and(s.clone())
-        .and_then(api::apply_tweak);
+        .and(state_filter.clone())
+        .and_then(|body, s: AppRef| async move { api::apply_tweak(body, s).await });
 
     // POST /api/tweaks/revert
-    let revert = warp::path("tweaks")
-        .and(warp::path("revert"))
+    let revert = api_prefix
+        .and(warp::path("tweaks").and(warp::path("revert")))
         .and(warp::post())
         .and(warp::body::json())
-        .and(s.clone())
-        .and_then(api::revert_tweak);
+        .and(state_filter.clone())
+        .and_then(|body, s: AppRef| async move { api::revert_tweak(body, s).await });
 
     // GET /api/services
-    let services = warp::path("services")
+    let services = api_prefix
+        .and(warp::path("services"))
         .and(warp::get())
-        .and(s.clone())
-        .and_then(api::list_services);
+        .and(state_filter.clone())
+        .and_then(|s: AppRef| async move { api::list_services(s).await });
 
     // POST /api/services/stop
-    let svc_stop = warp::path("services")
-        .and(warp::path("stop"))
+    let svc_stop = api_prefix
+        .and(warp::path("services").and(warp::path("stop")))
         .and(warp::post())
         .and(warp::body::json())
-        .and(s.clone())
-        .and_then(api::stop_service);
+        .and(state_filter.clone())
+        .and_then(|body, s: AppRef| async move { api::stop_service(body, s).await });
 
     // POST /api/services/disable
-    let svc_disable = warp::path("services")
-        .and(warp::path("disable"))
+    let svc_disable = api_prefix
+        .and(warp::path("services").and(warp::path("disable")))
         .and(warp::post())
         .and(warp::body::json())
-        .and(s.clone())
-        .and_then(api::disable_service);
+        .and(state_filter.clone())
+        .and_then(|body, s: AppRef| async move { api::disable_service(body, s).await });
 
     // GET /api/cleaner/scan
-    let scan = warp::path("cleaner")
-        .and(warp::path("scan"))
+    let scan = api_prefix
+        .and(warp::path("cleaner").and(warp::path("scan")))
         .and(warp::get())
-        .and(s.clone())
-        .and_then(api::scan_cleaner);
+        .and(state_filter.clone())
+        .and_then(|s: AppRef| async move { api::scan_cleaner(s).await });
 
     // POST /api/cleaner/clean
-    let clean = warp::path("cleaner")
-        .and(warp::path("clean"))
+    let clean = api_prefix
+        .and(warp::path("cleaner").and(warp::path("clean")))
         .and(warp::post())
         .and(warp::body::json())
-        .and(s.clone())
-        .and_then(api::run_cleaner);
+        .and(state_filter.clone())
+        .and_then(|body, s: AppRef| async move { api::run_cleaner(body, s).await });
 
     // GET /api/debloat/list
-    let bloat = warp::path("debloat")
-        .and(warp::path("list"))
+    let bloat = api_prefix
+        .and(warp::path("debloat").and(warp::path("list")))
         .and(warp::get())
-        .and(s.clone())
-        .and_then(api::list_bloatware);
+        .and(state_filter.clone())
+        .and_then(|s: AppRef| async move { api::list_bloatware(s).await });
 
     // POST /api/debloat/remove
-    let rm_bloat = warp::path("debloat")
-        .and(warp::path("remove"))
+    let rm_bloat = api_prefix
+        .and(warp::path("debloat").and(warp::path("remove")))
         .and(warp::post())
         .and(warp::body::json())
-        .and(s.clone())
-        .and_then(api::remove_bloatware);
+        .and(state_filter.clone())
+        .and_then(|body, s: AppRef| async move { api::remove_bloatware(body, s).await });
 
     // GET /api/software
-    let software = warp::path("software")
+    let software = api_prefix
+        .and(warp::path("software"))
         .and(warp::get())
-        .and(s.clone())
-        .and_then(api::list_software);
+        .and(state_filter.clone())
+        .and_then(|s: AppRef| async move { api::list_software(s).await });
 
     // GET /api/snapshots
-    let snapshots = warp::path("snapshots")
+    let snapshots = api_prefix
+        .and(warp::path("snapshots"))
         .and(warp::get())
-        .and(s.clone())
-        .and_then(api::list_snapshots);
+        .and(state_filter.clone())
+        .and_then(|s: AppRef| async move { api::list_snapshots(s).await });
 
     // GET /api/audit
-    let audit = warp::path("audit")
+    let audit = api_prefix
+        .and(warp::path("audit"))
         .and(warp::get())
-        .and(s.clone())
-        .and_then(api::get_audit);
+        .and(state_filter.clone())
+        .and_then(|s: AppRef| async move { api::get_audit(s).await });
 
-    metrics
+    let api = metrics
         .or(tweaks).or(apply).or(revert)
         .or(services).or(svc_stop).or(svc_disable)
         .or(scan).or(clean)
@@ -141,4 +134,13 @@ fn api_routes(
         .or(software)
         .or(snapshots)
         .or(audit)
+        .unify();
+
+    let index = warp::path::end().and(warp::fs::file("server/static/index.html"));
+    let favicon = warp::path("favicon.ico").map(|| "");
+
+    let routes = api.or(index).or(favicon);
+
+    println!("ZingerBoost running at http://127.0.0.1:19999");
+    warp::serve(routes).run(([127, 0, 0, 1], 19999)).await;
 }
