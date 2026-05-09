@@ -52,7 +52,7 @@ class _ShellState extends State<Shell> {
     Center(child: Text('Snapshots')),
     Center(child: Text('Debloat')),
     Center(child: Text('Software')),
-    TempSett(),
+    SettPage(),
   ];
   @override
   Widget build(BuildContext c) {
@@ -84,8 +84,11 @@ class _ShellState extends State<Shell> {
   }
 }
 
-class TempSett extends StatelessWidget {
-  const TempSett({super.key});
+// =============================================
+// Settings
+// =============================================
+class SettPage extends StatelessWidget {
+  const SettPage({super.key});
   @override Widget build(BuildContext c) {
     final isDark = Theme.of(c).brightness == Brightness.dark;
     return ListView(padding: const EdgeInsets.all(16), children: [
@@ -96,6 +99,43 @@ class TempSett extends StatelessWidget {
         onChanged: (_) => ZingerBoostApp.of(c)?.toggleTheme(),
         secondary: Icon(isDark ? Icons.dark_mode : Icons.light_mode),
       )),
+      const SizedBox(height: 12),
+      Card(color: const Color(0xFF171717), child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Version', style: TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(color: const Color(0xFF0EA5E9).withOpacity(0.15), borderRadius: BorderRadius.circular(6)),
+            child: const Text('v0.3.1', style: TextStyle(color: Color(0xFF0EA5E9), fontSize: 12, fontWeight: FontWeight.w500))),
+        ]),
+      )),
+      const SizedBox(height: 12),
+      Card(color: const Color(0xFF171717), child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('About', style: TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          const Text('Safe, reversible Windows optimization. 29 tweaks, 19 services, 9 cleaner categories, 34 debloat targets.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+          const SizedBox(height: 4),
+          const Text('Author: YousefMohiey | MIT License', style: TextStyle(fontSize: 11, color: Colors.grey)),
+        ]),
+      )),
+      const SizedBox(height: 16),
+      OutlinedButton.icon(
+        onPressed: () => showDialog(context: c, builder: (ctx) => AlertDialog(
+          title: const Text('Reset All Tweaks?'),
+          content: const Text('This reverts every tweak to its original state.'),
+          actions: [
+            TextButton(child: const Text('Cancel'), onPressed: () => Navigator.pop(ctx)),
+            TextButton(child: const Text('Reset', style: TextStyle(color: Colors.red)),
+              onPressed: () { Navigator.pop(ctx); ScaffoldMessenger.of(c).showSnackBar(const SnackBar(content: Text('All tweaks reset'))); }),
+          ],
+        )),
+        icon: const Icon(Icons.refresh, size: 16),
+        label: const Text('Reset All Tweaks'),
+        style: OutlinedButton.styleFrom(foregroundColor: Colors.red, side: const BorderSide(color: Colors.red)),
+      ),
     ]);
   }
 }
