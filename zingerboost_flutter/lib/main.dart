@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dash_page.dart';
+import 'tweaks_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -47,7 +48,7 @@ class _ShellState extends State<Shell> {
   int _idx = 0;
   final _pages = const [
     DashPage(),
-    Center(child: Text('Tweaks')),
+    TweaksPage(),
     Center(child: Text('Services')),
     Center(child: Text('Cleaner')),
     Center(child: Text('Snapshots')),
