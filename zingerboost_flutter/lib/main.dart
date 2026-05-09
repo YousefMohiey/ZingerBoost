@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 void main() {
@@ -125,10 +126,138 @@ class _MainShellState extends State<MainShell> {
   }
 }
 
-class DashboardPage extends StatelessWidget { const DashboardPage({super.key}); @override Widget build(BuildContext context) => const Center(child: Text('Dashboard — loading...')); }
-class TweaksPage extends StatelessWidget { const TweaksPage({super.key}); @override Widget build(BuildContext context) => const Center(child: Text('Tweaks — loading...')); }
-class ServicesPage extends StatelessWidget { const ServicesPage({super.key}); @override Widget build(BuildContext context) => const Center(child: Text('Services — loading...')); }
-class CleanerPage extends StatelessWidget { const CleanerPage({super.key}); @override Widget build(BuildContext context) => const Center(child: Text('Cleaner — loading...')); }
+class DashboardPage extends StatefulWidget {
+  const DashboardPage({super.key});
+  @override State<DashboardPage> createState() => _DashboardPageState();
+}
+class _DashboardPageState extends State<DashboardPage> {
+  @override void initState() { super.initState(); Timer.periodic(const Duration(seconds: 2), (_) => mounted ? setState(() {}) : null); }
+  @override void dispose() { super.dispose(); }
+  @override Widget build(BuildContext context) {
+    return ListView(padding: const EdgeInsets.all(16), children: [
+      GridView.count(crossAxisCount: 2, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), childAspectRatio: 1.6, mainAxisSpacing: 12, crossAxisSpacing: 12, children: [
+        _metricCard(Icons.computer, 'CPU Usage', '15%', '', const Color(0xFF0EA5E9)),
+        _metricCard(Icons.memory, 'RAM Usage', '42%', '6.9 / 16.3 GB', const Color(0xFF10B981)),
+        _metricCard(Icons.storage, 'Disk Active', '5%', '', const Color(0xFFF59E0B)),
+        _metricCard(Icons.wifi, 'Network', '0.5 Mbps', '↑ 0.1 Mbps', const Color(0xFF8B5CF6)),
+      ]), const SizedBox(height: 20),
+      _buildCard(const Color(0xFF10B981), 'Recommended Actions', [
+        'Disable Transparency Effects — reduce GPU load',
+        'Disable Game DVR — free CPU while gaming',
+        'Show File Extensions — security best practice',
+      ]),
+    ]);}
+  Widget _metricCard(IconData icon, String label, String value, String sub, Color c) => Card(color: const Color(0xFF171717), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: Color(0xFF262626))), child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Container(padding: const EdgeInsets.all(6), decoration: BoxDecoration(color: c.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)), child: Icon(icon, color: c, size: 20)), const Spacer(), Text(label, style: TextStyle(color: Colors.grey.shade400, fontSize: 12)), const SizedBox(height: 4), Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)), if(sub.isNotEmpty) Text(sub, style: TextStyle(color: Colors.grey.shade500, fontSize: 11))]))));
+  Widget _buildCard(Color c, String title, List<String> items) => Card(color: const Color(0xFF171717), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: Color(0xFF262626))), child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Row(children: [Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: c.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6)), child: Icon(Icons.tips_and_updates, color: c, size: 16)), const SizedBox(width: 8), Text(title, style: TextStyle(color: c, fontWeight: FontWeight.w600, fontSize: 14))]), const SizedBox(height: 10), ...items.map((e) => Padding(padding: const EdgeInsets.only(bottom: 6), child: Row(children: [Icon(Icons.check_circle_outline, color: c, size: 14), const SizedBox(width: 8), Expanded(child: Text(e, style: const TextStyle(fontSize: 12)))])),)]))));
+}
+
+class TweaksPage extends StatefulWidget {
+  const TweaksPage({super.key});
+  @override State<TweaksPage> createState() => _TweaksPageState();
+}
+class _TweaksPageState extends State<TweaksPage> {
+  String _filter = 'All';
+  String _search = '';
+  final _tweaks = const [
+    _Tweak('Disable Transparency Effects','Turns off acrylic effects reducing GPU load','Visual','Safe'),
+    _Tweak('Disable Game DVR','Stops background recording freeing CPU/GPU','Gaming','Safe'),
+    _Tweak('Show File Extensions','Always show extensions in Explorer','Visual','Safe'),
+    _Tweak('Disable Telemetry','Sets diagnostic data to minimum','Privacy','Safe'),
+    _Tweak('Disable Startup Delay','Removes 10 second startup delay','Performance','Safe'),
+    _Tweak('Disable Sticky Keys Popup','No more Shift×5 interruptions','Visual','Safe'),
+    _Tweak('Disable Background Apps','Stops UWP background processes','Privacy','Safe'),
+    _Tweak('High Performance Power Plan','Prevent CPU downclocking','Performance','Safe'),
+    _Tweak('Disable Menu Delay','Instant menu popup','Visual','Safe'),
+    _Tweak('Disable Aero Shake','Stop window shake minimize','Visual','Safe'),
+    _Tweak('Disable Lock Screen Ads','Removes lock screen ads','Privacy','Safe'),
+    _Tweak('Disable Advertising ID','Turns off ad tracking','Privacy','Safe'),
+  ];
+  @override Widget build(BuildContext context) {
+    final cats = ['All','Visual','Privacy','Performance','Gaming'];
+    final filtered = _tweaks.where((t) => (_filter == 'All' || t.cat == _filter) && (_search.isEmpty || t.name.toLowerCase().contains(_search.toLowerCase()) || t.desc.toLowerCase().contains(_search.toLowerCase()))).toList();
+    return Column(children: [
+      Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: TextField(decoration: InputDecoration(hintText: 'Search tweaks...', prefixIcon: const Icon(Icons.search), filled: true, fillColor: const Color(0xFF171717), border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF262626))), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: Color(0xFF262626)))), style: const TextStyle(fontSize: 13), onChanged: (v) => setState(() => _search = v))),
+      const SizedBox(height: 8),
+      SizedBox(height: 36, child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 12), children: cats.map((c) => Padding(padding: const EdgeInsets.only(right: 6), child: ChoiceChip(label: Text(c, style: const TextStyle(fontSize: 12)), selected: _filter == c, onSelected: (_) => setState(() => _filter = c), selectedColor: const Color(0xFF0EA5E9), backgroundColor: const Color(0xFF171717), labelStyle: TextStyle(color: _filter == c ? Colors.white : Colors.grey), side: const BorderSide(color: Color(0xFF262626))))).toList())),
+      Expanded(child: ListView.builder(itemCount: filtered.length, itemBuilder: (_, i) => _tweakCard(filtered[i]))),
+    ]);}
+  Widget _tweakCard(_Tweak t) {
+    final riskColor = t.risk == 'Safe' ? const Color(0xFF10B981) : t.risk == 'Moderate' ? const Color(0xFFF59E0B) : const Color(0xFFEF4444);
+    return Card(color: const Color(0xFF171717), margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 5), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: const BorderSide(color: Color(0xFF262626))), child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [Expanded(child: Text(t.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14))), Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), decoration: BoxDecoration(color: riskColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(20)), child: Text(t.risk, style: TextStyle(color: riskColor, fontSize: 11, fontWeight: FontWeight.w500)))]),
+      const SizedBox(height: 4), Text(t.desc, style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+      const SizedBox(height: 10), Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+        OutlinedButton(onPressed: () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${t.name} applied!'))), style: OutlinedButton.styleFrom(foregroundColor: const Color(0xFF0EA5E9), side: const BorderSide(color: Color(0xFF0EA5E9)), padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6), textStyle: const TextStyle(fontSize: 12)), child: const Text('Apply')),
+        const SizedBox(width: 8),
+        TextButton(onPressed: () => ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${t.name} reverted!'))), style: TextButton.styleFrom(foregroundColor: Colors.grey, padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6), textStyle: const TextStyle(fontSize: 12)), child: const Text('Revert')),
+      ])])));
+  }
+}
+
+class _Tweak { final String name, desc, cat, risk; const _Tweak(this.name, this.desc, this.cat, this.risk); }
+
+class ServicesPage extends StatelessWidget {
+  const ServicesPage({super.key});
+  static const _services = [
+    [_Svc('DiagTrack','Connected User Experiences and Telemetry',true), _Svc('SysMain','SysMain/Superfetch',true), _Svc('WSearch','Windows Search',true), _Svc('dmwappushservice','Device Management WAP Push',true)],
+    [_Svc('Fax','Fax Service',false), _Svc('WerSvc','Windows Error Reporting',true), _Svc('MapsBroker','Downloaded Maps Manager',false), _Svc('XboxNetApiSvc','Xbox Live Networking',false)],
+    [_Svc('WpnService','Windows Push Notifications',true), _Svc('PcaSvc','Program Compatibility Assistant',true), _Svc('FontCache','Windows Font Cache',true), _Svc('RemoteRegistry','Remote Registry',false)],
+  ];
+  @override Widget build(BuildContext context) {
+    return ListView(padding: const EdgeInsets.all(12), children: [
+      Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: const Color(0xFFF59E0B).withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.2))), child: const Row(children: [Icon(Icons.info_outline, color: Color(0xFFF59E0B), size: 16), SizedBox(width: 8), Expanded(child: Text('These services are safe to disable', style: TextStyle(color: Color(0xFFF59E0B), fontSize: 12)))])),
+      const SizedBox(height: 12),
+      ..._services.expand((row) => row).map((s) => _serviceCard(context, s)),
+    ]);}
+  Widget _serviceCard(BuildContext ctx, _Svc s) => Card(color: const Color(0xFF171717), margin: const EdgeInsets.only(bottom: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: const BorderSide(color: Color(0xFF262626))), child: Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+    Row(children: [Expanded(child: Text(s.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14))), Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2), decoration: BoxDecoration(color: (s.running ? const Color(0xFF10B981) : Colors.grey).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(20)), child: Text(s.running ? 'Running' : 'Stopped', style: TextStyle(color: s.running ? const Color(0xFF10B981) : Colors.grey, fontSize: 11, fontWeight: FontWeight.w500)))]),
+    const SizedBox(height: 4), Text(s.desc, style: TextStyle(color: Colors.grey.shade400, fontSize: 12)),
+    const SizedBox(height: 10), Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+      TextButton(onPressed: () => ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('Stopping ${s.name}...'))), style: TextButton.styleFrom(foregroundColor: const Color(0xFFF59E0B), textStyle: const TextStyle(fontSize: 12)), child: const Text('Stop')),
+      const SizedBox(width: 8),
+      TextButton(onPressed: () => ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('Disabling ${s.name}...'))), style: TextButton.styleFrom(foregroundColor: Colors.red, textStyle: const TextStyle(fontSize: 12)), child: const Text('Disable')),
+    ])])));
+}
+class _Svc { final String name, desc; final bool running; const _Svc(this.name, this.desc, this.running); }
+
+class CleanerPage extends StatelessWidget {
+  const CleanerPage({super.key});
+  static const _cats = [
+    _CCat('Recycle Bin', 'Files in Recycle Bin', 'Safe', 245.3, Icons.delete),
+    _CCat('Temporary Files', 'User temp files', 'Safe', 512.1, Icons.folder),
+    _CCat('Browser Cache', 'Chrome, Edge, Firefox', 'Safe', 389.7, Icons.public),
+    _CCat('Windows Temp', 'System temp files', 'Safe', 156.2, Icons.computer),
+    _CCat('DNS Cache', 'Flush DNS resolver', 'Safe', 0, Icons.dns),
+    _CCat('Thumbnail Cache', 'Explorer thumbnails', 'Safe', 98.3, Icons.image),
+    _CCat('Windows Logs', 'System and app logs', 'Moderate', 723.5, Icons.description),
+    _CCat('Update Cache', 'Old Windows updates', 'Moderate', 1234.0, Icons.update),
+    _CCat('Prefetch Data', 'Windows prefetch', 'Moderate', 89.1, Icons.speed),
+  ];
+  @override Widget build(BuildContext context) {
+    return Column(children: [
+      Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Row(children: [
+        Expanded(child: ElevatedButton.icon(onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Scanning...'))), icon: const Icon(Icons.search, size: 16), label: const Text('Scan'), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF0EA5E9), foregroundColor: Colors.white))),
+        const SizedBox(width: 8),
+        Expanded(child: ElevatedButton.icon(onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cleaning all safe items...'))), icon: const Icon(Icons.cleaning_services, size: 16), label: const Text('Clean All Safe'), style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF10B981), foregroundColor: Colors.white))),
+      ])),
+      const SizedBox(height: 8),
+      Expanded(child: ListView.builder(padding: const EdgeInsets.all(12), itemCount: _cats.length, itemBuilder: (_, i) => _cleanerCard(context, _cats[i]))),
+    ]);}
+  Widget _cleanerCard(BuildContext ctx, _CCat c) {
+    final rc = c.risk == 'Safe' ? const Color(0xFF10B981) : const Color(0xFFF59E0B);
+    final mb = c.sizeMB;
+    return Card(color: const Color(0xFF171717), margin: const EdgeInsets.only(bottom: 8), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10), side: const BorderSide(color: Color(0xFF262626))), child: Padding(padding: const EdgeInsets.all(14), child: Row(children: [
+      Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: rc.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)), child: Icon(c.icon, color: rc, size: 20)),
+      const SizedBox(width: 12),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [Text(c.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)), const SizedBox(width: 6), Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1), decoration: BoxDecoration(color: rc.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(20)), child: Text(c.risk, style: TextStyle(color: rc, fontSize: 10, fontWeight: FontWeight.w500)))]),
+        const SizedBox(height: 2), Text(c.desc, style: TextStyle(color: Colors.grey.shade400, fontSize: 11)),
+      ])),
+      Column(children: [Text(mb > 0 ? '${mb.toStringAsFixed(1)} MB' : '< 1 MB', style: TextStyle(color: Colors.grey.shade400, fontSize: 12, fontWeight: FontWeight.w500)), const SizedBox(height: 4), SizedBox(height: 26, child: ElevatedButton(onPressed: () => ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(content: Text('Cleaning ${c.name}...'))), style: ElevatedButton.styleFrom(backgroundColor: rc, foregroundColor: Colors.white, padding: const EdgeInsets.symmetric(horizontal: 10), textStyle: const TextStyle(fontSize: 11)), child: const Text('Clean')))],),
+    ])));
+  }
+}
+class _CCat { final String name, desc, risk; final double sizeMB; final IconData icon; const _CCat(this.name, this.desc, this.risk, this.sizeMB, this.icon); }
 
 class SnapshotsPage extends StatefulWidget {
   const SnapshotsPage({super.key});
@@ -814,4 +943,17 @@ class _SoftwareApp {
   const _SoftwareApp(this.name, this.description, this.category, this.icon);
 }
 
-class SettingsPage extends StatelessWidget { const SettingsPage({super.key}); @override Widget build(BuildContext context) => const Center(child: Text('Settings — loading...')); }
+class SettingsPage extends StatelessWidget {
+  const SettingsPage({super.key});
+  @override Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return ListView(padding: const EdgeInsets.all(16), children: [
+      Card(color: const Color(0xFF171717), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), child: SwitchListTile(title: const Text('Dark Mode', style: TextStyle(fontSize: 14)), subtitle: Text(isDark ? 'Switch to light theme' : 'Switch to dark theme', style: const TextStyle(fontSize: 12)), value: isDark, onChanged: (_) => ZingerBoostApp.of(context)?.toggleTheme(), secondary: Icon(isDark ? Icons.dark_mode : Icons.light_mode, color: isDark ? const Color(0xFF0EA5E9) : Colors.amber))),
+      const SizedBox(height: 12),
+      Card(color: const Color(0xFF171717), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Version', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)), const SizedBox(height: 4), Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: const Color(0xFF0EA5E9).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(6)), child: const Text('v0.2.9', style: TextStyle(color: Color(0xFF0EA5E9), fontSize: 12, fontWeight: FontWeight.w500)))]))),
+      const SizedBox(height: 12),
+      Card(color: const Color(0xFF171717), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)), child: const Padding(padding: EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('About', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)), SizedBox(height: 6), Text('Safe, reversible Windows optimization. 29 tweaks, 19 services, 9 cleaner categories, 34 debloat targets.', style: TextStyle(fontSize: 12, color: Colors.grey)), SizedBox(height: 8), Text('Author: YousefMohiey — MIT License', style: TextStyle(fontSize: 11, color: Colors.grey))]))),
+      const SizedBox(height: 16),
+      OutlinedButton.icon(onPressed: () => showDialog(context: context, builder: (_) => AlertDialog(title: const Text('Reset All Tweaks?'), content: const Text('This will revert every tweak to its original state.'), actions: [TextButton(child: const Text('Cancel'), onPressed: () => Navigator.pop(context)), TextButton(child: const Text('Reset', style: TextStyle(color: Colors.red)), onPressed: () { Navigator.pop(context); ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('All tweaks reset'))); })])), icon: const Icon(Icons.refresh, size: 16), label: const Text('Reset All Tweaks', style: TextStyle(fontSize: 12)), style: OutlinedButton.styleFrom(foregroundColor: Colors.red, side: const BorderSide(color: Colors.red), padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10))),
+    ]);}
+}
