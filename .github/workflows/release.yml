@@ -35,22 +35,21 @@ jobs:
       - name: Package release
         shell: pwsh
         run: |
+          $flutterBuild = "zingerboost_flutter\build\windows\x64\runner\Release"
           $releaseDir = "release\ZingerBoost"
           mkdir $releaseDir
 
           # Rust DLL
           copy target\release\zingerboost_core.dll $releaseDir\
 
-          # Flutter exe and DLLs
-          $flutterBuild = "zingerboost_flutter\build\windows\x64\runner\Release"
-          Get-ChildItem $flutterBuild -Filter *.exe | Copy-Item -Destination $releaseDir\
-          Get-ChildItem $flutterBuild -Filter *.dll | Copy-Item -Destination $releaseDir\
+          # Flutter output — EVERYTHING including data folder
+          Copy-Item -Path "$flutterBuild\*" -Destination $releaseDir -Recurse
+
+          # List for verification
+          Get-ChildItem $releaseDir -Recurse
 
           # Create ZIP
-          Compress-Archive -Path $releaseDir -DestinationPath release\ZingerBoost.zip
-
-          echo "Release files:"
-          Get-ChildItem $releaseDir
+          Compress-Archive -Path "$releaseDir\*" -DestinationPath release\ZingerBoost.zip
 
       - uses: softprops/action-gh-release@v2
         with:
