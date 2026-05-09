@@ -4,12 +4,12 @@ members = [
     "crates/zb_domain",
     "crates/zb_application",
     "crates/zb_infrastructure",
-    "bridge",
+    "server",
 ]
 resolver = "2"
 
 [workspace.package]
-version = "0.2.0"
+version = "0.4.0"
 authors = ["YousefMohiey <yousefmohiey@gmail.com>"]
 edition = "2021"
 license = "MIT"
@@ -45,6 +45,11 @@ rusqlite = { version = "0.32", features = ["bundled", "chrono", "uuid"] }
 rusqlite_migration = "1.3"
 
 mockall = "0.13"
+
+# Server
+warp = "0.3"
+rust-embed = "8.0"
+mime_guess = "2.0"
 
 zb_shared = { path = "crates/zb_shared" }
 zb_domain = { path = "crates/zb_domain" }
