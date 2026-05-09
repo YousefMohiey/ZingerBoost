@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dash_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -45,7 +46,7 @@ class Shell extends StatefulWidget {
 class _ShellState extends State<Shell> {
   int _idx = 0;
   final _pages = const [
-    Center(child: Text('Dashboard')),
+    DashPage(),
     Center(child: Text('Tweaks')),
     Center(child: Text('Services')),
     Center(child: Text('Cleaner')),
@@ -93,17 +94,16 @@ class SettPage extends StatelessWidget {
     final isDark = Theme.of(c).brightness == Brightness.dark;
     return ListView(padding: const EdgeInsets.all(16), children: [
       Card(color: const Color(0xFF171717), child: SwitchListTile(
-        title: const Text('Dark Mode'),
-        subtitle: Text(isDark ? 'Switch to light' : 'Switch to dark'),
+        title: const Text('Dark Mode', style: TextStyle(fontSize: 14)),
+        subtitle: Text(isDark ? 'Switch to light' : 'Switch to dark', style: const TextStyle(fontSize: 12)),
         value: isDark,
         onChanged: (_) => ZingerBoostApp.of(c)?.toggleTheme(),
-        secondary: Icon(isDark ? Icons.dark_mode : Icons.light_mode),
+        secondary: Icon(isDark ? Icons.dark_mode : Icons.light_mode, color: isDark ? const Color(0xFF0EA5E9) : Colors.amber),
       )),
       const SizedBox(height: 12),
       Card(color: const Color(0xFF171717), child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('Version', style: TextStyle(fontWeight: FontWeight.w600)),
+        padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Version', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
           const SizedBox(height: 4),
           Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
             decoration: BoxDecoration(color: const Color(0xFF0EA5E9).withOpacity(0.15), borderRadius: BorderRadius.circular(6)),
@@ -112,12 +112,10 @@ class SettPage extends StatelessWidget {
       )),
       const SizedBox(height: 12),
       Card(color: const Color(0xFF171717), child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('About', style: TextStyle(fontWeight: FontWeight.w600)),
+        padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('About', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
           const SizedBox(height: 6),
-          const Text('Safe, reversible Windows optimization. 29 tweaks, 19 services, 9 cleaner categories, 34 debloat targets.', style: TextStyle(fontSize: 12, color: Colors.grey)),
-          const SizedBox(height: 4),
+          const Text('29 tweaks, 19 services, 9 cleaner categories, 34 debloat targets.', style: TextStyle(fontSize: 12, color: Colors.grey)),
           const Text('Author: YousefMohiey | MIT License', style: TextStyle(fontSize: 11, color: Colors.grey)),
         ]),
       )),
@@ -125,7 +123,7 @@ class SettPage extends StatelessWidget {
       OutlinedButton.icon(
         onPressed: () => showDialog(context: c, builder: (ctx) => AlertDialog(
           title: const Text('Reset All Tweaks?'),
-          content: const Text('This reverts every tweak to its original state.'),
+          content: const Text('This reverts every tweak.'),
           actions: [
             TextButton(child: const Text('Cancel'), onPressed: () => Navigator.pop(ctx)),
             TextButton(child: const Text('Reset', style: TextStyle(color: Colors.red)),
@@ -133,8 +131,8 @@ class SettPage extends StatelessWidget {
           ],
         )),
         icon: const Icon(Icons.refresh, size: 16),
-        label: const Text('Reset All Tweaks'),
-        style: OutlinedButton.styleFrom(foregroundColor: Colors.red, side: const BorderSide(color: Colors.red)),
+        label: const Text('Reset All Tweaks', style: TextStyle(fontSize: 12)),
+        style: OutlinedButton.styleFrom(foregroundColor: Colors.red, side: const BorderSide(color: Colors.red), padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10)),
       ),
     ]);
   }
