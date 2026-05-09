@@ -12,25 +12,52 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo build --release -p zingerboost_bridge
+
+      - name: Build Rust backend
+        run: cargo build --release -p zingerboost_bridge
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22'
+
+      - name: Build Flutter app
+        working-directory: zingerboost_flutter
+        run: |
+          flutter create --platforms windows .
+          flutter pub get
+          flutter build windows
+
+      - name: Package release
+        shell: pwsh
+        run: |
+          $releaseDir = "release\ZingerBoost"
+          mkdir $releaseDir
+
+          # Rust DLL
+          copy target\release\zingerboost_core.dll $releaseDir\
+
+          # Flutter exe and DLLs
+          $flutterBuild = "zingerboost_flutter\build\windows\x64\runner\Release"
+          Get-ChildItem $flutterBuild -Filter *.exe | Copy-Item -Destination $releaseDir\
+          Get-ChildItem $flutterBuild -Filter *.dll | Copy-Item -Destination $releaseDir\
+
+          # Create ZIP
+          Compress-Archive -Path $releaseDir -DestinationPath release\ZingerBoost.zip
+
+          echo "Release files:"
+          Get-ChildItem $releaseDir
+
       - uses: softprops/action-gh-release@v2
         with:
-          files: |
-            target/release/zingerboost.exe
-            target/release/zingerboost_core.dll
+          files: release/ZingerBoost.zip
           name: "ZingerBoost ${{ github.ref_name }}"
           body: |
-            **Rust backend** — contains all 25 tweaks, services, cleaner, and debloat engine.
+            Extract `ZingerBoost.zip` to any folder and run `zingerboost.exe`.
 
-            **For the full GUI:** build Flutter locally on Windows:
-            ```
-            cd zingerboost_flutter
-            flutter create --platforms windows .
-            flutter pub get
-            flutter build windows
-            ```
-
-            Requires [VC++ Redist](https://aka.ms/vs/17/release/vc_redist.x64.exe).
+            Requires [VC++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe) (one-time install).
           fail_on_unmatched_files: false
