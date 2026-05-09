@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'dash_page.dart';
 import 'tweaks_page.dart';
+import 'services_page.dart';
+import 'cleaner_page.dart';
+import 'snapshots_page.dart';
+import 'debloat_page.dart';
+import 'software_page.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -49,11 +54,11 @@ class _ShellState extends State<Shell> {
   final _pages = const [
     DashPage(),
     TweaksPage(),
-    Center(child: Text('Services')),
-    Center(child: Text('Cleaner')),
-    Center(child: Text('Snapshots')),
-    Center(child: Text('Debloat')),
-    Center(child: Text('Software')),
+    ServicesPage(),
+    CleanerPage(),
+    SnapshotsPage(),
+    DebloatPage(),
+    SoftwarePage(),
     SettPage(),
   ];
   @override
