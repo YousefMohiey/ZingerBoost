@@ -605,7 +605,7 @@ class _SoftwarePageState extends State<SoftwarePage>
     _SoftwareApp('Zen Browser', 'Minimalist and calm browser', 'Browsers', Icons.public),
     _SoftwareApp('Arc', 'Modern reimagined browser', 'Browsers', Icons.explore),
     _SoftwareApp('Vivaldi', 'Highly customizable browser', 'Browsers', Icons.web),
-    _SoftwareApp('Microsoft Edge', 'Built-in Windows browser', 'Browsers', Icons.edge),
+    _SoftwareApp('Microsoft Edge', 'Built-in Windows browser', 'Browsers', Icons.language),
     _SoftwareApp('VLC Media Player', 'Versatile open-source media player', 'Media Players', Icons.play_circle),
     _SoftwareApp('Screenbox', 'Modern media player for Windows', 'Media Players', Icons.slideshow),
     _SoftwareApp('PotPlayer', 'Advanced media player with codecs', 'Media Players', Icons.video_library),
