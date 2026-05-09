@@ -1,7 +1,7 @@
+use crate::app::AppState;
+use actix_web::{web, HttpResponse};
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use actix_web::{web, HttpResponse};
-use crate::app::AppState;
 
 type DS = web::Data<Arc<Mutex<AppState>>>;
 
@@ -28,8 +28,11 @@ pub async fn apply_tweak(s: DS, body: web::Json<serde_json::Value>) -> HttpRespo
     let app = s.lock().await;
     let rt = tokio::runtime::Handle::current();
     match rt.block_on(app.engine.apply_single(id)) {
-        Ok(r) => HttpResponse::Ok().json(serde_json::json!({"success":true,"data":{"message":r.message}})),
-        Err(e) => HttpResponse::Ok().json(serde_json::json!({"success":false,"error":e.to_string()})),
+        Ok(r) => HttpResponse::Ok()
+            .json(serde_json::json!({"success":true,"data":{"message":r.message}})),
+        Err(e) => {
+            HttpResponse::Ok().json(serde_json::json!({"success":false,"error":e.to_string()}))
+        }
     }
 }
 
@@ -38,8 +41,11 @@ pub async fn revert_tweak(s: DS, body: web::Json<serde_json::Value>) -> HttpResp
     let app = s.lock().await;
     let rt = tokio::runtime::Handle::current();
     match rt.block_on(app.engine.revert(id)) {
-        Ok(r) => HttpResponse::Ok().json(serde_json::json!({"success":true,"data":{"message":r.message}})),
-        Err(e) => HttpResponse::Ok().json(serde_json::json!({"success":false,"error":e.to_string()})),
+        Ok(r) => HttpResponse::Ok()
+            .json(serde_json::json!({"success":true,"data":{"message":r.message}})),
+        Err(e) => {
+            HttpResponse::Ok().json(serde_json::json!({"success":false,"error":e.to_string()}))
+        }
     }
 }
 
@@ -83,14 +89,17 @@ pub async fn run_cleaner(s: DS, body: web::Json<serde_json::Value>) -> HttpRespo
 pub async fn list_bloatware(_s: DS) -> HttpResponse {
     let bloat = zb_shared::software::get_bloatware_catalog();
     let protected = zb_shared::software::get_protected_apps();
-    HttpResponse::Ok().json(serde_json::json!({"success":true,"data":{"bloatware":bloat,"protected":protected}}))
+    HttpResponse::Ok()
+        .json(serde_json::json!({"success":true,"data":{"bloatware":bloat,"protected":protected}}))
 }
 
 pub async fn remove_bloatware(_s: DS, body: web::Json<serde_json::Value>) -> HttpResponse {
     let name = body["name"].as_str().unwrap_or("");
     match zb_infrastructure::windows_api::debloat_engine::DebloatEngine::remove_appx_package(name) {
         Ok(msg) => HttpResponse::Ok().json(serde_json::json!({"success":true,"message":msg})),
-        Err(e) => HttpResponse::Ok().json(serde_json::json!({"success":false,"error":e.to_string()})),
+        Err(e) => {
+            HttpResponse::Ok().json(serde_json::json!({"success":false,"error":e.to_string()}))
+        }
     }
 }
 
@@ -104,7 +113,9 @@ pub async fn list_snapshots(s: DS) -> HttpResponse {
     let rt = tokio::runtime::Handle::current();
     match rt.block_on(app.engine.snapshot_service().list_snapshots()) {
         Ok(sn) => HttpResponse::Ok().json(serde_json::json!({"success":true,"data":sn})),
-        Err(e) => HttpResponse::Ok().json(serde_json::json!({"success":false,"error":e.to_string()})),
+        Err(e) => {
+            HttpResponse::Ok().json(serde_json::json!({"success":false,"error":e.to_string()}))
+        }
     }
 }
 

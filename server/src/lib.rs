@@ -1,7 +1,7 @@
-use std::sync::Arc;
-use tokio::sync::Mutex;
 use actix_files as fs;
 use actix_web::{web, App, HttpResponse, HttpServer};
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 mod api;
 mod app;
@@ -24,7 +24,10 @@ pub async fn run() {
             .route("/api/tweaks/revert", web::post().to(api::revert_tweak))
             .route("/api/services", web::get().to(api::list_services))
             .route("/api/services/stop", web::post().to(api::stop_service))
-            .route("/api/services/disable", web::post().to(api::disable_service))
+            .route(
+                "/api/services/disable",
+                web::post().to(api::disable_service),
+            )
             .route("/api/cleaner/scan", web::get().to(api::scan_cleaner))
             .route("/api/cleaner/clean", web::post().to(api::run_cleaner))
             .route("/api/debloat/list", web::get().to(api::list_bloatware))
