@@ -114,7 +114,7 @@ class _DashState extends State<Dash> {
         mc(Icons.wifi, 'Network', '0.5 Mbps', '↑ 0.1 Mbps', const Color(0xFF8B5CF6)),
       ]),
       const SizedBox(height: 20),
-      Card(color: const Color(0xFF171717), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: Color(0xFF262626)),
+      Card(color: const Color(0xFF171717), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: const BorderSide(color: Color(0xFF262626))),
         child: Padding(padding: const EdgeInsets.all(16), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             Container(padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.15), borderRadius: BorderRadius.circular(6)),
@@ -460,7 +460,7 @@ class _DebloatState extends State<Debloat> {
       const SizedBox(height: 16),
       Container(padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.08), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFF10B981).withOpacity(0.2))),
-        child: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text('Protected Apps', style: TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.w600, fontSize: 13)),
           SizedBox(height: 4),
           Text('Notepad, Calculator, Store, Photos, Camera, Snipping Tool, Terminal, VCLibs, .NET Native', style: TextStyle(color: Color(0xFF10B981).withOpacity(0.7), fontSize: 11)),
