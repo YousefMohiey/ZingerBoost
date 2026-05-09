@@ -51,15 +51,15 @@ class Shell extends StatefulWidget {
 
 class _ShellState extends State<Shell> {
   int _idx = 0;
-  final _pages = const [
-    DashPage(),
-    TweaksPage(),
-    ServicesPage(),
-    CleanerPage(),
-    SnapshotsPage(),
-    DebloatPage(),
-    SoftwarePage(),
-    SettPage(),
+  final _pages = [
+    const DashPage(),
+    const TweaksPage(),
+    const ServicesPage(),
+    const CleanerPage(),
+    const SnapshotsPage(),
+    const DebloatPage(),
+    const SoftwarePage(),
+    const SettPage(),
   ];
   @override
   Widget build(BuildContext c) {
