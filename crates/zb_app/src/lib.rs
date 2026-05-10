@@ -141,7 +141,7 @@ impl App {
         )
         .width(Length::Fixed(180.0));
 
-        let content = match self.current_tab {
+        let content: Element<Message> = match self.current_tab {
             Tab::Dashboard => {
                 let m = &self.metrics;
                 let card = |l: &str, v: &str| -> Element<Message> {
