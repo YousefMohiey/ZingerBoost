@@ -158,7 +158,7 @@ pub enum SnapshotData {
 }
 
 /// System metrics for live dashboard
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct SystemMetrics {
     pub cpu_percent: f64,
     pub ram_percent: f64,
