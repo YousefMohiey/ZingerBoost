@@ -146,7 +146,7 @@ impl App {
             .spacing(4)
             .padding(8),
         )
-        .width(Length::Fixed(180));
+        .width(Length::Fixed(180.0));
 
         let content: Element<'static, Message> = match self.current_tab {
             Tab::Dashboard => {
