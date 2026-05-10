@@ -534,7 +534,10 @@ fn card_bg2() -> Color {
 fn card_style() -> impl Fn(&Theme) -> container::Style + '_ {
     |_| container::Style {
         background: Some(Background::Color(card_bg2())),
-        border: Border::rounded(10.0),
+        border: Border {
+            radius: 10.0_f32.into(),
+            ..Default::default()
+        },
         ..Default::default()
     }
 }
@@ -576,7 +579,10 @@ fn sidebar_view(current: Tab) -> Element<'static, Message> {
             btn = btn.style(|_, _| button::Style {
                 background: Some(Background::Color(brand_color())),
                 text_color: Color::WHITE,
-                border: Border::rounded(8.0),
+                border: Border {
+                    radius: 8.0_f32.into(),
+                    ..Default::default()
+                },
                 ..Default::default()
             });
         } else {
@@ -693,7 +699,10 @@ fn tweaks_view(tweaks: &[TweakRow]) -> Element<'static, Message> {
                     .style(move |_| container::Style {
                         background: Some(Background::Color(rc)),
                         text_color: Some(Color::WHITE),
-                        border: Border::rounded(20.0),
+                        border: Border {
+                            radius: 20.0_f32.into(),
+                            ..Default::default()
+                        },
                         ..Default::default()
                     })
             ],
@@ -730,7 +739,10 @@ fn services_view(svcs: &[SvcRow]) -> Element<'static, Message> {
                             Color::from_rgb(0.4, 0.4, 0.4)
                         })),
                         text_color: Some(Color::WHITE),
-                        border: Border::rounded(20.0),
+                        border: Border {
+                            radius: 20.0_f32.into(),
+                            ..Default::default()
+                        },
                         ..Default::default()
                     })
             ],
@@ -771,7 +783,10 @@ fn cleaner_view() -> Element<'static, Message> {
                 .style(move |_| container::Style {
                     background: Some(Background::Color(rc)),
                     text_color: Some(Color::WHITE),
-                    border: Border::rounded(20.0),
+                    border: Border {
+                        radius: 20.0_f32.into(),
+                        ..Default::default()
+                    },
                     ..Default::default()
                 }),
             text(format!("{:.1} MB", c.size_bytes as f64 / 1_048_576.0)).size(12),
@@ -852,7 +867,10 @@ fn debloat_view(
         .padding(8)
         .style(move |_| container::Style {
             background: Some(Background::Color(Color::from_rgba(0.96, 0.37, 0.04, 0.1))),
-            border: Border::rounded(8.0),
+            border: Border {
+                radius: 8.0_f32.into(),
+                ..Default::default()
+            },
             ..Default::default()
         }),
     ]
@@ -883,7 +901,10 @@ fn debloat_view(
         .padding(12)
         .style(move |_| container::Style {
             background: Some(Background::Color(Color::from_rgba(0.07, 0.73, 0.51, 0.1))),
-            border: Border::rounded(8.0),
+            border: Border {
+                radius: 8.0_f32.into(),
+                ..Default::default()
+            },
             ..Default::default()
         }),
     );
