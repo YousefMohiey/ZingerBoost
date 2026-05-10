@@ -14,32 +14,17 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-
-      - name: Build executable
+      - name: Build
         run: cargo build --release -p zb_app
-
-      - name: Create release folder
-        shell: cmd
+      - name: Package
         run: |
           mkdir release
           copy target\release\zb_app.exe release\zingerboost.exe
-
-      - name: Build MSI installer
-        shell: cmd
-        run: |
-          cargo install cargo-wix
-          cargo wix --crate-path crates\zb_app --nocapture
-
       - uses: softprops/action-gh-release@v2
         with:
-          files: |
-            release/zingerboost.exe
-            target/wix/*.msi
+          files: release/zingerboost.exe
           name: "ZingerBoost ${{ github.ref_name }}"
           body: |
-            ## Download
-            **Quick:** Download `zingerboost.exe` and run directly.
-            **Installer:** Download the `.msi` to install to Program Files with Start Menu shortcuts.
-
+            Run `zingerboost.exe` — pure Rust Iced desktop app.
             Requires [VC++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe) (one-time).
           fail_on_unmatched_files: false
