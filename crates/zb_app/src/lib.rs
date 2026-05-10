@@ -114,7 +114,7 @@ impl App {
                 Tab::ALL
                     .iter()
                     .enumerate()
-                    .map(|(i, tab)| {
+                    .map(|(_i, tab)| {
                         let active = *tab == self.current_tab;
                         let mut btn = button(text(tab.label()).size(13)).width(Length::Fill);
                         if active {
@@ -139,7 +139,7 @@ impl App {
         let m = &self.metrics;
         let content: Element<Message> = match self.current_tab {
             Tab::Dashboard => {
-                let card = |label: &str, value: String| -> Element<Message> {
+                let card = |label: String, value: String| -> Element<Message> {
                     container(column![text(label).size(12), text(value).size(24)].spacing(4))
                         .padding(16)
                         .width(Length::Fill)
@@ -152,8 +152,8 @@ impl App {
                 };
                 column![
                     row![
-                        card("CPU Usage", format!("{:.1}%", m.cpu_percent)),
-                        card("RAM Usage", format!("{:.1}%", m.ram_percent)),
+                        card("CPU Usage".to_string(), format!("{:.1}%", m.cpu_percent)),
+                        card("RAM Usage".to_string(), format!("{:.1}%", m.ram_percent)),
                     ]
                     .spacing(12),
                     text("29 tweaks · 19 services · 9 cleaner · 34 debloat").size(14),
