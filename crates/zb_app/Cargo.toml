@@ -16,6 +16,7 @@ tokio = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 anyhow = { workspace = true }
+windows = { workspace = true }
 iced = { workspace = true }
 
 [package.metadata.wix]
