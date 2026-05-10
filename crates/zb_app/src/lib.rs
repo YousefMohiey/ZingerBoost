@@ -531,7 +531,7 @@ fn card_bg2() -> Color {
     Color::from_rgb(0.13, 0.13, 0.13)
 }
 
-fn card_style() -> impl Fn(&Theme) -> container::Style + '_ {
+fn card_style() -> impl Fn(&Theme) -> container::Style {
     |_| container::Style {
         background: Some(Background::Color(card_bg2())),
         border: Border {
@@ -595,7 +595,7 @@ fn sidebar_view(current: Tab) -> Element<'static, Message> {
 
 // ===== DASHBOARD =====
 
-fn dashboard_view(metrics: &SystemMetrics) -> Element<'static, Message> {
+fn dashboard_view(metrics: &SystemMetrics) -> Element<'_, Message> {
     let mc = |label: &str, value: String, sub: String| -> Container<Message> {
         container(
             column![
@@ -682,7 +682,7 @@ fn dashboard_view(metrics: &SystemMetrics) -> Element<'static, Message> {
 
 // ===== TWEAKS =====
 
-fn tweaks_view(tweaks: &[TweakRow]) -> Element<'static, Message> {
+fn tweaks_view(tweaks: &[TweakRow]) -> Element<'_, Message> {
     let mut col = column![text("Tweaks").size(20)].spacing(8);
     for (i, t) in tweaks.iter().enumerate() {
         let rc = match t.meta.risk {
@@ -723,7 +723,7 @@ fn tweaks_view(tweaks: &[TweakRow]) -> Element<'static, Message> {
 
 // ===== SERVICES =====
 
-fn services_view(svcs: &[SvcRow]) -> Element<'static, Message> {
+fn services_view(svcs: &[SvcRow]) -> Element<'_, Message> {
     let mut col = column![text("Services").size(20)].spacing(8);
     for r in svcs {
         let card = column![
@@ -805,7 +805,7 @@ fn cleaner_view() -> Element<'static, Message> {
 
 // ===== SNAPSHOTS =====
 
-fn snapshots_view(snapshots: &[zb_domain::snapshots::SystemSnapshot]) -> Element<'static, Message> {
+fn snapshots_view(snapshots: &[zb_domain::snapshots::SystemSnapshot]) -> Element<'_, Message> {
     let mut col = column![text("Snapshots").size(20).width(Length::Fill)].spacing(8);
     if snapshots.is_empty() {
         col = col.push(
@@ -913,7 +913,7 @@ fn debloat_view(
 
 // ===== SOFTWARE =====
 
-fn software_view(catalog: &[zb_shared::software::SoftwarePackage]) -> Element<'static, Message> {
+fn software_view(catalog: &[zb_shared::software::SoftwarePackage]) -> Element<'_, Message> {
     let mut col = column![text("Software").size(20)].spacing(8);
     for pkg in catalog {
         let card = row![
@@ -982,7 +982,7 @@ fn settings_view(dark_mode: bool) -> Element<'static, Message> {
 // ===== MAIN VIEW =====
 
 impl App {
-    fn view(&self) -> Element<Message> {
+    fn view(&self) -> Element<'_, Message> {
         let sidebar = container(sidebar_view(self.current_tab))
             .width(Length::Fixed(180))
             .style(|_| container::Style {
