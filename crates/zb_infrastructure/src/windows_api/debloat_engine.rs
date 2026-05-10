@@ -123,7 +123,7 @@ impl DebloatEngine {
                 PackageManager::new().map_err(|e| format!("PackageManager::new failed: {}", e))?;
 
             let packages = pm
-                .FindPackages()
+                .FindPackagesForUserWithPackageTypes(&HSTRING::new(), PackageTypes::Main)
                 .map_err(|e| format!("FindPackages failed: {}", e))?;
 
             let mut removed = 0u32;
