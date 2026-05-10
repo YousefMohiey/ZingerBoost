@@ -4,7 +4,7 @@ use iced::widget::{
     button, column, container, horizontal_space, row, scrollable, text, vertical_rule, Column,
     Container, Row,
 };
-use iced::{Alignment, Background, Border, Color, Element, Length, Padding, Task, Theme};
+use iced::{Alignment, Background, Border, Color, Element, Length, Task, Theme};
 use std::sync::Arc;
 use std::time::Duration;
 use zb_infrastructure::logging::init_logging;
@@ -278,8 +278,12 @@ async fn do_restore_snapshot(snap_id: String) -> String {
 async fn do_check_admin() -> bool {
     #[cfg(target_os = "windows")]
     {
-        use windows::Win32::Security::IsUserAnAdmin;
-        unsafe { IsUserAnAdmin().as_bool() }
+        use std::process::Command;
+        Command::new("net")
+            .args(["session"])
+            .output()
+            .map(|o| o.status.success())
+            .unwrap_or(false)
     }
     #[cfg(not(target_os = "windows"))]
     true
@@ -536,7 +540,12 @@ fn card_style() -> impl Fn(&Theme) -> container::Style {
 }
 
 fn small_btn(label: &str) -> iced::widget::Button<'static, Message> {
-    iced::widget::button(text(label).size(12)).padding(Padding::from([4, 12]))
+    iced::widget::button(text(label).size(12)).padding(iced::Padding {
+        top: 4.0,
+        right: 12.0,
+        bottom: 4.0,
+        left: 12.0,
+    })
 }
 fn primary_btn(label: &str) -> iced::widget::Button<'static, Message> {
     small_btn(label).style(|theme, status| button::primary(theme, status))
@@ -557,7 +566,12 @@ fn sidebar_view(current: Tab) -> Column<Message> {
                 .align_x(Alignment::Center)
                 .width(160),
         )
-        .padding(Padding::from([8, 12]));
+        .padding(iced::Padding {
+            top: 8.0,
+            right: 12.0,
+            bottom: 8.0,
+            left: 12.0,
+        });
         if is_active {
             btn = btn.style(|_, _| button::Style {
                 background: Some(Background::Color(brand_color())),
