@@ -130,7 +130,7 @@ impl App {
                 metrics: Default::default(),
                 tweaks,
                 services,
-                cleaner_items,
+                cleaner_items: cleaner,
                 bloatware,
                 software,
                 status: None,
@@ -267,12 +267,7 @@ impl App {
 
         let content: Element<Message> = match self.current_tab {
             Tab::Dashboard => self.dashboard_view(),
-            Tab::Tweaks => list_view(
-                "Tweaks",
-                &self.tweaks,
-                |_, i, id| Message::TweakApply(i, id),
-                |_, _, _| Message::TabSelected(Tab::Tweaks),
-            ),
+            Tab::Tweaks => list_view("Tweaks", &self.tweaks, |i, id| Message::TweakApply(i, id)),
             Tab::Services => svc_view(&self.services),
             Tab::Cleaner => cleaner_view(&self.cleaner_items),
             Tab::Snapshots => text("Snapshots — created when you apply tweaks").into(),
@@ -360,8 +355,6 @@ fn list_view(
     title: &str,
     items: &[(String, String, String)],
     on_action: fn(usize, String) -> Message,
-    _on2: fn(String, String, String) -> Message,
-    _on3: fn(String, String) -> Message,
 ) -> Element<Message> {
     let mut col = column![text(title).size(20)].spacing(8);
     for (i, (name, desc, _risk)) in items.iter().enumerate() {
