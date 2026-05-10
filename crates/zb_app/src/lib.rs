@@ -141,7 +141,7 @@ impl App {
                         }
                         btn.on_press(Message::TabSelected(*tab)).into()
                     })
-                    .collect(),
+                    .collect::<Vec<Element<'static, Message>>>(),
             )
             .spacing(4)
             .padding(8),
