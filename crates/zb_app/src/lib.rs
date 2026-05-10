@@ -1,6 +1,5 @@
 pub mod views;
 
-use iced::border::Radius;
 use iced::widget::{
     button, column, container, horizontal_space, row, scrollable, text, vertical_rule, Column,
     Container, Row,
@@ -532,10 +531,10 @@ fn card_bg2() -> Color {
     Color::from_rgb(0.13, 0.13, 0.13)
 }
 
-fn card_style() -> impl Fn(&Theme) -> container::Style {
+fn card_style() -> impl Fn(&Theme) -> container::Style + '_ {
     |_| container::Style {
         background: Some(Background::Color(card_bg2())),
-        border: Border::rounded(Radius::new(10.0)),
+        border: Border::rounded(10.0),
         ..Default::default()
     }
 }
@@ -557,7 +556,7 @@ fn danger_btn(label: &str) -> iced::widget::Button<'static, Message> {
 
 // ===== SIDEBAR =====
 
-fn sidebar_view(current: Tab) -> Column<Message> {
+fn sidebar_view(current: Tab) -> Element<'static, Message> {
     let mut col = column![].spacing(4).padding(8);
     for tab in &Tab::ALL {
         let is_active = *tab == current;
@@ -577,7 +576,7 @@ fn sidebar_view(current: Tab) -> Column<Message> {
             btn = btn.style(|_, _| button::Style {
                 background: Some(Background::Color(brand_color())),
                 text_color: Color::WHITE,
-                border: Border::rounded(Radius::new(8.0)),
+                border: Border::rounded(8.0),
                 ..Default::default()
             });
         } else {
@@ -585,12 +584,12 @@ fn sidebar_view(current: Tab) -> Column<Message> {
         }
         col = col.push(btn.on_press(Message::TabSelected(*tab)));
     }
-    col
+    col.into()
 }
 
 // ===== DASHBOARD =====
 
-fn dashboard_view(metrics: &SystemMetrics) -> Column<Message> {
+fn dashboard_view(metrics: &SystemMetrics) -> Element<'static, Message> {
     let mc = |label: &str, value: String, sub: String| -> Container<Message> {
         container(
             column![
@@ -672,11 +671,12 @@ fn dashboard_view(metrics: &SystemMetrics) -> Column<Message> {
         .style(card_style()),
     ]
     .spacing(8)
+    .into()
 }
 
 // ===== TWEAKS =====
 
-fn tweaks_view(tweaks: &[TweakRow]) -> Column<Message> {
+fn tweaks_view(tweaks: &[TweakRow]) -> Element<'static, Message> {
     let mut col = column![text("Tweaks").size(20)].spacing(8);
     for (i, t) in tweaks.iter().enumerate() {
         let rc = match t.meta.risk {
@@ -693,7 +693,7 @@ fn tweaks_view(tweaks: &[TweakRow]) -> Column<Message> {
                     .style(move |_| container::Style {
                         background: Some(Background::Color(rc)),
                         text_color: Some(Color::WHITE),
-                        border: Border::rounded(Radius::new(20.0)),
+                        border: Border::rounded(20.0),
                         ..Default::default()
                     })
             ],
@@ -709,12 +709,12 @@ fn tweaks_view(tweaks: &[TweakRow]) -> Column<Message> {
         .spacing(6);
         col = col.push(container(card).padding(12).style(card_style()));
     }
-    col
+    col.into()
 }
 
 // ===== SERVICES =====
 
-fn services_view(svcs: &[SvcRow]) -> Column<Message> {
+fn services_view(svcs: &[SvcRow]) -> Element<'static, Message> {
     let mut col = column![text("Services").size(20)].spacing(8);
     for r in svcs {
         let card = column![
@@ -730,7 +730,7 @@ fn services_view(svcs: &[SvcRow]) -> Column<Message> {
                             Color::from_rgb(0.4, 0.4, 0.4)
                         })),
                         text_color: Some(Color::WHITE),
-                        border: Border::rounded(Radius::new(20.0)),
+                        border: Border::rounded(20.0),
                         ..Default::default()
                     })
             ],
@@ -749,12 +749,12 @@ fn services_view(svcs: &[SvcRow]) -> Column<Message> {
         .spacing(6);
         col = col.push(container(card).padding(12).style(card_style()));
     }
-    col
+    col.into()
 }
 
 // ===== CLEANER =====
 
-fn cleaner_view() -> Column<Message> {
+fn cleaner_view() -> Element<'static, Message> {
     let cat = SystemCleaner::new();
     let cats = cat.scan_categories();
     let mut col = column![text("Cleaner").size(20)].spacing(12);
@@ -771,7 +771,7 @@ fn cleaner_view() -> Column<Message> {
                 .style(move |_| container::Style {
                     background: Some(Background::Color(rc)),
                     text_color: Some(Color::WHITE),
-                    border: Border::rounded(Radius::new(20.0)),
+                    border: Border::rounded(20.0),
                     ..Default::default()
                 }),
             text(format!("{:.1} MB", c.size_bytes as f64 / 1_048_576.0)).size(12),
@@ -785,12 +785,12 @@ fn cleaner_view() -> Column<Message> {
         .align_y(Alignment::Center);
         col = col.push(container(card).padding(12).style(card_style()));
     }
-    col
+    col.into()
 }
 
 // ===== SNAPSHOTS =====
 
-fn snapshots_view(snapshots: &[zb_domain::snapshots::SystemSnapshot]) -> Column<Message> {
+fn snapshots_view(snapshots: &[zb_domain::snapshots::SystemSnapshot]) -> Element<'static, Message> {
     let mut col = column![text("Snapshots").size(20).width(Length::Fill)].spacing(8);
     if snapshots.is_empty() {
         col = col.push(
@@ -833,7 +833,7 @@ fn snapshots_view(snapshots: &[zb_domain::snapshots::SystemSnapshot]) -> Column<
             col = col.push(container(card).padding(12).style(card_style()));
         }
     }
-    col
+    col.into()
 }
 
 // ===== DEBLOAT =====
@@ -841,7 +841,7 @@ fn snapshots_view(snapshots: &[zb_domain::snapshots::SystemSnapshot]) -> Column<
 fn debloat_view(
     bloatware: &[zb_shared::software::SoftwarePackage],
     protected: &[String],
-) -> Column<Message> {
+) -> Element<'static, Message> {
     let mut col = column![
         text("Debloat").size(20),
         container(
@@ -852,7 +852,7 @@ fn debloat_view(
         .padding(8)
         .style(move |_| container::Style {
             background: Some(Background::Color(Color::from_rgba(0.96, 0.37, 0.04, 0.1))),
-            border: Border::rounded(Radius::new(8.0)),
+            border: Border::rounded(8.0),
             ..Default::default()
         }),
     ]
@@ -883,16 +883,16 @@ fn debloat_view(
         .padding(12)
         .style(move |_| container::Style {
             background: Some(Background::Color(Color::from_rgba(0.07, 0.73, 0.51, 0.1))),
-            border: Border::rounded(Radius::new(8.0)),
+            border: Border::rounded(8.0),
             ..Default::default()
         }),
     );
-    col
+    col.into()
 }
 
 // ===== SOFTWARE =====
 
-fn software_view(catalog: &[zb_shared::software::SoftwarePackage]) -> Column<Message> {
+fn software_view(catalog: &[zb_shared::software::SoftwarePackage]) -> Element<'static, Message> {
     let mut col = column![text("Software").size(20)].spacing(8);
     for pkg in catalog {
         let card = row![
@@ -906,12 +906,12 @@ fn software_view(catalog: &[zb_shared::software::SoftwarePackage]) -> Column<Mes
         .align_y(Alignment::Center);
         col = col.push(container(card).padding(12).style(card_style()));
     }
-    col
+    col.into()
 }
 
 // ===== SETTINGS =====
 
-fn settings_view(dark_mode: bool) -> Column<Message> {
+fn settings_view(dark_mode: bool) -> Element<'static, Message> {
     column![
         text("Settings").size(20),
         container(
@@ -955,6 +955,7 @@ fn settings_view(dark_mode: bool) -> Column<Message> {
         .style(card_style()),
     ]
     .spacing(12)
+    .into()
 }
 
 // ===== MAIN VIEW =====
@@ -968,7 +969,7 @@ impl App {
                 ..Default::default()
             });
 
-        let content: Column<Message> = match self.current_tab {
+        let content: Element<'static, Message> = match self.current_tab {
             Tab::Dashboard => dashboard_view(&self.metrics),
             Tab::Tweaks => tweaks_view(&self.tweaks),
             Tab::Services => services_view(&self.services),
