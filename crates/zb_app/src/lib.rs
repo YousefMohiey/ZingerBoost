@@ -559,7 +559,7 @@ fn danger_btn(label: &str) -> iced::widget::Button<'static, Message> {
 
 // ===== SIDEBAR =====
 
-fn sidebar_view(current: Tab) -> Element<'static, Message> {
+fn sidebar_view(current: Tab) -> Element<Message> {
     let mut col = column![].spacing(4).padding(8);
     for tab in &Tab::ALL {
         let is_active = *tab == current;
@@ -595,7 +595,7 @@ fn sidebar_view(current: Tab) -> Element<'static, Message> {
 
 // ===== DASHBOARD =====
 
-fn dashboard_view(metrics: &SystemMetrics) -> Element<'_, Message> {
+fn dashboard_view(metrics: &SystemMetrics) -> Element<Message> {
     let mc = |label: &str, value: String, sub: String| -> Container<Message> {
         container(
             column![
@@ -682,7 +682,7 @@ fn dashboard_view(metrics: &SystemMetrics) -> Element<'_, Message> {
 
 // ===== TWEAKS =====
 
-fn tweaks_view(tweaks: &[TweakRow]) -> Element<'_, Message> {
+fn tweaks_view(tweaks: &[TweakRow]) -> Element<Message> {
     let mut col = column![text("Tweaks").size(20)].spacing(8);
     for (i, t) in tweaks.iter().enumerate() {
         let rc = match t.meta.risk {
@@ -723,7 +723,7 @@ fn tweaks_view(tweaks: &[TweakRow]) -> Element<'_, Message> {
 
 // ===== SERVICES =====
 
-fn services_view(svcs: &[SvcRow]) -> Element<'_, Message> {
+fn services_view(svcs: &[SvcRow]) -> Element<Message> {
     let mut col = column![text("Services").size(20)].spacing(8);
     for r in svcs {
         let card = column![
@@ -766,7 +766,7 @@ fn services_view(svcs: &[SvcRow]) -> Element<'_, Message> {
 
 // ===== CLEANER =====
 
-fn cleaner_view() -> Element<'static, Message> {
+fn cleaner_view() -> Element<Message> {
     let cat = SystemCleaner::new();
     let cats = cat.scan_categories();
     let mut col = column![text("Cleaner").size(20)].spacing(12);
@@ -805,7 +805,7 @@ fn cleaner_view() -> Element<'static, Message> {
 
 // ===== SNAPSHOTS =====
 
-fn snapshots_view(snapshots: &[zb_domain::snapshots::SystemSnapshot]) -> Element<'_, Message> {
+fn snapshots_view(snapshots: &[zb_domain::snapshots::SystemSnapshot]) -> Element<Message> {
     let mut col = column![text("Snapshots").size(20).width(Length::Fill)].spacing(8);
     if snapshots.is_empty() {
         col = col.push(
@@ -856,7 +856,7 @@ fn snapshots_view(snapshots: &[zb_domain::snapshots::SystemSnapshot]) -> Element
 fn debloat_view(
     bloatware: &[zb_shared::software::SoftwarePackage],
     protected: &[String],
-) -> Element<'static, Message> {
+) -> Element<Message> {
     let mut col = column![
         text("Debloat").size(20),
         container(
@@ -913,7 +913,7 @@ fn debloat_view(
 
 // ===== SOFTWARE =====
 
-fn software_view(catalog: &[zb_shared::software::SoftwarePackage]) -> Element<'_, Message> {
+fn software_view(catalog: &[zb_shared::software::SoftwarePackage]) -> Element<Message> {
     let mut col = column![text("Software").size(20)].spacing(8);
     for pkg in catalog {
         let card = row![
@@ -932,7 +932,7 @@ fn software_view(catalog: &[zb_shared::software::SoftwarePackage]) -> Element<'_
 
 // ===== SETTINGS =====
 
-fn settings_view(dark_mode: bool) -> Element<'static, Message> {
+fn settings_view(dark_mode: bool) -> Element<Message> {
     column![
         text("Settings").size(20),
         container(
@@ -982,7 +982,7 @@ fn settings_view(dark_mode: bool) -> Element<'static, Message> {
 // ===== MAIN VIEW =====
 
 impl App {
-    fn view(&self) -> Element<'_, Message> {
+    fn view(&self) -> Element<Message> {
         let sidebar = container(sidebar_view(self.current_tab))
             .width(Length::Fixed(180))
             .style(|_| container::Style {
@@ -990,7 +990,7 @@ impl App {
                 ..Default::default()
             });
 
-        let content: Element<'static, Message> = match self.current_tab {
+        let content: Element<Message> = match self.current_tab {
             Tab::Dashboard => dashboard_view(&self.metrics),
             Tab::Tweaks => tweaks_view(&self.tweaks),
             Tab::Services => services_view(&self.services),
