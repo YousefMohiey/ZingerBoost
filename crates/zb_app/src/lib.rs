@@ -277,9 +277,9 @@ async fn do_restore_snapshot(snap_id: String) -> String {
 
 async fn do_check_admin() -> bool {
     #[cfg(target_os = "windows")]
-    unsafe {
+    {
         use windows::Win32::Security::IsUserAnAdmin;
-        IsUserAnAdmin().as_bool()
+        unsafe { IsUserAnAdmin().as_bool() }
     }
     #[cfg(not(target_os = "windows"))]
     true
@@ -288,26 +288,25 @@ async fn do_check_admin() -> bool {
 fn do_create_restore_point() -> String {
     #[cfg(target_os = "windows")]
     {
-        let desc: Vec<u16> = "ZingerBoost Pre-Tweak Snapshot\0".encode_utf16().collect();
-        use windows::Win32::System::Restore::{
-            SRSetRestorePointW, RESTOREPOINTINFO, RESTOREPOINTINFOW,
-        };
-        let mut info = RESTOREPOINTINFOW {
-            dwEventType: 100, // APPLICATION_INSTALL
-            dwRestorePtType: 0,
-            llSequenceNumber: 0,
-            szDescription: [0; 256],
-        };
-        for (i, &ch) in desc.iter().take(255).enumerate() {
-            info.szDescription[i] = ch;
-        }
-        let mut stat = std::mem::zeroed();
-        unsafe {
-            if SRSetRestorePointW(&info, &mut stat) != 0 {
-                return "System Restore Point created".into();
-            }
+        use std::process::Command;
+        let output = Command::new("wmic")
+            .args([
+                "/Namespace:\\\\root\\default",
+                "Path",
+                "SystemRestore",
+                "Call",
+                "CreateRestorePoint",
+                "\"ZingerBoost Pre-Tweak Snapshot\"",
+                "100",
+                "7",
+            ])
+            .output();
+        match output {
+            Ok(o) if o.status.success() => "System Restore Point created".into(),
+            _ => "Failed to create restore point (may need Admin)".into(),
         }
     }
+    #[cfg(not(target_os = "windows"))]
     "Restore point unavailable on this platform".into()
 }
 
@@ -536,13 +535,13 @@ fn card_style() -> impl Fn(&Theme) -> container::Style {
     }
 }
 
-fn small_btn(label: &str) -> Button<Message> {
-    button(text(label).size(12)).padding(Padding::from([4, 12]))
+fn small_btn(label: &str) -> iced::widget::Button<'static, Message> {
+    iced::widget::button(text(label).size(12)).padding(Padding::from([4, 12]))
 }
-fn primary_btn(label: &str) -> Button<Message> {
+fn primary_btn(label: &str) -> iced::widget::Button<'static, Message> {
     small_btn(label).style(|theme, status| button::primary(theme, status))
 }
-fn danger_btn(label: &str) -> Button<Message> {
+fn danger_btn(label: &str) -> iced::widget::Button<'static, Message> {
     small_btn(label).style(|theme, status| button::danger(theme, status))
 }
 
