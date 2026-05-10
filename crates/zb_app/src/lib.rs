@@ -1,6 +1,7 @@
 use iced::widget::{button, column, container, row, scrollable, text};
 use iced::{Alignment, Background, Border, Color, Element, Length, Task, Theme};
 use std::time::Duration;
+use zb_shared::types::SystemMetrics;
 
 pub fn run() -> iced::Result {
     zb_infrastructure::logging::init_logging();
@@ -50,14 +51,13 @@ impl Tab {
 pub enum Message {
     TabSelected(Tab),
     RefreshMetrics,
-    MetricsUpdated(zb_shared::types::SystemMetrics),
-    ThemeToggled,
+    MetricsUpdated(SystemMetrics),
 }
 
 pub struct App {
     current_tab: Tab,
     dark_mode: bool,
-    metrics: zb_shared::types::SystemMetrics,
+    metrics: SystemMetrics,
 }
 
 impl App {
@@ -106,10 +106,6 @@ impl App {
                 self.metrics = m;
                 Task::none()
             }
-            Message::ThemeToggled => {
-                self.dark_mode = !self.dark_mode;
-                Task::none()
-            }
         }
     }
     fn view(&self) -> Element<Message> {
@@ -120,8 +116,7 @@ impl App {
                     .enumerate()
                     .map(|(i, tab)| {
                         let active = *tab == self.current_tab;
-                        let mut btn =
-                            button(text(tab.label()).size(13)).width(Length::Fixed(160.0));
+                        let mut btn = button(text(tab.label()).size(13)).width(Length::Fill);
                         if active {
                             btn = btn.style(|_, _| button::Style {
                                 background: Some(Background::Color(Color::from_rgb(
@@ -134,18 +129,18 @@ impl App {
                         }
                         btn.on_press(Message::TabSelected(*tab)).into()
                     })
-                    .collect::<Vec<_>>(),
+                    .collect::<Vec<Element<Message>>>(),
             )
             .spacing(4)
             .padding(8),
         )
         .width(Length::Fixed(180.0));
 
+        let m = &self.metrics;
         let content: Element<Message> = match self.current_tab {
             Tab::Dashboard => {
-                let m = &self.metrics;
-                let card = |l: &str, v: &str| -> Element<Message> {
-                    container(column![text(l).size(12), text(v).size(24)].spacing(4))
+                let card = |label: &str, value: String| -> Element<Message> {
+                    container(column![text(label).size(12), text(value).size(24)].spacing(4))
                         .padding(16)
                         .width(Length::Fill)
                         .style(|_| container::Style {
@@ -157,8 +152,8 @@ impl App {
                 };
                 column![
                     row![
-                        card("CPU Usage", &format!("{:.1}%", m.cpu_percent)),
-                        card("RAM Usage", &format!("{:.1}%", m.ram_percent))
+                        card("CPU Usage", format!("{:.1}%", m.cpu_percent)),
+                        card("RAM Usage", format!("{:.1}%", m.ram_percent)),
                     ]
                     .spacing(12),
                     text("29 tweaks · 19 services · 9 cleaner · 34 debloat").size(14),
@@ -166,7 +161,7 @@ impl App {
                 .spacing(16)
                 .into()
             }
-            _ => text(format!("{} — ready", self.current_tab.label())).into(),
+            _ => text(format!("{0} — ready", self.current_tab.label())).into(),
         };
 
         container(row![sidebar, container(scrollable(content)).padding(16)]).into()
