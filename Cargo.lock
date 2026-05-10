@@ -4858,7 +4858,7 @@ checksum = "c94451ac9513335b5e23d7a8a2b61a7102398b8cca5160829d313e84c9d98be1"
 
 [[package]]
 name = "zb_app"
-version = "0.4.0"
+version = "0.0.5"
 dependencies = [
  "anyhow",
  "iced",
@@ -4875,7 +4875,7 @@ dependencies = [
 
 [[package]]
 name = "zb_application"
-version = "0.4.0"
+version = "0.0.5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4893,7 +4893,7 @@ dependencies = [
 
 [[package]]
 name = "zb_domain"
-version = "0.4.0"
+version = "0.0.5"
 dependencies = [
  "async-trait",
  "chrono",
@@ -4909,7 +4909,7 @@ dependencies = [
 
 [[package]]
 name = "zb_infrastructure"
-version = "0.4.0"
+version = "0.0.5"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -4932,7 +4932,7 @@ dependencies = [
 
 [[package]]
 name = "zb_shared"
-version = "0.4.0"
+version = "0.0.5"
 dependencies = [
  "chrono",
  "serde",

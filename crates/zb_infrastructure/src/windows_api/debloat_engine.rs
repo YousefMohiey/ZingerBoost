@@ -47,12 +47,7 @@ impl DebloatEngine {
             return Ok(msg);
         }
 
-        // Method 2: Native COM PackageManager (replaces PowerShell)
-        if let Ok(msg) = Self::try_com_remove(name) {
-            return Ok(msg);
-        }
-
-        // Method 3: DISM provisioned package removal
+        // Method 2: DISM provisioned package removal (native, no PowerShell)
         if let Ok(msg) = Self::try_dism_remove(name) {
             return Ok(msg);
         }
@@ -110,53 +105,6 @@ impl DebloatEngine {
             String::from_utf8_lossy(&output2.stderr).trim()
         ))
     }
-
-    fn try_com_remove(name: &str) -> Result<String, String> {
-        #[cfg(target_os = "windows")]
-        {
-            use windows::core::HSTRING;
-            use windows::Management::Deployment::PackageManager;
-            use windows::Management::Deployment::PackageTypes;
-            use windows::Management::Deployment::RemovalOptions;
-
-            let pm =
-                PackageManager::new().map_err(|e| format!("PackageManager::new failed: {}", e))?;
-
-            let packages = pm
-                .FindPackagesForUserWithPackageTypes(&HSTRING::new(), PackageTypes::Main)
-                .map_err(|e| format!("FindPackages failed: {}", e))?;
-
-            let mut removed = 0u32;
-            for pkg in &packages {
-                if let Ok(id) = pkg.Id() {
-                    if let Ok(n) = id.Name() {
-                        if n.to_string_lossy()
-                            .to_lowercase()
-                            .contains(&name.to_lowercase())
-                        {
-                            if let Ok(full) = id.FullName() {
-                                if let Ok(op) = pm.RemovePackageAsync(&full) {
-                                    if op.get().is_ok() {
-                                        removed += 1;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            if removed > 0 {
-                return Ok(format!(
-                    "Method 2 (COM) removed {} packages matching '{}'",
-                    removed, name
-                ));
-            }
-            Err(format!("No packages found matching '{}'", name))
-        }
-        #[cfg(not(target_os = "windows"))]
-        Err("COM not available".into())
-    }
-
     fn try_powershell_remove(name: &str) -> Result<String, String> {
         let quote = format!(
             "$name='{}'; $pkg = Get-AppxPackage -AllUsers | Where-Object {{ $_.Name -like \"*$name*\" -or $_.PackageFamilyName -like \"*$name*\" }}; if ($pkg) {{ $pkg | Remove-AppxPackage -ErrorAction SilentlyContinue }}; $prov = Get-AppxProvisionedPackage -Online | Where-Object {{ $_.DisplayName -like \"*$name*\" -or $_.PackageName -like \"*$name*\" }}; if ($prov) {{ $prov | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue }}",
