@@ -1,5 +1,5 @@
 [package]
-name = "zingerboost"
+name = "zb_app"
 version.workspace = true
 authors.workspace = true
 edition.workspace = true
@@ -12,10 +12,12 @@ zb_application = { workspace = true }
 zb_infrastructure = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-tokio = { workspace = true, features = ["full"] }
+tokio = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 anyhow = { workspace = true }
-actix-web = "4"
-actix-files = "0.6"
-rusqlite = { workspace = true }
+iced = { workspace = true }
+
+[package.metadata.wix]
+upgrade-guid = "B8F4A3D2-1E5C-4F8B-9A2D-6C7E8F1A3B5D"
+path-guid = "C9F5B4D3-2E6D-5F9C-A3E-7D8F9G2B4C6E"

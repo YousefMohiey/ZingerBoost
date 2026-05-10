@@ -14,18 +14,32 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo build --release -p zingerboost
-      - run: |
+
+      - name: Build executable
+        run: cargo build --release -p zb_app
+
+      - name: Create release folder
+        shell: cmd
+        run: |
           mkdir release
-          copy target\release\zingerboost.exe release\
+          copy target\release\zb_app.exe release\zingerboost.exe
+
+      - name: Build MSI installer
+        shell: cmd
+        run: |
+          cargo install cargo-wix
+          cargo wix --crate-path crates\zb_app --nocapture
+
       - uses: softprops/action-gh-release@v2
         with:
-          files: release/zingerboost.exe
+          files: |
+            release/zingerboost.exe
+            target/wix/*.msi
           name: "ZingerBoost ${{ github.ref_name }}"
           body: |
-            ## ZingerBoost v0.5.0
+            ## Download
+            **Quick:** Download `zingerboost.exe` and run directly.
+            **Installer:** Download the `.msi` to install to Program Files with Start Menu shortcuts.
 
-            Pure Rust desktop server. Run `zingerboost.exe` and open http://127.0.0.1:19999 in your browser.
-
-            **29 real tweaks** · **19 real services** · **9 real cleaner categories** · **34 real debloat targets**
+            Requires [VC++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe) (one-time).
           fail_on_unmatched_files: false
