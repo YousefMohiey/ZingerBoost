@@ -58,6 +58,7 @@ pub enum RegValue {
     Sz(String),
     ExpandSz(String),
     Binary(Vec<u8>),
+    MultiSz(Vec<String>),
     /// Represents a value that does not exist
     Absent,
 }

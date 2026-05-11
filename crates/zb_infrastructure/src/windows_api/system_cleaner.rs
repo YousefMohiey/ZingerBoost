@@ -1,7 +1,22 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
+use std::os::windows::process::CommandExt;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+fn system_drive() -> PathBuf {
+    std::env::var("SystemDrive")
+        .map(|d| PathBuf::from(format!("{}\\", d)))
+        .unwrap_or_else(|_| PathBuf::from(r"C:\"))
+}
+
+fn windows_dir() -> PathBuf {
+    std::env::var("windir")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from(r"C:\Windows"))
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CleanCategory {
@@ -64,8 +79,8 @@ impl SystemCleaner {
     // --- Scanning ---
 
     fn scan_recycle_bin(&self) -> CleanCategory {
-        let path = Path::new(r"C:\$Recycle.Bin");
-        let size = dir_size(path);
+        let path = system_drive().join("$Recycle.Bin");
+        let size = dir_size(&path);
         CleanCategory {
             id: "recycle_bin".into(),
             name: "Recycle Bin".into(),
@@ -110,33 +125,36 @@ impl SystemCleaner {
     }
 
     fn scan_windows_temp(&self) -> CleanCategory {
+        let path = windows_dir().join("Temp");
         CleanCategory {
             id: "windows_temp".into(),
             name: "Windows Temp".into(),
-            description: "System-wide temporary files in C:\\Windows\\Temp".into(),
+            description: "System-wide temporary files in Windows\\Temp".into(),
             risk: "safe".into(),
-            size_bytes: dir_size(Path::new(r"C:\Windows\Temp")),
+            size_bytes: dir_size(&path),
         }
     }
 
     fn scan_windows_logs(&self) -> CleanCategory {
+        let path = windows_dir().join("Logs");
         CleanCategory {
             id: "windows_logs".into(),
             name: "Windows Logs".into(),
             description: "System and application log files".into(),
             risk: "moderate".into(),
-            size_bytes: dir_size(Path::new(r"C:\Windows\Logs")),
+            size_bytes: dir_size(&path),
         }
     }
 
     fn scan_windows_update_cache(&self) -> CleanCategory {
+        let p1 = windows_dir().join("SoftwareDistribution\\Download");
+        let p2 = windows_dir().join("DeliveryOptimization");
         CleanCategory {
             id: "windows_update".into(),
             name: "Windows Update Cache".into(),
             description: "Old Windows Update and Delivery Optimization files".into(),
             risk: "moderate".into(),
-            size_bytes: dir_size(&Path::new(r"C:\Windows\SoftwareDistribution\Download"))
-                + dir_size(&Path::new(r"C:\Windows\DeliveryOptimization")),
+            size_bytes: dir_size(&p1) + dir_size(&p2),
         }
     }
 
@@ -146,7 +164,7 @@ impl SystemCleaner {
             name: "Prefetch Data".into(),
             description: "Windows Prefetch files — speeds app launch but accumulates".into(),
             risk: "moderate".into(),
-            size_bytes: dir_size(Path::new(r"C:\Windows\Prefetch")),
+            size_bytes: dir_size(&windows_dir().join("Prefetch")),
         }
     }
 
@@ -174,21 +192,20 @@ impl SystemCleaner {
     // --- Cleaning ---
 
     fn clean_recycle_bin(&self) -> CleanResult {
-        let before = dir_size(Path::new(r"C:\$Recycle.Bin"));
-        let _ = Command::new("cmd")
-            .args(["/c", "rd", "/s", "/q", r"C:\$Recycle.Bin"])
-            .output();
-        let _ = Command::new("powershell")
+        let rec_bin = system_drive().join("$Recycle.Bin");
+        let before = dir_size(&rec_bin);
+        let result = Command::new("powershell").creation_flags(CREATE_NO_WINDOW)
             .args([
                 "-Command",
-                "Clear-RecycleBin -Force -ErrorAction SilentlyContinue",
+                "Clear-RecycleBin -Force -ErrorAction Stop",
             ])
             .output();
+        let success = result.map(|o| o.status.success()).unwrap_or(false);
         CleanResult {
             category: "recycle_bin".into(),
-            bytes_freed: before,
+            bytes_freed: if success { before } else { 0 },
             items_removed: 0,
-            success: true,
+            success,
         }
     }
 
@@ -231,8 +248,10 @@ impl SystemCleaner {
     }
 
     fn clean_windows_temp(&self) -> CleanResult {
-        let before = dir_size(Path::new(r"C:\Windows\Temp"));
-        let _ = remove_dir_contents(r"C:\Windows\Temp");
+        let temp = windows_dir().join("Temp");
+        let temp_str = temp.to_string_lossy().to_string();
+        let before = dir_size(&temp);
+        let _ = remove_dir_contents(&temp_str);
         CleanResult {
             category: "windows_temp".into(),
             bytes_freed: before,
@@ -242,8 +261,10 @@ impl SystemCleaner {
     }
 
     fn clean_windows_logs(&self) -> CleanResult {
-        let before = dir_size(Path::new(r"C:\Windows\Logs"));
-        let _ = remove_dir_contents(r"C:\Windows\Logs");
+        let logs = windows_dir().join("Logs");
+        let logs_str = logs.to_string_lossy().to_string();
+        let before = dir_size(&logs);
+        let _ = remove_dir_contents(&logs_str);
         CleanResult {
             category: "windows_logs".into(),
             bytes_freed: before,
@@ -253,11 +274,11 @@ impl SystemCleaner {
     }
 
     fn clean_windows_update(&self) -> CleanResult {
-        let p1 = Path::new(r"C:\Windows\SoftwareDistribution\Download");
-        let p2 = Path::new(r"C:\Windows\DeliveryOptimization");
-        let before = dir_size(p1) + dir_size(p2);
-        let _ = remove_dir_contents(p1);
-        let _ = remove_dir_contents(p2);
+        let p1 = windows_dir().join("SoftwareDistribution\\Download");
+        let p2 = windows_dir().join("DeliveryOptimization");
+        let before = dir_size(&p1) + dir_size(&p2);
+        let _ = remove_dir_contents(&p1);
+        let _ = remove_dir_contents(&p2);
         CleanResult {
             category: "windows_update".into(),
             bytes_freed: before,
@@ -267,8 +288,10 @@ impl SystemCleaner {
     }
 
     fn clean_prefetch(&self) -> CleanResult {
-        let before = dir_size(Path::new(r"C:\Windows\Prefetch"));
-        let _ = remove_dir_contents(r"C:\Windows\Prefetch");
+        let prefetch = windows_dir().join("Prefetch");
+        let prefetch_str = prefetch.to_string_lossy().to_string();
+        let before = dir_size(&prefetch);
+        let _ = remove_dir_contents(&prefetch_str);
         CleanResult {
             category: "prefetch".into(),
             bytes_freed: before,
@@ -278,7 +301,7 @@ impl SystemCleaner {
     }
 
     fn clean_dns_cache(&self) -> CleanResult {
-        let _ = Command::new("ipconfig").args(["/flushdns"]).output();
+        let _ = Command::new("ipconfig").creation_flags(CREATE_NO_WINDOW).args(["/flushdns"]).output();
         CleanResult {
             category: "dns_cache".into(),
             bytes_freed: 0,

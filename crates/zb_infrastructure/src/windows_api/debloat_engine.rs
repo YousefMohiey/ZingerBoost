@@ -1,4 +1,7 @@
+use std::os::windows::process::CommandExt;
 use std::process::Command;
+
+const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 #[derive(Debug)]
 pub struct DebloatEngine;
@@ -32,7 +35,7 @@ impl DebloatEngine {
     }
 
     pub fn is_winget_available() -> bool {
-        Command::new("winget")
+        Command::new("winget").creation_flags(CREATE_NO_WINDOW)
             .arg("--version")
             .output()
             .map(|o| o.status.success())
@@ -70,7 +73,7 @@ impl DebloatEngine {
             return Err("Winget not available".to_string());
         }
 
-        let output = Command::new("winget")
+        let output = Command::new("winget").creation_flags(CREATE_NO_WINDOW)
             .args(["uninstall", "--id", name, "--silent"])
             .output()
             .map_err(|e| format!("Winget spawn failed: {}", e))?;
@@ -88,7 +91,7 @@ impl DebloatEngine {
             ));
         }
 
-        let output2 = Command::new("winget")
+        let output2 = Command::new("winget").creation_flags(CREATE_NO_WINDOW)
             .args(["uninstall", "--name", name, "--silent"])
             .output()
             .map_err(|e| format!("Winget name-based spawn failed: {}", e))?;
@@ -105,13 +108,14 @@ impl DebloatEngine {
             String::from_utf8_lossy(&output2.stderr).trim()
         ))
     }
+    #[allow(dead_code)]
     fn try_powershell_remove(name: &str) -> Result<String, String> {
         let quote = format!(
             "$name='{}'; $pkg = Get-AppxPackage -AllUsers | Where-Object {{ $_.Name -like \"*$name*\" -or $_.PackageFamilyName -like \"*$name*\" }}; if ($pkg) {{ $pkg | Remove-AppxPackage -ErrorAction SilentlyContinue }}; $prov = Get-AppxProvisionedPackage -Online | Where-Object {{ $_.DisplayName -like \"*$name*\" -or $_.PackageName -like \"*$name*\" }}; if ($prov) {{ $prov | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue }}",
             name.replace('\'', "''")
         );
 
-        let output = Command::new("powershell")
+        let output = Command::new("powershell").creation_flags(CREATE_NO_WINDOW)
             .args(["-NoProfile", "-Command", &quote])
             .output()
             .map_err(|e| format!("PowerShell spawn failed: {}", e))?;
@@ -137,7 +141,7 @@ impl DebloatEngine {
             name.replace('\'', "''")
         );
 
-        let find_output = Command::new("powershell")
+        let find_output = Command::new("powershell").creation_flags(CREATE_NO_WINDOW)
             .args(["-NoProfile", "-Command", &find_script])
             .output()
             .map_err(|e| format!("DISM find spawn failed: {}", e))?;
@@ -150,7 +154,7 @@ impl DebloatEngine {
             return Err("DISM: No matching provisioned package found".to_string());
         }
 
-        let output = Command::new("dism")
+        let output = Command::new("dism").creation_flags(CREATE_NO_WINDOW)
             .args([
                 "/online",
                 "/Remove-ProvisionedAppxPackage",
@@ -182,7 +186,7 @@ impl DebloatEngine {
             name.replace('\'', "''")
         );
 
-        let output = Command::new("powershell")
+        let output = Command::new("powershell").creation_flags(CREATE_NO_WINDOW)
             .args(["-NoProfile", "-Command", &find_script])
             .output()
             .map_err(|e| format!("Registry remove spawn failed: {}", e))?;
@@ -211,7 +215,7 @@ impl DebloatEngine {
             name.replace('\'', "''")
         );
 
-        let find_output = Command::new("powershell")
+        let find_output = Command::new("powershell").creation_flags(CREATE_NO_WINDOW)
             .args(["-NoProfile", "-Command", &find_path_script])
             .output()
             .map_err(|e| format!("Filesystem find spawn failed: {}", e))?;
@@ -224,7 +228,7 @@ impl DebloatEngine {
             return Err("Filesystem: Could not locate package folder".to_string());
         }
 
-        let takeown = Command::new("takeown")
+        let takeown = Command::new("takeown").creation_flags(CREATE_NO_WINDOW)
             .args(["/f", &path, "/r", "/d", "y"])
             .output()
             .map_err(|e| format!("takeown spawn failed: {}", e))?;
@@ -236,7 +240,7 @@ impl DebloatEngine {
             ));
         }
 
-        let icacls = Command::new("icacls")
+        let icacls = Command::new("icacls").creation_flags(CREATE_NO_WINDOW)
             .args([&path, "/grant", "Administrators:F", "/t", "/q"])
             .output()
             .map_err(|e| format!("icacls spawn failed: {}", e))?;
@@ -248,7 +252,7 @@ impl DebloatEngine {
             ));
         }
 
-        let rmdir = Command::new("cmd")
+        let rmdir = Command::new("cmd").creation_flags(CREATE_NO_WINDOW)
             .args(["/c", "rmdir", "/s", "/q", &path])
             .output()
             .map_err(|e| format!("rmdir spawn failed: {}", e))?;
@@ -338,7 +342,7 @@ foreach ($k in $allKeys) {
 Write-Host "ADS_REMOVED:$count"
 "#;
 
-        let output = Command::new("powershell")
+        let output = Command::new("powershell").creation_flags(CREATE_NO_WINDOW)
             .args(["-NoProfile", "-Command", script])
             .output()
             .map_err(|e| DebloatError::ProcessFailed(e.to_string()))?;
@@ -372,7 +376,7 @@ Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -like '*WebEx
 Write-Host 'WIDGET_PKG_REMOVED'
 "#;
 
-        let _ = Command::new("powershell")
+        let _ = Command::new("powershell").creation_flags(CREATE_NO_WINDOW)
             .args(["-NoProfile", "-Command", ps_script])
             .output()
             .map_err(|e| DebloatError::ProcessFailed(e.to_string()))?;
@@ -386,7 +390,7 @@ New-ItemProperty -Path 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Feeds'
 Write-Host 'WIDGETS_DISABLED'
 "#;
 
-        let output = Command::new("powershell")
+        let output = Command::new("powershell").creation_flags(CREATE_NO_WINDOW)
             .args(["-NoProfile", "-Command", reg_script])
             .output()
             .map_err(|e| DebloatError::ProcessFailed(e.to_string()))?;
@@ -403,7 +407,7 @@ Write-Host 'WIDGETS_DISABLED'
 
     /// Remove a provisioned package via DISM.
     pub fn dism_remove(package_name: &str) -> Result<String, DebloatError> {
-        let output = Command::new("dism")
+        let output = Command::new("dism").creation_flags(CREATE_NO_WINDOW)
             .args([
                 "/online",
                 "/Remove-ProvisionedAppxPackage",

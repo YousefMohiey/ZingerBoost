@@ -39,8 +39,8 @@ impl Tweak for DisableHibernationTweak {
     }
 
     async fn is_applied(&self) -> Result<bool, TweakError> {
-        // Check if hiberfil.sys exists
-        Ok(!std::path::Path::new(r"C:\hiberfil.sys").exists())
+        let sys_drive = std::env::var("SystemDrive").unwrap_or_else(|_| "C:".into());
+        Ok(!std::path::Path::new(&format!("{}\\hiberfil.sys", sys_drive)).exists())
     }
 
     async fn capture_state(&self) -> Result<SnapshotData, TweakError> {

@@ -1,4 +1,7 @@
+use std::os::windows::process::CommandExt;
 use std::process::Command;
+
+const CREATE_NO_WINDOW: u32 = 0x08000000;
 
 #[derive(Debug, Clone)]
 pub struct WingetInstaller;
@@ -9,7 +12,7 @@ impl WingetInstaller {
     }
 
     pub fn is_available(&self) -> bool {
-        Command::new("winget")
+        Command::new("winget").creation_flags(CREATE_NO_WINDOW)
             .arg("--version")
             .output()
             .map(|o| o.status.success())
@@ -17,7 +20,7 @@ impl WingetInstaller {
     }
 
     pub fn install(&self, package_id: &str) -> Result<String, String> {
-        let output = Command::new("winget")
+        let output = Command::new("winget").creation_flags(CREATE_NO_WINDOW)
             .args([
                 "install",
                 "--id",
@@ -44,7 +47,7 @@ impl WingetInstaller {
     }
 
     pub fn remove_appx(&self, package_family_name: &str) -> Result<String, String> {
-        let output = Command::new("powershell")
+        let output = Command::new("powershell").creation_flags(CREATE_NO_WINDOW)
             .args([
                 "-NoProfile",
                 "-WindowStyle",
@@ -62,7 +65,7 @@ impl WingetInstaller {
     }
 
     pub fn remove_provisioned_appx(&self, package_name: &str) -> Result<String, String> {
-        let output = Command::new("powershell")
+        let output = Command::new("powershell").creation_flags(CREATE_NO_WINDOW)
             .args([
                 "-NoProfile", "-WindowStyle", "Hidden", "-Command",
                 &format!("Get-AppxProvisionedPackage -Online | Where-Object {{ $_.DisplayName -like '*{}*' }} | Remove-AppxProvisionedPackage -Online", package_name),

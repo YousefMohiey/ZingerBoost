@@ -10,8 +10,12 @@ impl MetricsCollector {
 
     pub async fn current(&self) -> SystemMetrics {
         let (ram_used, ram_total, ram_pct) = read_ram();
-        let cpu = read_cpu_counter();
-        let disk = read_disk_counter();
+        let cpu = tokio::task::spawn_blocking(|| read_cpu_counter())
+            .await
+            .unwrap_or(15.0);
+        let disk = tokio::task::spawn_blocking(|| read_disk_counter())
+            .await
+            .unwrap_or(5.0);
 
         SystemMetrics {
             cpu_percent: cpu,
@@ -30,8 +34,8 @@ fn read_cpu_counter() -> f64 {
     {
         use windows::core::PCWSTR;
         use windows::Win32::System::Performance::{
-            PdhAddEnglishCounterW, PdhCollectQueryData, PdhGetFormattedCounterValue, PdhOpenQueryW,
-            PDH_FMT_DOUBLE,
+            PdhAddEnglishCounterW, PdhCloseQuery, PdhCollectQueryData,
+            PdhGetFormattedCounterValue, PdhOpenQueryW, PdhRemoveCounter, PDH_FMT_DOUBLE,
         };
 
         unsafe {
@@ -47,6 +51,7 @@ fn read_cpu_counter() -> f64 {
             if PdhAddEnglishCounterW(query, PCWSTR::from_raw(cpu_path.as_ptr()), 0, &mut counter)
                 != 0
             {
+                let _ = PdhCloseQuery(query);
                 return 15.0;
             }
 
@@ -55,11 +60,19 @@ fn read_cpu_counter() -> f64 {
             let _ = PdhCollectQueryData(query);
 
             let mut value = std::mem::zeroed();
-            if PdhGetFormattedCounterValue(counter, PDH_FMT_DOUBLE, None, &mut value) == 0 {
-                return value.Anonymous.doubleValue;
-            }
+            let result =
+                PdhGetFormattedCounterValue(counter, PDH_FMT_DOUBLE, None, &mut value);
+            let val = if result == 0 {
+                value.Anonymous.doubleValue
+            } else {
+                15.0
+            };
+            let _ = PdhRemoveCounter(counter);
+            let _ = PdhCloseQuery(query);
+            val
         }
     }
+    #[cfg(not(target_os = "windows"))]
     15.0
 }
 
@@ -68,8 +81,8 @@ fn read_disk_counter() -> f64 {
     {
         use windows::core::PCWSTR;
         use windows::Win32::System::Performance::{
-            PdhAddEnglishCounterW, PdhCollectQueryData, PdhGetFormattedCounterValue, PdhOpenQueryW,
-            PDH_FMT_DOUBLE,
+            PdhAddEnglishCounterW, PdhCloseQuery, PdhCollectQueryData,
+            PdhGetFormattedCounterValue, PdhOpenQueryW, PdhRemoveCounter, PDH_FMT_DOUBLE,
         };
 
         unsafe {
@@ -85,6 +98,7 @@ fn read_disk_counter() -> f64 {
             if PdhAddEnglishCounterW(query, PCWSTR::from_raw(disk_path.as_ptr()), 0, &mut counter)
                 != 0
             {
+                let _ = PdhCloseQuery(query);
                 return 5.0;
             }
 
@@ -93,11 +107,19 @@ fn read_disk_counter() -> f64 {
             let _ = PdhCollectQueryData(query);
 
             let mut value = std::mem::zeroed();
-            if PdhGetFormattedCounterValue(counter, PDH_FMT_DOUBLE, None, &mut value) == 0 {
-                return value.Anonymous.doubleValue;
-            }
+            let result =
+                PdhGetFormattedCounterValue(counter, PDH_FMT_DOUBLE, None, &mut value);
+            let val = if result == 0 {
+                value.Anonymous.doubleValue
+            } else {
+                5.0
+            };
+            let _ = PdhRemoveCounter(counter);
+            let _ = PdhCloseQuery(query);
+            val
         }
     }
+    #[cfg(not(target_os = "windows"))]
     5.0
 }
 

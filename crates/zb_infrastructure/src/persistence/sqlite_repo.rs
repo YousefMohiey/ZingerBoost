@@ -219,6 +219,22 @@ impl SnapshotService for SqliteRepo {
 
     async fn restore_snapshot(&self, id: &str) -> Result<(), SnapshotError> {
         let conn = self.conn.lock().await;
+
+        // Check snapshot exists
+        let exists: bool = conn
+            .query_row(
+                "SELECT COUNT(*) > 0 FROM snapshots WHERE id = ?1",
+                [id],
+                |row| row.get(0),
+            )
+            .map_err(|e| SnapshotError::Storage(e.to_string()))?;
+        if !exists {
+            return Err(SnapshotError::NotFound(format!(
+                "Snapshot {} not found",
+                id
+            )));
+        }
+
         let mut stmt = conn
             .prepare("SELECT tweak_id, snapshot_data FROM snapshot_tweaks WHERE snapshot_id = ?1")
             .map_err(|e| SnapshotError::Storage(e.to_string()))?;

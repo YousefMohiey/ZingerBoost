@@ -109,9 +109,14 @@ impl TweakEngine {
             let snapshot_data = tweak.capture_state().await?;
             match tweak.apply().await {
                 Ok(result) => {
-                    snapshot.add_record(id.clone(), snapshot_data);
+                    snapshot.add_record(id.clone(), snapshot_data.clone());
                     applied.push(id.clone());
                     results.push((id.clone(), result));
+
+                    self.snapshot_service
+                        .save_applied(id, snapshot_data)
+                        .await
+                        .map_err(|e| TweakError::Unknown(e.to_string()))?;
                 }
                 Err(e) => {
                     error!("Failed to apply tweak {}: {}", id, e);

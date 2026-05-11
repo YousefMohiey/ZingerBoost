@@ -4,12 +4,23 @@ use windows::Win32::Foundation::ERROR_SUCCESS;
 use windows::Win32::System::Registry::{
     RegCloseKey, RegDeleteValueW, RegOpenKeyExW, RegQueryValueExW, RegSetValueExW, HKEY,
     HKEY_CLASSES_ROOT, HKEY_CURRENT_CONFIG, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, HKEY_USERS,
-    KEY_ALL_ACCESS, KEY_READ, REG_BINARY, REG_DWORD, REG_EXPAND_SZ, REG_QWORD, REG_SZ,
-    REG_VALUE_TYPE,
+    KEY_ALL_ACCESS, KEY_READ, REG_BINARY, REG_DWORD, REG_EXPAND_SZ, REG_MULTI_SZ, REG_QWORD,
+    REG_SZ, REG_VALUE_TYPE,
 };
 use zb_domain::errors::RegistryError;
 use zb_domain::registry::RegistryProvider;
 use zb_shared::types::{RegPath, RegRoot, RegValue};
+
+/// Helper: decode a Windows UTF-16 LE buffer, stopping at null terminator.
+/// Uses chunks(2) instead of chunks_exact to handle odd-length buffers gracefully.
+fn decode_utf16_buffer(buffer: &[u8]) -> Vec<u16> {
+    buffer
+        .chunks(2)
+        .filter(|c| c.len() == 2)
+        .map(|c| u16::from_le_bytes([c[0], c[1]]))
+        .take_while(|&c| c != 0)
+        .collect()
+}
 
 /// Windows registry provider using windows-rs
 #[derive(Debug)]
@@ -49,8 +60,18 @@ impl WinRegistryProvider {
         };
         if result == ERROR_SUCCESS {
             Ok(hkey)
-        } else {
+        } else if result == windows::Win32::Foundation::ERROR_ACCESS_DENIED {
             Err(RegistryError::AccessDenied)
+        } else if result == windows::Win32::Foundation::ERROR_FILE_NOT_FOUND {
+            Err(RegistryError::ReadFailed(format!(
+                "Registry key not found: {}\\{}",
+                path.path, path.root
+            )))
+        } else {
+            Err(RegistryError::ReadFailed(format!(
+                "RegOpenKeyExW failed: 0x{:08X}",
+                result.0
+            )))
         }
     }
 
@@ -106,10 +127,17 @@ impl WinRegistryProvider {
 impl RegistryProvider for WinRegistryProvider {
     async fn read(&self, path: &RegPath, name: &str) -> Result<RegValue, RegistryError> {
         let hkey = self.open_key(path, KEY_READ)?;
-        let (buffer, data_type) = self.read_raw_value(hkey, name)?;
-        let result = unsafe { RegCloseKey(hkey) };
-        if result != ERROR_SUCCESS {
-            tracing::warn!("Failed to close registry key: {:?}", result);
+        let raw_result = self.read_raw_value(hkey, name);
+        let (buffer, data_type) = match raw_result {
+            Ok(v) => v,
+            Err(e) => {
+                let _ = unsafe { RegCloseKey(hkey) };
+                return Err(e);
+            }
+        };
+        let close_result = unsafe { RegCloseKey(hkey) };
+        if close_result != ERROR_SUCCESS {
+            tracing::warn!("Failed to close registry key: {:?}", close_result);
         }
 
         match data_type {
@@ -133,26 +161,28 @@ impl RegistryProvider for WinRegistryProvider {
                 }
             }
             REG_SZ => {
-                let wide: Vec<u16> = buffer
-                    .chunks_exact(2)
-                    .map(|c| u16::from_le_bytes([c[0], c[1]]))
-                    .take_while(|&c| c != 0)
-                    .collect();
+                let wide = decode_utf16_buffer(&buffer);
                 let string = String::from_utf16(&wide).map_err(|e| {
                     RegistryError::ReadFailed(format!("UTF-16 decode error: {}", e))
                 })?;
                 Ok(RegValue::Sz(string))
             }
             REG_EXPAND_SZ => {
-                let wide: Vec<u16> = buffer
-                    .chunks_exact(2)
-                    .map(|c| u16::from_le_bytes([c[0], c[1]]))
-                    .take_while(|&c| c != 0)
-                    .collect();
+                let wide = decode_utf16_buffer(&buffer);
                 let string = String::from_utf16(&wide).map_err(|e| {
                     RegistryError::ReadFailed(format!("UTF-16 decode error: {}", e))
                 })?;
                 Ok(RegValue::ExpandSz(string))
+            }
+            REG_MULTI_SZ => {
+                let raw = String::from_utf16(&decode_utf16_buffer(&buffer))
+                    .map_err(|e| RegistryError::ReadFailed(format!("UTF-16 decode error: {}", e)))?;
+                let strings: Vec<String> = raw
+                    .split('\0')
+                    .filter(|s| !s.is_empty())
+                    .map(|s| s.to_string())
+                    .collect();
+                Ok(RegValue::MultiSz(strings))
             }
             REG_BINARY => Ok(RegValue::Binary(buffer)),
             _ => Err(RegistryError::ReadFailed(format!(
@@ -223,6 +253,20 @@ impl RegistryProvider for WinRegistryProvider {
             RegValue::Absent => {
                 let _ = unsafe { RegCloseKey(hkey) };
                 return self.delete(path, name).await;
+            }
+            RegValue::MultiSz(v) => {
+                let flat: String = v.join("\0");
+                let wide: Vec<u16> = flat.encode_utf16().chain(std::iter::once(0)).collect();
+                let bytes: Vec<u8> = wide.iter().flat_map(|&c| c.to_le_bytes()).collect();
+                unsafe {
+                    RegSetValueExW(
+                        hkey,
+                        windows::core::PCWSTR(wide_name.as_ptr()),
+                        0,
+                        REG_MULTI_SZ,
+                        Some(&bytes),
+                    )
+                }
             }
         };
 

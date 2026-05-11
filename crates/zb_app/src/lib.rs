@@ -2,7 +2,11 @@ use iced::widget::{button, column, container, row, scrollable, text};
 use iced::{Alignment, Background, Border, Color, Element, Length, Task, Theme};
 use std::sync::Arc;
 use std::time::Duration;
+use zb_application::tweak_engine::TweakEngine;
+use zb_domain::tweaks::Tweak;
 use zb_infrastructure::logging::init_logging;
+use zb_infrastructure::persistence::sqlite_repo::{init_database, SqliteRepo};
+use zb_infrastructure::persistence::audit_logger::SqliteAuditLogger;
 use zb_infrastructure::services::ServiceController;
 use zb_shared::types::SystemMetrics;
 
@@ -57,32 +61,74 @@ pub enum Message {
     TabSelected(Tab),
     Tick,
     MetricsUpdated(SystemMetrics),
-    TweakApply(usize, String),
-    TweakResult(usize, String),
-    SvcStop(usize, String),
-    SvcDisable(usize, String),
+    TweakApply(String),
+    TweakRevert(String),
+    TweakResult(String),
+    SvcStop(String),
+    SvcDisable(String),
     Clean(String),
     DebloatRemove(String),
     SoftwareInstall(String),
+    SnapshotsLoaded(Vec<(String, String, usize)>),
+    SnapshotRestore(String),
     OpResult(String),
+    DismissStatus,
 }
 
 pub struct App {
     current_tab: Tab,
     metrics: SystemMetrics,
+    engine: Option<Arc<TweakEngine>>,
     tweaks: Vec<(String, String, String)>,
     tweak_ids: Vec<String>,
     services: Vec<(String, String, String)>,
     cleaner_items: Vec<(String, String, String, f64)>,
     bloatware: Vec<(String, String)>,
     software: Vec<(String, String, String)>,
+    snapshots: Vec<(String, String, usize)>,
     status: Option<String>,
+}
+
+pub fn make_all_tweaks() -> Vec<Arc<dyn Tweak>> {
+    let rp = zb_infrastructure::registry::WinRegistryProvider::new();
+    vec![
+        Arc::new(zb_domain::tweaks::definitions::DisableGameDvrTweak::with_provider(rp.clone())),
+        Arc::new(zb_domain::tweaks::definitions::DisableTransparencyTweak::with_provider(rp.clone())),
+        Arc::new(zb_domain::tweaks::definitions::DisableAnimationsTweak::with_provider(rp.clone())),
+        Arc::new(zb_domain::tweaks::definitions::ShowFileExtensionsTweak::with_provider(rp.clone())),
+        Arc::new(zb_domain::tweaks::definitions::DisableStickyKeysTweak::with_provider(rp.clone())),
+        Arc::new(zb_domain::tweaks::definitions::DisableStartupDelayTweak::with_provider(rp.clone())),
+        Arc::new(zb_domain::tweaks::definitions::DisableBackgroundAppsTweak::with_provider(rp.clone())),
+        Arc::new(zb_domain::tweaks::definitions::DisableTelemetryTweak::with_provider(rp.clone())),
+        Arc::new(zb_domain::tweaks::definitions::DisableMenuDelayTweak::with_provider(rp.clone())),
+        Arc::new(zb_domain::tweaks::definitions::DisableCursorShadowTweak::with_provider(rp.clone())),
+        Arc::new(zb_domain::tweaks::definitions::DisableFontSmoothingTweak::with_provider(rp.clone())),
+        Arc::new(zb_domain::tweaks::definitions::DisableTaskbarAnimationsTweak::with_provider(rp.clone())),
+        Arc::new(zb_domain::tweaks::definitions::DisableAeroShakeTweak::with_provider(rp.clone())),
+        Arc::new(zb_domain::tweaks::definitions::DisableAeroSnapTweak::with_provider(rp.clone())),
+        Arc::new(zb_domain::tweaks::definitions::DisablePeekTweak::with_provider(rp.clone())),
+        Arc::new(zb_domain::tweaks::definitions::DisableSmoothScrollTweak::with_provider(rp.clone())),
+        Arc::new(zb_domain::tweaks::definitions::DisableComboAnimationTweak::with_provider(rp.clone())),
+        Arc::new(zb_domain::tweaks::definitions::DisableTaskbarBadgesTweak::with_provider(rp.clone())),
+        Arc::new(zb_domain::tweaks::definitions::DisableAllVisualEffectsTweak::with_provider(rp.clone())),
+        Arc::new(zb_domain::tweaks::definitions::DisableDropShadowsTweak::with_provider(rp.clone())),
+        Arc::new(zb_domain::tweaks::definitions::DisableThumbnailsTweak::with_provider(rp.clone())),
+        Arc::new(zb_domain::tweaks::definitions::DisableMinMaxAnimTweak::with_provider(rp.clone())),
+        Arc::new(zb_domain::tweaks::definitions::DisableLockScreenAdsTweak::with_provider(rp.clone())),
+        Arc::new(zb_domain::tweaks::definitions::DisableStartSuggestionsTweak::with_provider(rp.clone())),
+        Arc::new(zb_domain::tweaks::definitions::DisableExplorerAdsTweak::with_provider(rp.clone())),
+        Arc::new(zb_domain::tweaks::definitions::DisableAdvertisingIdTweak::with_provider(rp.clone())),
+        Arc::new(zb_domain::tweaks::definitions::DisableMeetNowTweak::with_provider(rp.clone())),
+        Arc::new(zb_domain::tweaks::definitions::DisableHibernationTweak::new()),
+        Arc::new(zb_domain::tweaks::definitions::SetHighPerformanceTweak::new()),
+    ]
 }
 
 impl App {
     fn new() -> (Self, Task<Message>) {
+        let tweaks_list = make_all_tweaks();
         let mut tweak_ids = Vec::new();
-        let tweaks = make_all_tweaks()
+        let tweaks = tweaks_list
             .iter()
             .map(|t| {
                 let m = t.metadata();
@@ -94,6 +140,7 @@ impl App {
                 )
             })
             .collect();
+
         let services = ServiceController::new()
             .query_services()
             .into_iter()
@@ -119,32 +166,52 @@ impl App {
             .into_iter()
             .map(|s| (s.name, format!("{:?}", s.category), s.winget_id))
             .collect();
+
+        let engine = init_database()
+            .map(|db_conn| {
+                let snapshot_service = SqliteRepo::from_connection(db_conn.clone());
+                let audit_service = SqliteAuditLogger::from_connection(db_conn);
+                Arc::new(TweakEngine::new(tweaks_list, snapshot_service, audit_service))
+            })
+            .ok();
+
         (
             Self {
                 current_tab: Tab::Dashboard,
                 metrics: Default::default(),
+                engine,
                 tweaks,
                 tweak_ids,
                 services,
                 cleaner_items: cleaner,
                 bloatware,
                 software,
+                snapshots: Vec::new(),
                 status: None,
             },
-            T::perform(
-                async {
-                    zb_infrastructure::windows_api::metrics_collector::MetricsCollector::new()
-                        .current()
-                        .await
-                },
-                Message::MetricsUpdated,
-            ),
+            T::batch(vec![
+                T::perform(
+                    async {
+                        zb_infrastructure::windows_api::metrics_collector::MetricsCollector::new()
+                            .current()
+                            .await
+                    },
+                    Message::MetricsUpdated,
+                ),
+                T::perform(
+                    async {
+                        load_snapshots().await
+                    },
+                    Message::SnapshotsLoaded,
+                ),
+            ]),
         )
     }
 
     fn theme(&self) -> Theme {
         Theme::Dark
     }
+
     fn subscription(&self) -> iced::Subscription<Message> {
         iced::time::every(Duration::from_secs(2)).map(|_| Message::Tick)
     }
@@ -155,47 +222,68 @@ impl App {
                 self.current_tab = t;
                 T::none()
             }
-            Message::Tick => T::perform(
-                async {
-                    zb_infrastructure::windows_api::metrics_collector::MetricsCollector::new()
-                        .current()
-                        .await
-                },
-                Message::MetricsUpdated,
-            ),
+            Message::Tick => T::batch(vec![
+                T::perform(
+                    async {
+                        zb_infrastructure::windows_api::metrics_collector::MetricsCollector::new()
+                            .current()
+                            .await
+                    },
+                    Message::MetricsUpdated,
+                ),
+            ]),
             Message::MetricsUpdated(m) => {
                 self.metrics = m;
                 T::none()
             }
-            Message::TweakApply(idx, id) => {
+            Message::TweakApply(ref id) => {
                 self.status = Some(format!("Applying {0}...", id));
+                let id = id.clone();
+                let engine = self.engine.clone();
                 T::perform(
                     async move {
-                        let tweaks = make_all_tweaks();
-                        if let Some(t) = tweaks.iter().find(|tw| tw.metadata().id == id) {
-                            match t.apply().await {
-                                Ok(r) => r.message,
-                                Err(e) => e.to_string(),
-                            }
-                        } else {
-                            "Tweak not found".into()
+                        match engine {
+                            Some(ref e) => match e.apply_single(&id).await {
+                                Ok(r) => format!("{}: {}", id, r.message),
+                                Err(e) => format!("{}: {}", id, e),
+                            },
+                            None => format!("No engine (database init failed)"),
                         }
                     },
-                    Message::OpResult,
+                    |msg| {
+                        Message::TweakResult(msg)
+                    },
                 )
             }
-            Message::TweakResult(idx, msg) => {
+            Message::TweakRevert(ref id) => {
+                self.status = Some(format!("Reverting {0}...", id));
+                let id = id.clone();
+                let engine = self.engine.clone();
+                T::perform(
+                    async move {
+                        match engine {
+                            Some(ref e) => match e.revert(&id).await {
+                                Ok(r) => format!("{}: {}", id, r.message),
+                                Err(e) => format!("{}: {}", id, e),
+                            },
+                            None => format!("No engine (database init failed)"),
+                        }
+                    },
+                    Message::TweakResult,
+                )
+            }
+            Message::TweakResult(msg) => {
                 self.status = Some(msg);
                 T::none()
             }
-            Message::SvcStop(_, ref name) => {
+            Message::SvcStop(ref name) => {
                 self.status = Some(match ServiceController::new().stop_service(name) {
                     Ok(m) => m,
                     Err(e) => e,
                 });
                 T::none()
             }
-            Message::SvcDisable(_, ref name) => {
+            Message::SvcDisable(ref name) => {
                 self.status = Some(match ServiceController::new().disable_service(name) {
                     Ok(m) => m,
                     Err(e) => e,
@@ -207,10 +295,11 @@ impl App {
                 let n = name.clone();
                 T::perform(
                     async move {
-                        let c =
-                            zb_infrastructure::windows_api::system_cleaner::SystemCleaner::new();
-                        let r = c.clean_category(&n);
-                        format!("{0} — freed {1} bytes", r.category, r.bytes_freed)
+                        tokio::task::spawn_blocking(move || {
+                            let c = zb_infrastructure::windows_api::system_cleaner::SystemCleaner::new();
+                            let r = c.clean_category(&n);
+                            format!("{0} — freed {1} bytes", r.category, r.bytes_freed)
+                        }).await.unwrap_or_else(|e| format!("Clean failed: {}", e))
                     },
                     Message::OpResult,
                 )
@@ -242,14 +331,42 @@ impl App {
                     Message::OpResult,
                 )
             }
+            Message::SnapshotsLoaded(s) => {
+                self.snapshots = s;
+                T::none()
+            }
+            Message::SnapshotRestore(ref id) => {
+                self.status = Some(format!("Restoring snapshot {0}...", id));
+                let id = id.clone();
+                let engine = self.engine.clone();
+                T::perform(
+                    async move {
+                        match engine {
+                            Some(ref e) => {
+                                let snapshot_service = e.snapshot_service();
+                                match snapshot_service.restore_snapshot(&id).await {
+                                    Ok(()) => format!("Snapshot {} data loaded — revert each tweak individually", id),
+                                    Err(e) => format!("Failed: {}", e),
+                                }
+                            }
+                            None => "No engine available".into(),
+                        }
+                    },
+                    Message::OpResult,
+                )
+            }
             Message::OpResult(msg) => {
                 self.status = Some(msg);
+                T::none()
+            }
+            Message::DismissStatus => {
+                self.status = None;
                 T::none()
             }
         }
     }
 
-    fn view(&self) -> Element<Message> {
+    fn view(&self) -> Element<'_, Message> {
         let sidebar = container(
             column(
                 Tab::ALL
@@ -283,7 +400,7 @@ impl App {
                 ..Default::default()
             }
         }
-        fn btn(label: &str) -> iced::widget::Button<Message> {
+        fn btn(label: &str) -> iced::widget::Button<'_, Message> {
             button(text(label).size(11)).padding(iced::Padding {
                 top: 4.0,
                 right: 10.0,
@@ -314,14 +431,21 @@ impl App {
                         mc("RAM Usage".into(), format!("{:.1}%", m.ram_percent))
                     ]
                     .spacing(12),
-                    text("29 tweaks · 19 services · 9 cleaner · 34 debloat").size(14)
+                    text(format!("{} snapshots", self.snapshots.len())).size(14)
                 ]
                 .spacing(16)
                 .into()
             }
             Tab::Tweaks => {
-                let mut col = column![text("Tweaks").size(20)].spacing(8);
+                let mut col = column![
+                    text("Tweaks").size(20),
+                    text("Apply = create snapshot first. Revert = undo last change.")
+                        .size(11)
+                        .color(Color::from_rgb(0.5, 0.5, 0.5))
+                ]
+                .spacing(8);
                 for (i, (name, desc, _)) in self.tweaks.iter().enumerate() {
+                    let tid = self.tweak_ids.get(i).cloned().unwrap_or_default();
                     let card = row![
                         column![
                             text(name.clone()).size(14).width(Length::Fill),
@@ -331,7 +455,8 @@ impl App {
                         ]
                         .spacing(2)
                         .width(Length::Fill),
-                        btn("Apply").on_press(Message::TweakApply(i, name.clone()))
+                        btn("Apply").on_press(Message::TweakApply(tid.clone())),
+                        btn("Revert").on_press(Message::TweakRevert(tid))
                     ]
                     .spacing(8)
                     .align_y(Alignment::Center);
@@ -341,7 +466,7 @@ impl App {
             }
             Tab::Services => {
                 let mut col = column![text("Services").size(20)].spacing(8);
-                for (i, (display, _, status)) in self.services.iter().enumerate() {
+                for (display, _, status) in &self.services {
                     let running = status == "Running";
                     let sc = if running {
                         Color::from_rgb(0.07, 0.73, 0.51)
@@ -357,8 +482,8 @@ impl App {
                         ]
                         .spacing(2)
                         .width(Length::Fill),
-                        btn("Stop").on_press(Message::SvcStop(i, display.clone())),
-                        btn("Disable").on_press(Message::SvcDisable(i, display.clone()))
+                        btn("Stop").on_press(Message::SvcStop(display.clone())),
+                        btn("Disable").on_press(Message::SvcDisable(display.clone()))
                     ]
                     .spacing(8)
                     .align_y(Alignment::Center);
@@ -399,7 +524,45 @@ impl App {
                 }
                 col.into()
             }
-            Tab::Snapshots => text("Snapshots — created when you apply tweaks").into(),
+            Tab::Snapshots => {
+                if self.snapshots.is_empty() {
+                    container(
+                        column![
+                            text("Snapshots").size(20),
+                            text("No snapshots yet. Apply a tweak to create one.")
+                                .size(12)
+                                .color(Color::from_rgb(0.5, 0.5, 0.5)),
+                        ]
+                        .spacing(8),
+                    )
+                    .into()
+                } else {
+                    let mut col = column![
+                        text("Snapshots").size(20),
+                        text("Click Restore to reload snapshot data (then revert individual tweaks)")
+                            .size(11)
+                            .color(Color::from_rgb(0.5, 0.5, 0.5))
+                    ]
+                    .spacing(8);
+                    for (snap_id, desc, count) in &self.snapshots {
+                        let card = row![
+                            column![
+                                text(snap_id.clone()).size(14).width(Length::Fill),
+                                text(format!("{} tweak(s) — {}", count, desc))
+                                    .size(12)
+                                    .color(Color::from_rgb(0.5, 0.5, 0.5))
+                            ]
+                            .spacing(2)
+                            .width(Length::Fill),
+                            btn("Restore").on_press(Message::SnapshotRestore(snap_id.clone()))
+                        ]
+                        .spacing(8)
+                        .align_y(Alignment::Center);
+                        col = col.push(container(card).padding(12).style(card_style()));
+                    }
+                    col.into()
+                }
+            }
             Tab::Debloat => {
                 let mut col = column![
                     text("Debloat").size(20),
@@ -479,85 +642,47 @@ impl App {
         };
 
         let body = column![row![sidebar, container(scrollable(content)).padding(16)].spacing(0)];
+
+        let mut page = column![];
         if let Some(ref s) = self.status {
-            container(text(s).size(12).color(Color::from_rgb(0.8, 0.8, 0.8)))
-                .padding(8)
-                .style(|_| container::Style {
-                    background: Some(Background::Color(Color::from_rgb(0.05, 0.05, 0.05))),
-                    ..Default::default()
-                })
-                .into()
-        } else {
-            container(body).into()
+            page = page.push(
+                row![
+                    text(s)
+                        .size(12)
+                        .color(Color::from_rgb(0.9, 0.9, 0.9))
+                        .width(Length::Fill),
+                    button(text("X").size(11))
+                        .padding(iced::Padding { top: 2.0, right: 8.0, bottom: 2.0, left: 8.0 })
+                        .on_press(Message::DismissStatus)
+                ]
+                .padding(10)
+                .align_y(Alignment::Center),
+            );
         }
+        page = page.push(body);
+        container(page).into()
     }
 }
 
-fn make_all_tweaks() -> Vec<Arc<dyn zb_domain::tweaks::Tweak>> {
-    let rp = zb_infrastructure::registry::WinRegistryProvider::new();
-    vec![
-        Arc::new(zb_domain::tweaks::definitions::DisableGameDvrTweak::with_provider(rp.clone())),
-        Arc::new(
-            zb_domain::tweaks::definitions::DisableTransparencyTweak::with_provider(rp.clone()),
-        ),
-        Arc::new(zb_domain::tweaks::definitions::DisableAnimationsTweak::with_provider(rp.clone())),
-        Arc::new(
-            zb_domain::tweaks::definitions::ShowFileExtensionsTweak::with_provider(rp.clone()),
-        ),
-        Arc::new(zb_domain::tweaks::definitions::DisableStickyKeysTweak::with_provider(rp.clone())),
-        Arc::new(
-            zb_domain::tweaks::definitions::DisableStartupDelayTweak::with_provider(rp.clone()),
-        ),
-        Arc::new(
-            zb_domain::tweaks::definitions::DisableBackgroundAppsTweak::with_provider(rp.clone()),
-        ),
-        Arc::new(zb_domain::tweaks::definitions::DisableTelemetryTweak::with_provider(rp.clone())),
-        Arc::new(zb_domain::tweaks::definitions::DisableMenuDelayTweak::with_provider(rp.clone())),
-        Arc::new(
-            zb_domain::tweaks::definitions::DisableCursorShadowTweak::with_provider(rp.clone()),
-        ),
-        Arc::new(
-            zb_domain::tweaks::definitions::DisableFontSmoothingTweak::with_provider(rp.clone()),
-        ),
-        Arc::new(
-            zb_domain::tweaks::definitions::DisableTaskbarAnimationsTweak::with_provider(
-                rp.clone(),
-            ),
-        ),
-        Arc::new(zb_domain::tweaks::definitions::DisableAeroShakeTweak::with_provider(rp.clone())),
-        Arc::new(zb_domain::tweaks::definitions::DisableAeroSnapTweak::with_provider(rp.clone())),
-        Arc::new(zb_domain::tweaks::definitions::DisablePeekTweak::with_provider(rp.clone())),
-        Arc::new(
-            zb_domain::tweaks::definitions::DisableSmoothScrollTweak::with_provider(rp.clone()),
-        ),
-        Arc::new(
-            zb_domain::tweaks::definitions::DisableComboAnimationTweak::with_provider(rp.clone()),
-        ),
-        Arc::new(
-            zb_domain::tweaks::definitions::DisableTaskbarBadgesTweak::with_provider(rp.clone()),
-        ),
-        Arc::new(
-            zb_domain::tweaks::definitions::DisableAllVisualEffectsTweak::with_provider(rp.clone()),
-        ),
-        Arc::new(
-            zb_domain::tweaks::definitions::DisableDropShadowsTweak::with_provider(rp.clone()),
-        ),
-        Arc::new(zb_domain::tweaks::definitions::DisableThumbnailsTweak::with_provider(rp.clone())),
-        Arc::new(zb_domain::tweaks::definitions::DisableMinMaxAnimTweak::with_provider(rp.clone())),
-        Arc::new(
-            zb_domain::tweaks::definitions::DisableLockScreenAdsTweak::with_provider(rp.clone()),
-        ),
-        Arc::new(
-            zb_domain::tweaks::definitions::DisableStartSuggestionsTweak::with_provider(rp.clone()),
-        ),
-        Arc::new(
-            zb_domain::tweaks::definitions::DisableExplorerAdsTweak::with_provider(rp.clone()),
-        ),
-        Arc::new(
-            zb_domain::tweaks::definitions::DisableAdvertisingIdTweak::with_provider(rp.clone()),
-        ),
-        Arc::new(zb_domain::tweaks::definitions::DisableMeetNowTweak::with_provider(rp.clone())),
-        Arc::new(zb_domain::tweaks::definitions::DisableHibernationTweak::new()),
-        Arc::new(zb_domain::tweaks::definitions::SetHighPerformanceTweak::new()),
-    ]
+async fn load_snapshots() -> Vec<(String, String, usize)> {
+    let db = match init_database() {
+        Ok(conn) => conn,
+        Err(_) => return Vec::new(),
+    };
+    let repo = SqliteRepo::from_connection(db);
+    match repo.list_snapshots().await {
+        Ok(snapshots) => snapshots
+            .into_iter()
+            .map(|s| {
+                let short_id = s.id.to_string();
+                let display_id = if short_id.len() > 8 {
+                    short_id[..8].to_string()
+                } else {
+                    short_id
+                };
+                (display_id, s.description, s.tweak_records.len())
+            })
+            .collect(),
+        Err(_) => Vec::new(),
+    }
 }
