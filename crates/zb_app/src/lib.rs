@@ -71,6 +71,7 @@ pub struct App {
     current_tab: Tab,
     metrics: SystemMetrics,
     tweaks: Vec<(String, String, String)>,
+    tweak_ids: Vec<String>,
     services: Vec<(String, String, String)>,
     cleaner_items: Vec<(String, String, String, f64)>,
     bloatware: Vec<(String, String)>,
@@ -80,10 +81,12 @@ pub struct App {
 
 impl App {
     fn new() -> (Self, Task<Message>) {
+        let mut tweak_ids = Vec::new();
         let tweaks = make_all_tweaks()
             .iter()
             .map(|t| {
                 let m = t.metadata();
+                tweak_ids.push(m.id.clone());
                 (
                     m.name.clone(),
                     m.description.clone(),
@@ -121,6 +124,7 @@ impl App {
                 current_tab: Tab::Dashboard,
                 metrics: Default::default(),
                 tweaks,
+                tweak_ids,
                 services,
                 cleaner_items: cleaner,
                 bloatware,
@@ -165,7 +169,20 @@ impl App {
             }
             Message::TweakApply(idx, id) => {
                 self.status = Some(format!("Applying {0}...", id));
-                T::none()
+                T::perform(
+                    async move {
+                        let tweaks = make_all_tweaks();
+                        if let Some(t) = tweaks.iter().find(|tw| tw.metadata().id == id) {
+                            match t.apply().await {
+                                Ok(r) => r.message,
+                                Err(e) => e.to_string(),
+                            }
+                        } else {
+                            "Tweak not found".into()
+                        }
+                    },
+                    Message::OpResult,
+                )
             }
             Message::TweakResult(idx, msg) => {
                 self.status = Some(msg);
@@ -187,15 +204,43 @@ impl App {
             }
             Message::Clean(ref name) => {
                 self.status = Some(format!("Cleaning {0}...", name));
-                T::none()
+                let n = name.clone();
+                T::perform(
+                    async move {
+                        let c =
+                            zb_infrastructure::windows_api::system_cleaner::SystemCleaner::new();
+                        let r = c.clean_category(&n);
+                        format!("{0} — freed {1} bytes", r.category, r.bytes_freed)
+                    },
+                    Message::OpResult,
+                )
             }
             Message::DebloatRemove(ref name) => {
                 self.status = Some(format!("Removing {0}...", name));
-                T::none()
+                let n = name.clone();
+                T::perform(
+                    async move {
+                        match zb_infrastructure::windows_api::debloat_engine::DebloatEngine::remove_appx_package(&n) {
+                        Ok(msg) => msg,
+                        Err(e) => e.to_string(),
+                    }
+                    },
+                    Message::OpResult,
+                )
             }
-            Message::SoftwareInstall(ref name) => {
-                self.status = Some(format!("Installing {0} via Winget...", name));
-                T::none()
+            Message::SoftwareInstall(ref winget_id) => {
+                self.status = Some(format!("Installing {0} via Winget...", winget_id));
+                let id = winget_id.clone();
+                T::perform(
+                    async move {
+                        let w = zb_infrastructure::windows_api::winget::WingetInstaller::new();
+                        match w.install(&id) {
+                            Ok(msg) => msg,
+                            Err(e) => e,
+                        }
+                    },
+                    Message::OpResult,
+                )
             }
             Message::OpResult(msg) => {
                 self.status = Some(msg);
