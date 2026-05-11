@@ -1,9 +1,17 @@
-# ZingerBoost — Agent Instructions (v0.4.0)
+# ZingerBoost — Agent Instructions (v0.0.5)
 
-> **Last Updated:** 2026-05-10  
-> **Target UI:** Iced (Rust) — `server/` (actix-web) is transitional and will be deleted.
+## Tech Stack (LOCKED — NEVER CHANGE)
 
----
+| Layer | Technology |
+|-------|-----------|
+| Language | Rust (edition 2021) |
+| GUI | **Iced 0.13** (pure Rust, Elm architecture) |
+| Backend crates | `zb_shared`, `zb_domain`, `zb_application`, `zb_infrastructure` |
+| App crate | `zb_app` (Iced desktop binary) |
+| Async | Tokio |
+| Windows API | `windows-rs` 0.58 (registry, services, PDH, restore points) |
+| Database | SQLite via `rusqlite` (bundled) |
+| Build | Cargo workspace |
 
 ## Quick Check (Linux)
 
@@ -13,97 +21,38 @@ cargo fmt --all
 cargo clippy -p zb_shared -p zb_domain -p zb_application --all-targets -- -D warnings
 ```
 
-## Windows-Only Crates
-
-`zb_infrastructure` and `server` depend on `windows-rs` — only compile on Windows. CI runs `cargo check --workspace` on `windows-latest`.
-
-## Architecture (v0.4.0 — Rust Backend + actix-web server → Iced)
+## Architecture
 
 ```
 crates/
-  zb_shared/                 # Types, constants, software catalog, bloatware catalog
-    src/software.rs          # 30+ apps, 9 categories + 34 bloatware apps + protected list
-    src/types.rs             # RegPath, RegValue, RiskLevel, TweakCategory, SystemMetrics, etc.
-    src/constants.rs
-  zb_domain/                 # Tweak trait + 29 implementations + RegistryProvider trait
-    src/tweaks/traits.rs     # Tweak trait (6 methods)
-    src/tweaks/definitions/  # 29 tweak .rs files
-    src/registry.rs          # RegistryProvider trait
-    src/snapshots/           # SystemSnapshot, AppliedTweakRecord
-    src/benchmarks/          # Benchmark traits
-    src/errors.rs            # TweakError, SnapshotError, RegistryError, ServiceError, BenchmarkError
-  zb_application/            # TweakEngine, SnapshotService, AuditService
-    src/tweak_engine.rs      # Batch apply, auto-rollback, snapshot save, audit log
-    src/snapshot_service.rs  # SnapshotService trait
-    src/audit_service.rs     # AuditService trait
-    src/dto.rs
-  zb_infrastructure/         # WinRegistryProvider, SQLite, Winget, PDH, DebloatEngine, SystemCleaner
-    src/registry/mod.rs      # WinRegistryProvider (windows-rs)
-    src/services/            # ServiceController (SCM API + sc.exe)
-    src/persistence/         # SqliteRepo, SqliteAuditLogger, init_database
-    src/windows_api/
-      debloat_engine.rs      # 5-method removal (PowerShell-heavy — needs refactor)
-      metrics_collector.rs   # PDH CPU/RAM/Disk counters
-      system_cleaner.rs      # 9-category disk cleaner
-      winget.rs              # WingetInstaller
-    src/logging.rs           # tracing_subscriber init
-
-server/                      # CURRENT UI — actix-web HTTP server (WILL BE DELETED)
-  src/lib.rs                 # HttpServer on 127.0.0.1:19999
-  src/app.rs                 # AppState (engine, metrics, winget, cleaner, services)
-  src/api.rs                 # REST endpoints (BUG: uses block_on inside async)
-
-zb_app/                      # TARGET UI — Iced desktop app (DOES NOT EXIST YET)
+  zb_shared/       Types, constants, software catalog (30+ apps), bloatware catalog (34 apps)
+  zb_domain/        Tweak trait + 29 implementations, RegistryProvider trait, snapshot entities
+  zb_application/   TweakEngine, SnapshotService, AuditService
+  zb_infrastructure/ WinRegistryProvider, ServiceController, DebloatEngine, SystemCleaner,
+                     WingetInstaller, MetricsCollector, SQLite persistence
+  zb_app/           Iced desktop app (State/Message/Update/View)
+    src/main.rs     Entry with #![windows_subsystem = "windows"]
+    src/lib.rs      App struct, Message enum, update(), view() with inline views
 ```
 
-## Critical Gotchas
+## Critical Gotchas for Iced 0.13
 
-### 1. `#![allow(clippy::new_without_default)]` in `zb_domain/src/lib.rs`
-Every tweak struct has `pub fn new()` without `Default`.
+1. **ALL views must be inline in `view(&self) -> Element<Message>`** — standalone functions returning `Element<Message>` cause E0106 lifetime errors.
+2. **No explicit lifetimes on Element** — `Element<Message>` works inside methods. `Element<'static, Message>` breaks view signature.
+3. **`Border::default()` not `Border::rounded()`** — API changed, use struct literal.
+4. **`Length::Fixed(180.0)` — must be f32/f64** — not integer.
+5. **`async move` for `Task::perform` closures** — borrowed values need `move` keyword.
+6. **`format!("{0}", var)` not `format!("{var}")`** — inline format not supported on older Rust.
+7. **`Message` must derive `Debug + Clone`** — required by Iced.
+8. **Button `on_press` returns `Element<Message>` via `.into()`** — closures on buttons return `Element`.
 
-### 2. Migrations MUST be `fn migrations()`, not `const`
-```rust
-fn migrations() -> Migrations<'static> { Migrations::new(vec![...]) }
-// NOT: const MIGRATIONS: Migrations<'static> = ...
-```
-Rust 2024 forbids `Migrations::new()` in const.
-
-### 3. `REG_SAM_FLAGS`, NOT bare `u32`
-```rust
-fn open_key(&self, path: &RegPath, access: REG_SAM_FLAGS) -> Result<HKEY, ...>
-```
-
-### 4. `init_database()` returns `anyhow::Error`
-Because `rusqlite_migration::Error` has no `From` into `rusqlite::Error`.
-
-### 5. Shared SQLite connection
-Both `SqliteRepo` and `SqliteAuditLogger` share one `Arc<Mutex<Connection>>` via `from_connection()`.
-
-### 6. Tweak structs: no `#[derive(Debug)]` if containing `Arc<dyn RegistryProvider>`
-Trait objects don't implement Debug.
-
-### 7. RegistryProvider trait lives in `zb_domain`
-Not `zb_infrastructure` — avoids circular dependency.
-
-### 8. `server/src/api.rs` has a CRITICAL BUG
-Uses `tokio::runtime::Handle::current().block_on()` inside async handlers. This blocks the async runtime. Fix: remove `block_on` and `.await` directly.
-
-### 9. `server/` will be deleted after Iced migration
-Do not invest in improving `server/` unless explicitly asked. Focus on `zb_app/` (Iced).
-
-### 10. `zb_app` crate does NOT exist yet
-It must be created as a new workspace member.
-
-### 11. PowerShell is FORBIDDEN for debloat
-`DebloatEngine` currently uses PowerShell heavily. This is tech debt. Refactor to `windows-rs` COM `PackageManager` + native registry.
-
-## Adding a New Tweak
+## Adding a Tweak
 
 1. Create file in `crates/zb_domain/src/tweaks/definitions/`
-2. Implement `Tweak` trait (6 methods)
-3. Add `pub fn new() -> Self` + `pub fn with_provider(provider: Arc<RegistryProvider>) -> Self`
+2. Implement `Tweak` trait (6 methods: `metadata`, `is_applied`, `capture_state`, `apply`, `revert`, `explain`)
+3. Add `pub fn new()` and `pub fn with_provider(Arc<RegistryProvider>)`
 4. Register in `definitions/mod.rs`
-5. Register in `server/src/app.rs` tweaks vec (temporary — will move to `zb_app`)
+5. Register in `zb_app/src/lib.rs` `make_all_tweaks()` function
 
 ## CI
 
@@ -114,14 +63,7 @@ It must be created as a new workspace member.
 
 ## Release
 
-Trigger: push tag `v*` or `workflow_dispatch`.  
-Current: builds `cargo build --release -p zingerboost` (server binary).  
-Target: builds `cargo build --release -p zb_app` (Iced desktop app) + `cargo-wix` MSI.
-
-## Strict Rules
-
-1. **STACK LOCK:** Rust + Iced. No Flutter, React, Tauri, Electron, etc.
-2. **NO REWRITES:** `zb_shared`, `zb_domain`, `zb_application`, `zb_infrastructure` are done. Build ON TOP.
-3. **NO POWERSHELL DEBLOAT:** Use `windows-rs` COM + DISM.
-4. **MINIMAL CHANGES:** Only edit what is asked.
-5. **NO GIT MUTATIONS** unless explicitly told.
+```bash
+git tag v0.0.6 && git push origin v0.0.6
+```
+Workflow builds `cargo build --release -p zb_app` and uploads `zingerboost.exe`.
