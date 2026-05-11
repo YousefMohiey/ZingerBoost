@@ -175,7 +175,7 @@ impl App {
             Message::TweakApply(idx, ref id) => {
                 let id2 = id.clone();
                 T::perform(
-                    async {
+                    async move {
                         let tweaks = make_all_tweaks();
                         if let Some(t) = tweaks.iter().find(|tw| tw.metadata().id == id2) {
                             match t.apply().await {
@@ -238,7 +238,7 @@ impl App {
         }
     }
 
-    fn view(&self) -> Element<'static, Message> {
+    fn view(&self) -> Element<Message> {
         let sidebar = container(
             column(
                 Tab::ALL
@@ -323,9 +323,9 @@ fn small_btn(label: &str) -> iced::widget::Button<Message> {
 }
 
 impl App {
-    fn dashboard_view(&self) -> Element<'static, Message> {
+    fn dashboard_view(&self) -> Element<Message> {
         let m = &self.metrics;
-        let card = |l: String, v: String| -> Element<'static, Message> {
+        let card = |l: String, v: String| -> Element<Message> {
             container(
                 column![
                     text(l).size(12).color(Color::from_rgb(0.5, 0.5, 0.5)),
@@ -355,7 +355,7 @@ fn list_view(
     title: &str,
     items: &[(String, String, String)],
     on_action: fn(usize, String) -> Message,
-) -> Element<'static, Message> {
+) -> Element<Message> {
     let mut col = column![text(title).size(20)].spacing(8);
     for (i, (name, desc, _risk)) in items.iter().enumerate() {
         let card = row![
@@ -376,7 +376,7 @@ fn list_view(
     col.into()
 }
 
-fn svc_view(items: &[(String, String, String)]) -> Element<'static, Message> {
+fn svc_view(items: &[(String, String, String)]) -> Element<Message> {
     let mut col = column![text("Services").size(20)].spacing(8);
     for (i, (name, _svc_name, status)) in items.iter().enumerate() {
         let running = status == "Running";
@@ -404,7 +404,7 @@ fn svc_view(items: &[(String, String, String)]) -> Element<'static, Message> {
     col.into()
 }
 
-fn cleaner_view(items: &[(String, String, String, f64)]) -> Element<'static, Message> {
+fn cleaner_view(items: &[(String, String, String, f64)]) -> Element<Message> {
     let mut col = column![text("Cleaner").size(20)].spacing(8);
     for (name, _desc, risk, mb) in items {
         let rc = if risk == "safe" {
@@ -444,7 +444,7 @@ fn list2_view(
     btn_label: &str,
     on_btn: fn(String) -> Message,
     info: &str,
-) -> Element<'static, Message> {
+) -> Element<Message> {
     let mut col = column![text(title).size(20)].spacing(8);
     if !info.is_empty() {
         col = col.push(text(info).size(11).color(Color::from_rgb(0.96, 0.37, 0.04)));
@@ -468,7 +468,7 @@ fn list2_view(
     col.into()
 }
 
-fn settings_view() -> Element<'static, Message> {
+fn settings_view() -> Element<Message> {
     column![
         text("Settings").size(20),
         container(
