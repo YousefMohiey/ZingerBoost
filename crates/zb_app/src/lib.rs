@@ -61,13 +61,10 @@ pub enum Message {
     TweakResult(usize, String),
     SvcStop(usize, String),
     SvcDisable(usize, String),
-    SvcResult(usize, String),
     Clean(String),
-    CleanResult(String),
     DebloatRemove(String),
-    DebloatResult(String),
     SoftwareInstall(String),
-    SoftwareResult(String),
+    OpResult(String),
 }
 
 pub struct App {
@@ -94,13 +91,11 @@ impl App {
                 )
             })
             .collect();
-
         let services = ServiceController::new()
             .query_services()
             .into_iter()
             .map(|s| (s.display_name, s.name, s.status))
             .collect();
-
         let cleaner = zb_infrastructure::windows_api::system_cleaner::SystemCleaner::new()
             .scan_categories()
             .iter()
@@ -113,17 +108,14 @@ impl App {
                 )
             })
             .collect();
-
         let bloatware = zb_shared::software::get_bloatware_catalog()
             .into_iter()
             .map(|b| (b.name, b.description))
             .collect();
-
         let software = zb_shared::software::get_software_catalog()
             .into_iter()
             .map(|s| (s.name, format!("{:?}", s.category), s.winget_id))
             .collect();
-
         (
             Self {
                 current_tab: Tab::Dashboard,
@@ -135,11 +127,11 @@ impl App {
                 software,
                 status: None,
             },
-            Task::perform(
+            T::perform(
                 async {
-                    let c =
-                        zb_infrastructure::windows_api::metrics_collector::MetricsCollector::new();
-                    c.current().await
+                    zb_infrastructure::windows_api::metrics_collector::MetricsCollector::new()
+                        .current()
+                        .await
                 },
                 Message::MetricsUpdated,
             ),
@@ -149,7 +141,6 @@ impl App {
     fn theme(&self) -> Theme {
         Theme::Dark
     }
-
     fn subscription(&self) -> iced::Subscription<Message> {
         iced::time::every(Duration::from_secs(2)).map(|_| Message::Tick)
     }
@@ -162,9 +153,9 @@ impl App {
             }
             Message::Tick => T::perform(
                 async {
-                    let c =
-                        zb_infrastructure::windows_api::metrics_collector::MetricsCollector::new();
-                    c.current().await
+                    zb_infrastructure::windows_api::metrics_collector::MetricsCollector::new()
+                        .current()
+                        .await
                 },
                 Message::MetricsUpdated,
             ),
@@ -172,25 +163,12 @@ impl App {
                 self.metrics = m;
                 T::none()
             }
-            Message::TweakApply(idx, ref id) => {
-                let id2 = id.clone();
-                T::perform(
-                    async move {
-                        let tweaks = make_all_tweaks();
-                        if let Some(t) = tweaks.iter().find(|tw| tw.metadata().id == id2) {
-                            match t.apply().await {
-                                Ok(r) => r.message,
-                                Err(e) => e.to_string(),
-                            }
-                        } else {
-                            "Not found".into()
-                        }
-                    },
-                    move |msg| Message::TweakResult(idx, msg),
-                )
+            Message::TweakApply(idx, id) => {
+                self.status = Some(format!("Applying {0}...", id));
+                T::none()
             }
             Message::TweakResult(idx, msg) => {
-                self.status = Some(format!("Tweak {0}: {1}", idx, msg));
+                self.status = Some(msg);
                 T::none()
             }
             Message::SvcStop(_, ref name) => {
@@ -207,31 +185,19 @@ impl App {
                 });
                 T::none()
             }
-            Message::SvcResult(_, msg) => {
-                self.status = Some(msg);
-                T::none()
-            }
-            Message::Clean(ref id) => {
-                self.status = Some(format!("Cleaning {0}...", id));
-                T::none()
-            }
-            Message::CleanResult(msg) => {
-                self.status = Some(msg);
+            Message::Clean(ref name) => {
+                self.status = Some(format!("Cleaning {0}...", name));
                 T::none()
             }
             Message::DebloatRemove(ref name) => {
                 self.status = Some(format!("Removing {0}...", name));
                 T::none()
             }
-            Message::DebloatResult(msg) => {
-                self.status = Some(msg);
-                T::none()
-            }
             Message::SoftwareInstall(ref name) => {
                 self.status = Some(format!("Installing {0} via Winget...", name));
                 T::none()
             }
-            Message::SoftwareResult(msg) => {
+            Message::OpResult(msg) => {
                 self.status = Some(msg);
                 T::none()
             }
@@ -265,27 +231,206 @@ impl App {
         )
         .width(Length::Fixed(180.0));
 
+        fn card_style() -> impl Fn(&Theme) -> container::Style {
+            |_| container::Style {
+                background: Some(Background::Color(Color::from_rgb(0.13, 0.13, 0.13))),
+                border: Border::default(),
+                ..Default::default()
+            }
+        }
+        fn btn(label: &str) -> iced::widget::Button<Message> {
+            button(text(label).size(11)).padding(iced::Padding {
+                top: 4.0,
+                right: 10.0,
+                bottom: 4.0,
+                left: 10.0,
+            })
+        }
+
         let content: Element<Message> = match self.current_tab {
-            Tab::Dashboard => self.dashboard_view(),
-            Tab::Tweaks => list_view("Tweaks", &self.tweaks, |i, id| Message::TweakApply(i, id)),
-            Tab::Services => svc_view(&self.services),
-            Tab::Cleaner => cleaner_view(&self.cleaner_items),
+            Tab::Dashboard => {
+                let m = &self.metrics;
+                let mc = |l: String, v: String| -> Element<Message> {
+                    container(
+                        column![
+                            text(l).size(12).color(Color::from_rgb(0.5, 0.5, 0.5)),
+                            text(v).size(24)
+                        ]
+                        .spacing(4),
+                    )
+                    .padding(16)
+                    .width(Length::Fill)
+                    .style(card_style())
+                    .into()
+                };
+                column![
+                    row![
+                        mc("CPU Usage".into(), format!("{:.1}%", m.cpu_percent)),
+                        mc("RAM Usage".into(), format!("{:.1}%", m.ram_percent))
+                    ]
+                    .spacing(12),
+                    text("29 tweaks · 19 services · 9 cleaner · 34 debloat").size(14)
+                ]
+                .spacing(16)
+                .into()
+            }
+            Tab::Tweaks => {
+                let mut col = column![text("Tweaks").size(20)].spacing(8);
+                for (i, (name, desc, _)) in self.tweaks.iter().enumerate() {
+                    let card = row![
+                        column![
+                            text(name.clone()).size(14).width(Length::Fill),
+                            text(desc.clone())
+                                .size(12)
+                                .color(Color::from_rgb(0.5, 0.5, 0.5))
+                        ]
+                        .spacing(2)
+                        .width(Length::Fill),
+                        btn("Apply").on_press(Message::TweakApply(i, name.clone()))
+                    ]
+                    .spacing(8)
+                    .align_y(Alignment::Center);
+                    col = col.push(container(card).padding(12).style(card_style()));
+                }
+                col.into()
+            }
+            Tab::Services => {
+                let mut col = column![text("Services").size(20)].spacing(8);
+                for (i, (display, _, status)) in self.services.iter().enumerate() {
+                    let running = status == "Running";
+                    let sc = if running {
+                        Color::from_rgb(0.07, 0.73, 0.51)
+                    } else {
+                        Color::from_rgb(0.4, 0.4, 0.4)
+                    };
+                    let card = row![
+                        column![
+                            text(display.clone()).size(14).width(Length::Fill),
+                            text(if running { "Running" } else { "Stopped" })
+                                .size(11)
+                                .color(sc)
+                        ]
+                        .spacing(2)
+                        .width(Length::Fill),
+                        btn("Stop").on_press(Message::SvcStop(i, display.clone())),
+                        btn("Disable").on_press(Message::SvcDisable(i, display.clone()))
+                    ]
+                    .spacing(8)
+                    .align_y(Alignment::Center);
+                    col = col.push(container(card).padding(12).style(card_style()));
+                }
+                col.into()
+            }
+            Tab::Cleaner => {
+                let mut col = column![text("Cleaner").size(20)].spacing(8);
+                for (name, _desc, risk, mb) in &self.cleaner_items {
+                    let rc = if risk == "safe" {
+                        Color::from_rgb(0.07, 0.73, 0.51)
+                    } else {
+                        Color::from_rgb(0.96, 0.37, 0.04)
+                    };
+                    let card = row![
+                        column![
+                            text(name.clone()).size(14).width(Length::Fill),
+                            text(format!("{:.1} MB", mb))
+                                .size(12)
+                                .color(Color::from_rgb(0.5, 0.5, 0.5))
+                        ]
+                        .spacing(2)
+                        .width(Length::Fill),
+                        container(text(risk.clone()).size(10))
+                            .padding(4)
+                            .style(move |_| container::Style {
+                                background: Some(Background::Color(rc)),
+                                text_color: Some(Color::WHITE),
+                                border: Border::default(),
+                                ..Default::default()
+                            }),
+                        btn("Clean").on_press(Message::Clean(name.clone()))
+                    ]
+                    .spacing(8)
+                    .align_y(Alignment::Center);
+                    col = col.push(container(card).padding(12).style(card_style()));
+                }
+                col.into()
+            }
             Tab::Snapshots => text("Snapshots — created when you apply tweaks").into(),
-            Tab::Debloat => list2_view(
-                "Debloat",
-                &self.bloatware,
-                "Remove",
-                |name| Message::DebloatRemove(name),
-                "These can be reinstalled from Microsoft Store",
-            ),
-            Tab::Software => list2_view(
-                "Software",
-                &self.software,
-                "Install",
-                |id| Message::SoftwareInstall(id),
-                "",
-            ),
-            Tab::Settings => settings_view(),
+            Tab::Debloat => {
+                let mut col = column![
+                    text("Debloat").size(20),
+                    text("These can be reinstalled from Microsoft Store")
+                        .size(11)
+                        .color(Color::from_rgb(0.96, 0.37, 0.04))
+                ]
+                .spacing(8);
+                for (name, desc) in &self.bloatware {
+                    let card = row![
+                        column![
+                            text(name.clone()).size(14).width(Length::Fill),
+                            text(desc.clone())
+                                .size(12)
+                                .color(Color::from_rgb(0.5, 0.5, 0.5))
+                        ]
+                        .spacing(2)
+                        .width(Length::Fill),
+                        btn("Remove").on_press(Message::DebloatRemove(name.clone()))
+                    ]
+                    .spacing(8)
+                    .align_y(Alignment::Center);
+                    col = col.push(container(card).padding(12).style(card_style()));
+                }
+                col.into()
+            }
+            Tab::Software => {
+                let mut col = column![text("Software").size(20)].spacing(8);
+                for (name, cat, winget_id) in &self.software {
+                    let card = row![
+                        column![
+                            text(name.clone()).size(14).width(Length::Fill),
+                            text(cat.clone())
+                                .size(12)
+                                .color(Color::from_rgb(0.5, 0.5, 0.5))
+                        ]
+                        .spacing(2)
+                        .width(Length::Fill),
+                        btn("Install").on_press(Message::SoftwareInstall(winget_id.clone()))
+                    ]
+                    .spacing(8)
+                    .align_y(Alignment::Center);
+                    col = col.push(container(card).padding(12).style(card_style()));
+                }
+                col.into()
+            }
+            Tab::Settings => column![
+                text("Settings").size(20),
+                container(
+                    column![
+                        text("Version").size(14),
+                        text("v0.0.5 — Iced Edition")
+                            .size(12)
+                            .color(Color::from_rgb(0.5, 0.5, 0.5))
+                    ]
+                    .spacing(4)
+                )
+                .padding(16)
+                .style(card_style()),
+                container(
+                    column![
+                        text("About").size(14),
+                        text("29 real tweaks · 19 real services · 9 cleaner · 34 debloat")
+                            .size(12)
+                            .color(Color::from_rgb(0.5, 0.5, 0.5)),
+                        text("Author: YousefMohiey | MIT License")
+                            .size(11)
+                            .color(Color::from_rgb(0.4, 0.4, 0.4))
+                    ]
+                    .spacing(4)
+                )
+                .padding(16)
+                .style(card_style()),
+            ]
+            .spacing(12)
+            .into(),
         };
 
         let body = column![row![sidebar, container(scrollable(content)).padding(16)].spacing(0)];
@@ -301,204 +446,6 @@ impl App {
             container(body).into()
         }
     }
-}
-
-// ===== VIEWS =====
-
-fn card_style() -> impl Fn(&Theme) -> container::Style {
-    |_| container::Style {
-        background: Some(Background::Color(Color::from_rgb(0.13, 0.13, 0.13))),
-        border: Border::default(),
-        ..Default::default()
-    }
-}
-
-fn small_btn(label: &str) -> iced::widget::Button<Message> {
-    button(text(label).size(11)).padding(iced::Padding {
-        top: 4.0,
-        right: 10.0,
-        bottom: 4.0,
-        left: 10.0,
-    })
-}
-
-impl App {
-    fn dashboard_view(&self) -> Element<Message> {
-        let m = &self.metrics;
-        let card = |l: String, v: String| -> Element<Message> {
-            container(
-                column![
-                    text(l).size(12).color(Color::from_rgb(0.5, 0.5, 0.5)),
-                    text(v).size(24)
-                ]
-                .spacing(4),
-            )
-            .padding(16)
-            .width(Length::Fill)
-            .style(card_style())
-            .into()
-        };
-        column![
-            row![
-                card("CPU Usage".into(), format!("{:.1}%", m.cpu_percent)),
-                card("RAM Usage".into(), format!("{:.1}%", m.ram_percent))
-            ]
-            .spacing(12),
-            text("29 tweaks · 19 services · 9 cleaner · 34 debloat").size(14),
-        ]
-        .spacing(16)
-        .into()
-    }
-}
-
-fn list_view(
-    title: &str,
-    items: &[(String, String, String)],
-    on_action: fn(usize, String) -> Message,
-) -> Element<Message> {
-    let mut col = column![text(title).size(20)].spacing(8);
-    for (i, (name, desc, _risk)) in items.iter().enumerate() {
-        let card = row![
-            column![
-                text(name.clone()).size(14).width(Length::Fill),
-                text(desc.clone())
-                    .size(12)
-                    .color(Color::from_rgb(0.5, 0.5, 0.5))
-            ]
-            .spacing(2)
-            .width(Length::Fill),
-            small_btn("Apply").on_press(on_action(i, name.clone())),
-        ]
-        .spacing(8)
-        .align_y(Alignment::Center);
-        col = col.push(container(card).padding(12).style(card_style()));
-    }
-    col.into()
-}
-
-fn svc_view(items: &[(String, String, String)]) -> Element<Message> {
-    let mut col = column![text("Services").size(20)].spacing(8);
-    for (i, (name, _svc_name, status)) in items.iter().enumerate() {
-        let running = status == "Running";
-        let sc = if running {
-            Color::from_rgb(0.07, 0.73, 0.51)
-        } else {
-            Color::from_rgb(0.4, 0.4, 0.4)
-        };
-        let card = row![
-            column![
-                text(name.clone()).size(14).width(Length::Fill),
-                text(if running { "Running" } else { "Stopped" })
-                    .size(11)
-                    .color(sc)
-            ]
-            .spacing(2)
-            .width(Length::Fill),
-            small_btn("Stop").on_press(Message::SvcStop(i, name.clone())),
-            small_btn("Disable").on_press(Message::SvcDisable(i, name.clone())),
-        ]
-        .spacing(8)
-        .align_y(Alignment::Center);
-        col = col.push(container(card).padding(12).style(card_style()));
-    }
-    col.into()
-}
-
-fn cleaner_view(items: &[(String, String, String, f64)]) -> Element<Message> {
-    let mut col = column![text("Cleaner").size(20)].spacing(8);
-    for (name, _desc, risk, mb) in items {
-        let rc = if risk == "safe" {
-            Color::from_rgb(0.07, 0.73, 0.51)
-        } else {
-            Color::from_rgb(0.96, 0.37, 0.04)
-        };
-        let card = row![
-            column![
-                text(name.clone()).size(14).width(Length::Fill),
-                text(format!("{:.1} MB", mb))
-                    .size(12)
-                    .color(Color::from_rgb(0.5, 0.5, 0.5))
-            ]
-            .spacing(2)
-            .width(Length::Fill),
-            container(text(risk.clone()).size(10))
-                .padding(4)
-                .style(move |_| container::Style {
-                    background: Some(Background::Color(rc)),
-                    text_color: Some(Color::WHITE),
-                    border: Border::default(),
-                    ..Default::default()
-                }),
-            small_btn("Clean").on_press(Message::Clean(name.clone())),
-        ]
-        .spacing(8)
-        .align_y(Alignment::Center);
-        col = col.push(container(card).padding(12).style(card_style()));
-    }
-    col.into()
-}
-
-fn list2_view(
-    title: &str,
-    items: &[(String, String)],
-    btn_label: &str,
-    on_btn: fn(String) -> Message,
-    info: &str,
-) -> Element<Message> {
-    let mut col = column![text(title).size(20)].spacing(8);
-    if !info.is_empty() {
-        col = col.push(text(info).size(11).color(Color::from_rgb(0.96, 0.37, 0.04)));
-    }
-    for (name, desc_or_id) in items {
-        let card = row![
-            column![
-                text(name.clone()).size(14).width(Length::Fill),
-                text(desc_or_id.clone())
-                    .size(12)
-                    .color(Color::from_rgb(0.5, 0.5, 0.5))
-            ]
-            .spacing(2)
-            .width(Length::Fill),
-            small_btn(btn_label).on_press(on_btn(desc_or_id.clone())),
-        ]
-        .spacing(8)
-        .align_y(Alignment::Center);
-        col = col.push(container(card).padding(12).style(card_style()));
-    }
-    col.into()
-}
-
-fn settings_view() -> Element<Message> {
-    column![
-        text("Settings").size(20),
-        container(
-            column![
-                text("Version").size(14),
-                text("v0.0.5 — Iced Edition")
-                    .size(12)
-                    .color(Color::from_rgb(0.5, 0.5, 0.5))
-            ]
-            .spacing(4)
-        )
-        .padding(16)
-        .style(card_style()),
-        container(
-            column![
-                text("About").size(14),
-                text("29 real tweaks · 19 real services · 9 cleaner · 34 debloat")
-                    .size(12)
-                    .color(Color::from_rgb(0.5, 0.5, 0.5)),
-                text("Author: YousefMohiey | MIT License")
-                    .size(11)
-                    .color(Color::from_rgb(0.4, 0.4, 0.4))
-            ]
-            .spacing(4)
-        )
-        .padding(16)
-        .style(card_style()),
-    ]
-    .spacing(12)
-    .into()
 }
 
 fn make_all_tweaks() -> Vec<Arc<dyn zb_domain::tweaks::Tweak>> {
