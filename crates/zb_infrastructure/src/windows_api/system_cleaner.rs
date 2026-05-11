@@ -194,11 +194,9 @@ impl SystemCleaner {
     fn clean_recycle_bin(&self) -> CleanResult {
         let rec_bin = system_drive().join("$Recycle.Bin");
         let before = dir_size(&rec_bin);
-        let result = Command::new("powershell").creation_flags(CREATE_NO_WINDOW)
-            .args([
-                "-Command",
-                "Clear-RecycleBin -Force -ErrorAction Stop",
-            ])
+        let result = Command::new("powershell")
+            .creation_flags(CREATE_NO_WINDOW)
+            .args(["-Command", "Clear-RecycleBin -Force -ErrorAction Stop"])
             .output();
         let success = result.map(|o| o.status.success()).unwrap_or(false);
         CleanResult {
@@ -301,7 +299,10 @@ impl SystemCleaner {
     }
 
     fn clean_dns_cache(&self) -> CleanResult {
-        let _ = Command::new("ipconfig").creation_flags(CREATE_NO_WINDOW).args(["/flushdns"]).output();
+        let _ = Command::new("ipconfig")
+            .creation_flags(CREATE_NO_WINDOW)
+            .args(["/flushdns"])
+            .output();
         CleanResult {
             category: "dns_cache".into(),
             bytes_freed: 0,

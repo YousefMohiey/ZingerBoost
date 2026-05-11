@@ -175,8 +175,9 @@ impl RegistryProvider for WinRegistryProvider {
                 Ok(RegValue::ExpandSz(string))
             }
             REG_MULTI_SZ => {
-                let raw = String::from_utf16(&decode_utf16_buffer(&buffer))
-                    .map_err(|e| RegistryError::ReadFailed(format!("UTF-16 decode error: {}", e)))?;
+                let raw = String::from_utf16(&decode_utf16_buffer(&buffer)).map_err(|e| {
+                    RegistryError::ReadFailed(format!("UTF-16 decode error: {}", e))
+                })?;
                 let strings: Vec<String> = raw
                     .split('\0')
                     .filter(|s| !s.is_empty())

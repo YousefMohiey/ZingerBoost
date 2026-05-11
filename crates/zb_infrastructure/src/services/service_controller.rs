@@ -91,7 +91,8 @@ impl ServiceController {
     }
 
     fn get_start_type_sc(&self, name: &str) -> String {
-        let output = Command::new("sc").creation_flags(CREATE_NO_WINDOW)
+        let output = Command::new("sc")
+            .creation_flags(CREATE_NO_WINDOW)
             .args(["qc", name])
             .output()
             .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
@@ -126,7 +127,8 @@ impl ServiceController {
     }
 
     pub fn stop_service(&self, name: &str) -> Result<String, String> {
-        let output = Command::new("sc").creation_flags(CREATE_NO_WINDOW)
+        let output = Command::new("sc")
+            .creation_flags(CREATE_NO_WINDOW)
             .args(["stop", name])
             .output()
             .map_err(|e| format!("Failed to run sc: {}", e))?;
@@ -146,7 +148,8 @@ impl ServiceController {
     }
 
     pub fn set_startup_type(&self, name: &str, start_type: &str) -> Result<String, String> {
-        let output = Command::new("sc").creation_flags(CREATE_NO_WINDOW)
+        let output = Command::new("sc")
+            .creation_flags(CREATE_NO_WINDOW)
             .args(["config", name, "start=", start_type])
             .output()
             .map_err(|e| format!("Failed to run sc: {}", e))?;

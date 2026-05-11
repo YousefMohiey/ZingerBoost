@@ -12,7 +12,8 @@ impl WingetInstaller {
     }
 
     pub fn is_available(&self) -> bool {
-        Command::new("winget").creation_flags(CREATE_NO_WINDOW)
+        Command::new("winget")
+            .creation_flags(CREATE_NO_WINDOW)
             .arg("--version")
             .output()
             .map(|o| o.status.success())
@@ -20,7 +21,8 @@ impl WingetInstaller {
     }
 
     pub fn install(&self, package_id: &str) -> Result<String, String> {
-        let output = Command::new("winget").creation_flags(CREATE_NO_WINDOW)
+        let output = Command::new("winget")
+            .creation_flags(CREATE_NO_WINDOW)
             .args([
                 "install",
                 "--id",
@@ -47,7 +49,8 @@ impl WingetInstaller {
     }
 
     pub fn remove_appx(&self, package_family_name: &str) -> Result<String, String> {
-        let output = Command::new("powershell").creation_flags(CREATE_NO_WINDOW)
+        let output = Command::new("powershell")
+            .creation_flags(CREATE_NO_WINDOW)
             .args([
                 "-NoProfile",
                 "-WindowStyle",

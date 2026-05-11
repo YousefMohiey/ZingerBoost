@@ -154,7 +154,11 @@ mod integration_tests {
             let m = t.metadata();
             assert!(!m.id.is_empty(), "Tweak {}: id empty", m.name);
             assert!(!m.name.is_empty(), "Tweak {}: name empty", m.id);
-            assert!(!m.description.is_empty(), "Tweak {}: description empty", m.id);
+            assert!(
+                !m.description.is_empty(),
+                "Tweak {}: description empty",
+                m.id
+            );
             assert!(m.category.to_string().len() > 0);
             assert!(m.risk.to_string().len() > 0);
         }

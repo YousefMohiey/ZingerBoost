@@ -5,8 +5,8 @@ use std::time::Duration;
 use zb_application::tweak_engine::TweakEngine;
 use zb_domain::tweaks::Tweak;
 use zb_infrastructure::logging::init_logging;
-use zb_infrastructure::persistence::sqlite_repo::{init_database, SqliteRepo};
 use zb_infrastructure::persistence::audit_logger::SqliteAuditLogger;
+use zb_infrastructure::persistence::sqlite_repo::{init_database, SqliteRepo};
 use zb_infrastructure::services::ServiceController;
 use zb_shared::types::SystemMetrics;
 
@@ -93,31 +93,65 @@ pub fn make_all_tweaks() -> Vec<Arc<dyn Tweak>> {
     let rp = zb_infrastructure::registry::WinRegistryProvider::new();
     vec![
         Arc::new(zb_domain::tweaks::definitions::DisableGameDvrTweak::with_provider(rp.clone())),
-        Arc::new(zb_domain::tweaks::definitions::DisableTransparencyTweak::with_provider(rp.clone())),
+        Arc::new(
+            zb_domain::tweaks::definitions::DisableTransparencyTweak::with_provider(rp.clone()),
+        ),
         Arc::new(zb_domain::tweaks::definitions::DisableAnimationsTweak::with_provider(rp.clone())),
-        Arc::new(zb_domain::tweaks::definitions::ShowFileExtensionsTweak::with_provider(rp.clone())),
+        Arc::new(
+            zb_domain::tweaks::definitions::ShowFileExtensionsTweak::with_provider(rp.clone()),
+        ),
         Arc::new(zb_domain::tweaks::definitions::DisableStickyKeysTweak::with_provider(rp.clone())),
-        Arc::new(zb_domain::tweaks::definitions::DisableStartupDelayTweak::with_provider(rp.clone())),
-        Arc::new(zb_domain::tweaks::definitions::DisableBackgroundAppsTweak::with_provider(rp.clone())),
+        Arc::new(
+            zb_domain::tweaks::definitions::DisableStartupDelayTweak::with_provider(rp.clone()),
+        ),
+        Arc::new(
+            zb_domain::tweaks::definitions::DisableBackgroundAppsTweak::with_provider(rp.clone()),
+        ),
         Arc::new(zb_domain::tweaks::definitions::DisableTelemetryTweak::with_provider(rp.clone())),
         Arc::new(zb_domain::tweaks::definitions::DisableMenuDelayTweak::with_provider(rp.clone())),
-        Arc::new(zb_domain::tweaks::definitions::DisableCursorShadowTweak::with_provider(rp.clone())),
-        Arc::new(zb_domain::tweaks::definitions::DisableFontSmoothingTweak::with_provider(rp.clone())),
-        Arc::new(zb_domain::tweaks::definitions::DisableTaskbarAnimationsTweak::with_provider(rp.clone())),
+        Arc::new(
+            zb_domain::tweaks::definitions::DisableCursorShadowTweak::with_provider(rp.clone()),
+        ),
+        Arc::new(
+            zb_domain::tweaks::definitions::DisableFontSmoothingTweak::with_provider(rp.clone()),
+        ),
+        Arc::new(
+            zb_domain::tweaks::definitions::DisableTaskbarAnimationsTweak::with_provider(
+                rp.clone(),
+            ),
+        ),
         Arc::new(zb_domain::tweaks::definitions::DisableAeroShakeTweak::with_provider(rp.clone())),
         Arc::new(zb_domain::tweaks::definitions::DisableAeroSnapTweak::with_provider(rp.clone())),
         Arc::new(zb_domain::tweaks::definitions::DisablePeekTweak::with_provider(rp.clone())),
-        Arc::new(zb_domain::tweaks::definitions::DisableSmoothScrollTweak::with_provider(rp.clone())),
-        Arc::new(zb_domain::tweaks::definitions::DisableComboAnimationTweak::with_provider(rp.clone())),
-        Arc::new(zb_domain::tweaks::definitions::DisableTaskbarBadgesTweak::with_provider(rp.clone())),
-        Arc::new(zb_domain::tweaks::definitions::DisableAllVisualEffectsTweak::with_provider(rp.clone())),
-        Arc::new(zb_domain::tweaks::definitions::DisableDropShadowsTweak::with_provider(rp.clone())),
+        Arc::new(
+            zb_domain::tweaks::definitions::DisableSmoothScrollTweak::with_provider(rp.clone()),
+        ),
+        Arc::new(
+            zb_domain::tweaks::definitions::DisableComboAnimationTweak::with_provider(rp.clone()),
+        ),
+        Arc::new(
+            zb_domain::tweaks::definitions::DisableTaskbarBadgesTweak::with_provider(rp.clone()),
+        ),
+        Arc::new(
+            zb_domain::tweaks::definitions::DisableAllVisualEffectsTweak::with_provider(rp.clone()),
+        ),
+        Arc::new(
+            zb_domain::tweaks::definitions::DisableDropShadowsTweak::with_provider(rp.clone()),
+        ),
         Arc::new(zb_domain::tweaks::definitions::DisableThumbnailsTweak::with_provider(rp.clone())),
         Arc::new(zb_domain::tweaks::definitions::DisableMinMaxAnimTweak::with_provider(rp.clone())),
-        Arc::new(zb_domain::tweaks::definitions::DisableLockScreenAdsTweak::with_provider(rp.clone())),
-        Arc::new(zb_domain::tweaks::definitions::DisableStartSuggestionsTweak::with_provider(rp.clone())),
-        Arc::new(zb_domain::tweaks::definitions::DisableExplorerAdsTweak::with_provider(rp.clone())),
-        Arc::new(zb_domain::tweaks::definitions::DisableAdvertisingIdTweak::with_provider(rp.clone())),
+        Arc::new(
+            zb_domain::tweaks::definitions::DisableLockScreenAdsTweak::with_provider(rp.clone()),
+        ),
+        Arc::new(
+            zb_domain::tweaks::definitions::DisableStartSuggestionsTweak::with_provider(rp.clone()),
+        ),
+        Arc::new(
+            zb_domain::tweaks::definitions::DisableExplorerAdsTweak::with_provider(rp.clone()),
+        ),
+        Arc::new(
+            zb_domain::tweaks::definitions::DisableAdvertisingIdTweak::with_provider(rp.clone()),
+        ),
         Arc::new(zb_domain::tweaks::definitions::DisableMeetNowTweak::with_provider(rp.clone())),
         Arc::new(zb_domain::tweaks::definitions::DisableHibernationTweak::new()),
         Arc::new(zb_domain::tweaks::definitions::SetHighPerformanceTweak::new()),
@@ -171,7 +205,11 @@ impl App {
             .map(|db_conn| {
                 let snapshot_service = SqliteRepo::from_connection(db_conn.clone());
                 let audit_service = SqliteAuditLogger::from_connection(db_conn);
-                Arc::new(TweakEngine::new(tweaks_list, snapshot_service, audit_service))
+                Arc::new(TweakEngine::new(
+                    tweaks_list,
+                    snapshot_service,
+                    audit_service,
+                ))
             })
             .ok();
 
@@ -198,12 +236,7 @@ impl App {
                     },
                     Message::MetricsUpdated,
                 ),
-                T::perform(
-                    async {
-                        load_snapshots().await
-                    },
-                    Message::SnapshotsLoaded,
-                ),
+                T::perform(async { load_snapshots().await }, Message::SnapshotsLoaded),
             ]),
         )
     }
@@ -222,16 +255,14 @@ impl App {
                 self.current_tab = t;
                 T::none()
             }
-            Message::Tick => T::batch(vec![
-                T::perform(
-                    async {
-                        zb_infrastructure::windows_api::metrics_collector::MetricsCollector::new()
-                            .current()
-                            .await
-                    },
-                    Message::MetricsUpdated,
-                ),
-            ]),
+            Message::Tick => T::batch(vec![T::perform(
+                async {
+                    zb_infrastructure::windows_api::metrics_collector::MetricsCollector::new()
+                        .current()
+                        .await
+                },
+                Message::MetricsUpdated,
+            )]),
             Message::MetricsUpdated(m) => {
                 self.metrics = m;
                 T::none()
@@ -250,9 +281,7 @@ impl App {
                             None => format!("No engine (database init failed)"),
                         }
                     },
-                    |msg| {
-                        Message::TweakResult(msg)
-                    },
+                    |msg| Message::TweakResult(msg),
                 )
             }
             Message::TweakRevert(ref id) => {
@@ -296,10 +325,14 @@ impl App {
                 T::perform(
                     async move {
                         tokio::task::spawn_blocking(move || {
-                            let c = zb_infrastructure::windows_api::system_cleaner::SystemCleaner::new();
+                            let c =
+                                zb_infrastructure::windows_api::system_cleaner::SystemCleaner::new(
+                                );
                             let r = c.clean_category(&n);
                             format!("{0} — freed {1} bytes", r.category, r.bytes_freed)
-                        }).await.unwrap_or_else(|e| format!("Clean failed: {}", e))
+                        })
+                        .await
+                        .unwrap_or_else(|e| format!("Clean failed: {}", e))
                     },
                     Message::OpResult,
                 )
@@ -345,7 +378,10 @@ impl App {
                             Some(ref e) => {
                                 let snapshot_service = e.snapshot_service();
                                 match snapshot_service.restore_snapshot(&id).await {
-                                    Ok(()) => format!("Snapshot {} data loaded — revert each tweak individually", id),
+                                    Ok(()) => format!(
+                                        "Snapshot {} data loaded — revert each tweak individually",
+                                        id
+                                    ),
                                     Err(e) => format!("Failed: {}", e),
                                 }
                             }
@@ -539,9 +575,11 @@ impl App {
                 } else {
                     let mut col = column![
                         text("Snapshots").size(20),
-                        text("Click Restore to reload snapshot data (then revert individual tweaks)")
-                            .size(11)
-                            .color(Color::from_rgb(0.5, 0.5, 0.5))
+                        text(
+                            "Click Restore to reload snapshot data (then revert individual tweaks)"
+                        )
+                        .size(11)
+                        .color(Color::from_rgb(0.5, 0.5, 0.5))
                     ]
                     .spacing(8);
                     for (snap_id, desc, count) in &self.snapshots {
@@ -652,7 +690,12 @@ impl App {
                         .color(Color::from_rgb(0.9, 0.9, 0.9))
                         .width(Length::Fill),
                     button(text("X").size(11))
-                        .padding(iced::Padding { top: 2.0, right: 8.0, bottom: 2.0, left: 8.0 })
+                        .padding(iced::Padding {
+                            top: 2.0,
+                            right: 8.0,
+                            bottom: 2.0,
+                            left: 8.0
+                        })
                         .on_press(Message::DismissStatus)
                 ]
                 .padding(10)

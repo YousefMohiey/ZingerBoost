@@ -34,8 +34,8 @@ fn read_cpu_counter() -> f64 {
     {
         use windows::core::PCWSTR;
         use windows::Win32::System::Performance::{
-            PdhAddEnglishCounterW, PdhCloseQuery, PdhCollectQueryData,
-            PdhGetFormattedCounterValue, PdhOpenQueryW, PdhRemoveCounter, PDH_FMT_DOUBLE,
+            PdhAddEnglishCounterW, PdhCloseQuery, PdhCollectQueryData, PdhGetFormattedCounterValue,
+            PdhOpenQueryW, PdhRemoveCounter, PDH_FMT_DOUBLE,
         };
 
         unsafe {
@@ -60,8 +60,7 @@ fn read_cpu_counter() -> f64 {
             let _ = PdhCollectQueryData(query);
 
             let mut value = std::mem::zeroed();
-            let result =
-                PdhGetFormattedCounterValue(counter, PDH_FMT_DOUBLE, None, &mut value);
+            let result = PdhGetFormattedCounterValue(counter, PDH_FMT_DOUBLE, None, &mut value);
             let val = if result == 0 {
                 value.Anonymous.doubleValue
             } else {
@@ -81,8 +80,8 @@ fn read_disk_counter() -> f64 {
     {
         use windows::core::PCWSTR;
         use windows::Win32::System::Performance::{
-            PdhAddEnglishCounterW, PdhCloseQuery, PdhCollectQueryData,
-            PdhGetFormattedCounterValue, PdhOpenQueryW, PdhRemoveCounter, PDH_FMT_DOUBLE,
+            PdhAddEnglishCounterW, PdhCloseQuery, PdhCollectQueryData, PdhGetFormattedCounterValue,
+            PdhOpenQueryW, PdhRemoveCounter, PDH_FMT_DOUBLE,
         };
 
         unsafe {
@@ -107,8 +106,7 @@ fn read_disk_counter() -> f64 {
             let _ = PdhCollectQueryData(query);
 
             let mut value = std::mem::zeroed();
-            let result =
-                PdhGetFormattedCounterValue(counter, PDH_FMT_DOUBLE, None, &mut value);
+            let result = PdhGetFormattedCounterValue(counter, PDH_FMT_DOUBLE, None, &mut value);
             let val = if result == 0 {
                 value.Anonymous.doubleValue
             } else {
