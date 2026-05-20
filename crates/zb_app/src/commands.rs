@@ -233,72 +233,18 @@ pub async fn debug_log(message: String) -> Result<String, String> {
 pub async fn uninstall_app() -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
-        use std::path::PathBuf;
+        use std::process::Command;
         use zb_shared::constants::CREATE_NO_WINDOW;
 
-        // First, try to find and run the NSIS uninstaller
-        let program_files =
-            std::env::var("ProgramFiles").unwrap_or_else(|_| "C:\\Program Files".into());
-        let uninstaller_path = PathBuf::from(&program_files)
-            .join("ZingerBoost")
-            .join("Uninstall ZingerBoost.exe");
+        // Cannot uninstall while app is running - Windows Settings is the proper way
+        // Open Windows Settings > Apps page where the real uninstaller lives
+        let result = Command::new("ms-settings:appsfeatures")
+            .creation_flags(CREATE_NO_WINDOW)
+            .spawn();
 
-        if uninstaller_path.exists() {
-            // Run the NSIS uninstaller silently
-            // Note: Cannot uninstall while app is running - NSIS will fail with "another application"
-            // We need to spawn it as a detached process so it can try to uninstall
-            use std::process::Command;
-
-            // Use cmd /c start to spawn detached - the uninstaller will try to run
-            // and likely fail because app is in use, but we give user instructions
-            let result = Command::new("cmd")
-                .creation_flags(CREATE_NO_WINDOW)
-                .args(["/C", "start", "", &uninstaller_path.to_string_lossy()])
-                .spawn();
-
-            match result {
-                Ok(_) => {
-                    // Clean up app data immediately (this works even while app runs)
-                    if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
-                        let dir = PathBuf::from(local_app_data).join("ZingerBoost");
-                        let _ = std::fs::remove_dir_all(&dir);
-                    }
-
-                    // Check if uninstaller was able to run
-                    // Give it a moment then check if files still exist
-                    std::thread::sleep(std::time::Duration::from_millis(500));
-
-                    let program_files = std::env::var("ProgramFiles")
-                        .unwrap_or_else(|_| "C:\\Program Files".into());
-                    let install_dir = PathBuf::from(&program_files).join("ZingerBoost");
-
-                    if install_dir.exists() {
-                        // Uninstaller likely couldn't remove (app in use) - guide user
-                        Ok("Please close ZingerBoost completely, then try again from Windows Settings > Apps > ZingerBoost > Uninstall, or use the Start Menu shortcut.".to_string())
-                    } else {
-                        Ok("Uninstalled successfully. You may need to restart your PC to complete removal.".to_string())
-                    }
-                }
-                Err(e) => Err(format!("Failed to launch uninstaller: {}", e)),
-            }
-        } else {
-            // Fallback: just clean up app data if no uninstaller found
-            if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
-                let dir = PathBuf::from(local_app_data).join("ZingerBoost");
-                if dir.exists() {
-                    match std::fs::remove_dir_all(&dir) {
-                        Ok(_) => Ok(
-                            "Removed app data. Please manually uninstall from Settings > Apps."
-                                .to_string(),
-                        ),
-                        Err(e) => Err(format!("Failed to remove data: {}", e)),
-                    }
-                } else {
-                    Ok("App data not found. Please uninstall from Settings > Apps.".to_string())
-                }
-            } else {
-                Err("Could not find LOCALAPPDATA".to_string())
-            }
+match result {
+            Ok(_) => Ok("Windows Settings opened. Find 'ZingerBoost' in the app list and click Uninstall to remove it.".to_string()),
+            Err(e) => Err(format!("Failed to open Settings: {}. Please manually go to Settings > Apps > ZingerBoost > Uninstall", e)),
         }
     }
     #[cfg(not(target_os = "windows"))]
