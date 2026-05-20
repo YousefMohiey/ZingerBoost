@@ -1,5 +1,8 @@
 const APP_VERSION: &str = env!("CARGO_PKG_VERSION");
 
+#[cfg(target_os = "windows")]
+use std::os::windows::process::CommandExt;
+
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use zb_application::tweak_engine::TweakEngine;

@@ -43,11 +43,7 @@
       "nsis": {
         "displayLanguageSelector": false,
         "installerIcon": "icons/icon.ico",
-        "installMode": "currentUser",
-        "languages": ["English"],
-        "license": null,
-        "headerImage": null,
-        "sidebarImage": null
+        "installMode": "currentUser"
       }
     },
     "shortDescription": "Windows System Optimizer",
