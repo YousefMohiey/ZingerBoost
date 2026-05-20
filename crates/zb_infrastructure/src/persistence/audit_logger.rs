@@ -13,6 +13,7 @@ pub struct SqliteAuditLogger {
 }
 
 impl SqliteAuditLogger {
+    #[allow(clippy::new_ret_no_self)]
     pub fn new(db_path: PathBuf) -> Result<Arc<dyn AuditService>, rusqlite::Error> {
         let conn = Connection::open(db_path)?;
         Ok(Arc::new(Self {
@@ -29,6 +30,10 @@ impl SqliteAuditLogger {
         Ok(Arc::new(Self {
             conn: Arc::new(Mutex::new(conn)),
         }))
+    }
+
+    pub fn conn(&self) -> Arc<Mutex<Connection>> {
+        self.conn.clone()
     }
 }
 
@@ -98,5 +103,38 @@ impl AuditService for SqliteAuditLogger {
         };
 
         rows.filter_map(|r| r.ok()).collect()
+    }
+
+    async fn get_recent_raw(
+        &self,
+        limit: usize,
+    ) -> Result<Vec<(i64, String, String, String, String, Option<String>)>, String> {
+        let conn = self.conn.lock().await;
+        let mut stmt = conn
+            .prepare("SELECT id, timestamp, level, category, message, details FROM audit_log ORDER BY timestamp DESC LIMIT ?1")
+            .map_err(|e| e.to_string())?;
+
+        let rows = stmt
+            .query_map([limit], |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, String>(4)?,
+                    row.get::<_, Option<String>>(5)?,
+                ))
+            })
+            .map_err(|e| e.to_string())?;
+
+        Ok(rows.filter_map(|r| r.ok()).collect())
+    }
+
+    async fn clear(&self) -> Result<String, String> {
+        let conn = self.conn.lock().await;
+        let deleted = conn
+            .execute("DELETE FROM audit_log", [])
+            .map_err(|e| e.to_string())?;
+        Ok(format!("Cleared {} audit entries", deleted))
     }
 }

@@ -12,11 +12,16 @@ zb_application = { workspace = true }
 zb_infrastructure = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-tokio = { workspace = true }
+reqwest = { workspace = true }
+tokio = { workspace = true, features = ["sync"] }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 anyhow = { workspace = true }
-iced = { workspace = true }
+tauri = { workspace = true }
+windows = { workspace = true }
+
+[build-dependencies]
+tauri-build = { workspace = true }
 
 [package.metadata.wix]
 upgrade-guid = "B8F4A3D2-1E5C-4F8B-9A2D-6C7E8F1A3B5D"

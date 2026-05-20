@@ -2,10 +2,10 @@ use async_trait::async_trait;
 use std::sync::Arc;
 use windows::Win32::Foundation::ERROR_SUCCESS;
 use windows::Win32::System::Registry::{
-    RegCloseKey, RegDeleteValueW, RegOpenKeyExW, RegQueryValueExW, RegSetValueExW, HKEY,
-    HKEY_CLASSES_ROOT, HKEY_CURRENT_CONFIG, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE, HKEY_USERS,
-    KEY_ALL_ACCESS, KEY_READ, REG_BINARY, REG_DWORD, REG_EXPAND_SZ, REG_MULTI_SZ, REG_QWORD,
-    REG_SZ, REG_VALUE_TYPE,
+    RegCloseKey, RegCreateKeyExW, RegDeleteValueW, RegOpenKeyExW, RegQueryValueExW, RegSetValueExW,
+    HKEY, HKEY_CLASSES_ROOT, HKEY_CURRENT_CONFIG, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE,
+    HKEY_USERS, KEY_ALL_ACCESS, KEY_READ, REG_BINARY, REG_DWORD, REG_EXPAND_SZ, REG_MULTI_SZ,
+    REG_QWORD, REG_SZ, REG_VALUE_TYPE,
 };
 use zb_domain::errors::RegistryError;
 use zb_domain::registry::RegistryProvider;
@@ -27,6 +27,7 @@ fn decode_utf16_buffer(buffer: &[u8]) -> Vec<u16> {
 pub struct WinRegistryProvider;
 
 impl WinRegistryProvider {
+    #[allow(clippy::new_ret_no_self)]
     pub fn new() -> Arc<dyn RegistryProvider> {
         Arc::new(Self)
     }
@@ -70,6 +71,40 @@ impl WinRegistryProvider {
         } else {
             Err(RegistryError::ReadFailed(format!(
                 "RegOpenKeyExW failed: 0x{:08X}",
+                result.0
+            )))
+        }
+    }
+
+    fn create_or_open_key(
+        &self,
+        path: &RegPath,
+        access: windows::Win32::System::Registry::REG_SAM_FLAGS,
+    ) -> Result<HKEY, RegistryError> {
+        let root = self.root_to_hkey(&path.root);
+        let wide_path: Vec<u16> = path.path.encode_utf16().chain(std::iter::once(0)).collect();
+        let mut hkey = HKEY::default();
+        let mut disposition = windows::Win32::System::Registry::REG_CREATED_NEW_KEY;
+        let result = unsafe {
+            RegCreateKeyExW(
+                root,
+                windows::core::PCWSTR(wide_path.as_ptr()),
+                0,
+                None,
+                windows::Win32::System::Registry::REG_OPTION_NON_VOLATILE,
+                access,
+                None,
+                &mut hkey,
+                Some(&mut disposition),
+            )
+        };
+        if result == ERROR_SUCCESS {
+            Ok(hkey)
+        } else if result == windows::Win32::Foundation::ERROR_ACCESS_DENIED {
+            Err(RegistryError::AccessDenied)
+        } else {
+            Err(RegistryError::WriteFailed(format!(
+                "RegCreateKeyExW failed: 0x{:08X}",
                 result.0
             )))
         }
@@ -194,7 +229,7 @@ impl RegistryProvider for WinRegistryProvider {
     }
 
     async fn write(&self, path: &RegPath, name: &str, val: &RegValue) -> Result<(), RegistryError> {
-        let hkey = self.open_key(path, KEY_ALL_ACCESS)?;
+        let hkey = self.create_or_open_key(path, KEY_ALL_ACCESS)?;
         let wide_name: Vec<u16> = name.encode_utf16().chain(std::iter::once(0)).collect();
 
         let result = match val {
@@ -287,7 +322,11 @@ impl RegistryProvider for WinRegistryProvider {
     }
 
     async fn delete(&self, path: &RegPath, name: &str) -> Result<(), RegistryError> {
-        let hkey = self.open_key(path, KEY_ALL_ACCESS)?;
+        let hkey = match self.open_key(path, KEY_ALL_ACCESS) {
+            Ok(h) => h,
+            Err(RegistryError::ReadFailed(_)) => return Ok(()), // Key doesn't exist, value is already "deleted"
+            Err(e) => return Err(e),
+        };
         let wide_name: Vec<u16> = name.encode_utf16().chain(std::iter::once(0)).collect();
         let result = unsafe { RegDeleteValueW(hkey, windows::core::PCWSTR(wide_name.as_ptr())) };
         let close_result = unsafe { RegCloseKey(hkey) };
@@ -295,7 +334,7 @@ impl RegistryProvider for WinRegistryProvider {
             tracing::warn!("Failed to close registry key: {:?}", close_result);
         }
 
-        if result == ERROR_SUCCESS {
+        if result == ERROR_SUCCESS || result == windows::Win32::Foundation::ERROR_FILE_NOT_FOUND {
             Ok(())
         } else {
             Err(RegistryError::DeleteFailed(format!(

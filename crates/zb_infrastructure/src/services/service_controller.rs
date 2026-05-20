@@ -4,7 +4,7 @@ use std::process::Command;
 use tracing;
 use windows::core::PCWSTR;
 
-const CREATE_NO_WINDOW: u32 = 0x08000000;
+use zb_shared::constants::CREATE_NO_WINDOW;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WindowsService {
@@ -18,6 +18,12 @@ pub struct WindowsService {
 
 #[derive(Debug)]
 pub struct ServiceController;
+
+impl Default for ServiceController {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl ServiceController {
     pub fn new() -> Self {
@@ -140,6 +146,33 @@ impl ServiceController {
             Ok(format!("{} is stopping", name))
         } else if stderr.contains("not started") || stdout.contains("not started") {
             Ok(format!("{} is already stopped", name))
+        } else if stderr.contains("Access is denied") {
+            Err("Access denied — run as Administrator".into())
+        } else {
+            Err(format!("Failed: {} {}", stdout, stderr))
+        }
+    }
+
+    pub fn start_service(&self, name: &str) -> Result<String, String> {
+        // First restore startup type to auto (in case it was set to "disabled")
+        match self.set_startup_type(name, "auto") {
+            Ok(_) => tracing::info!("{} startup type set to auto", name),
+            Err(e) => tracing::warn!("Failed to set startup type for {}: {}", name, e),
+        }
+
+        let output = Command::new("sc")
+            .creation_flags(CREATE_NO_WINDOW)
+            .args(["start", name])
+            .output()
+            .map_err(|e| format!("Failed to run sc: {}", e))?;
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+
+        if output.status.success() || stdout.contains("RUNNING") || stdout.contains("START_PENDING") {
+            Ok(format!("{} is starting", name))
+        } else if stdout.contains("1056") || stderr.contains("already running") {
+            Ok(format!("{} is already running", name))
         } else if stderr.contains("Access is denied") {
             Err("Access denied — run as Administrator".into())
         } else {

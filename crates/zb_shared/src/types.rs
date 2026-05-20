@@ -91,6 +91,7 @@ pub enum TweakCategory {
     Debloat,
     Network,
     Startup,
+    WindowsUpdate,
 }
 
 impl fmt::Display for TweakCategory {
@@ -103,6 +104,7 @@ impl fmt::Display for TweakCategory {
             TweakCategory::Debloat => write!(f, "debloat"),
             TweakCategory::Network => write!(f, "network"),
             TweakCategory::Startup => write!(f, "startup"),
+            TweakCategory::WindowsUpdate => write!(f, "windows_update"),
         }
     }
 }

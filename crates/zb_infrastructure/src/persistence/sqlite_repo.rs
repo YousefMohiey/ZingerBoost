@@ -257,4 +257,50 @@ impl SnapshotService for SqliteRepo {
         }
         Ok(())
     }
+
+    async fn delete_snapshot(&self, id: &str) -> Result<(), SnapshotError> {
+        let conn = self.conn.lock().await;
+        let tx = conn
+            .unchecked_transaction()
+            .map_err(|e| SnapshotError::Storage(e.to_string()))?;
+
+        tx.execute(
+            "DELETE FROM snapshot_tweaks WHERE snapshot_id = ?1",
+            [id],
+        )
+        .map_err(|e| SnapshotError::Storage(e.to_string()))?;
+
+        let deleted = tx.execute(
+            "DELETE FROM snapshots WHERE id = ?1",
+            [id],
+        )
+        .map_err(|e| SnapshotError::Storage(e.to_string()))?;
+
+        if deleted == 0 {
+            return Err(SnapshotError::NotFound(format!("Snapshot {} not found", id)));
+        }
+
+        tx.commit()
+            .map_err(|e| SnapshotError::Storage(e.to_string()))?;
+
+        Ok(())
+    }
+
+    async fn clear_snapshots(&self) -> Result<(), SnapshotError> {
+        let conn = self.conn.lock().await;
+        let tx = conn
+            .unchecked_transaction()
+            .map_err(|e| SnapshotError::Storage(e.to_string()))?;
+
+        tx.execute("DELETE FROM snapshot_tweaks", [])
+            .map_err(|e| SnapshotError::Storage(e.to_string()))?;
+
+        tx.execute("DELETE FROM snapshots", [])
+            .map_err(|e| SnapshotError::Storage(e.to_string()))?;
+
+        tx.commit()
+            .map_err(|e| SnapshotError::Storage(e.to_string()))?;
+
+        Ok(())
+    }
 }

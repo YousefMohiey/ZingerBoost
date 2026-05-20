@@ -9,7 +9,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-version = "0.0.5"
+version = "0.0.6"
 authors = ["YousefMohiey <yousefmohiey@gmail.com>"]
 edition = "2021"
 license = "MIT"
@@ -36,18 +36,24 @@ windows = { version = "0.58", features = [
     "Win32_System_Power",
     "Win32_System_Performance",
     "Win32_NetworkManagement_IpHelper",
+    "Win32_NetworkManagement_Ndis",
+    "Win32_Networking_WinSock",
     "Win32_Security",
     "Win32_System_Restore",
     "Win32_Storage_FileSystem",
     "Win32_UI_WindowsAndMessaging",
+    "Win32_UI_Shell",
 ] }
+tracing-appender = "0.2"
 
 rusqlite = { version = "0.32", features = ["bundled", "chrono", "uuid"] }
 rusqlite_migration = "1.3"
 
 mockall = "0.13"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
 
-iced = { version = "0.13", features = ["tokio", "image"] }
+tauri = { version = "2", features = ["native-tls-vendored"] }
+tauri-build = { version = "2" }
 
 zb_shared = { path = "crates/zb_shared" }
 zb_domain = { path = "crates/zb_domain" }

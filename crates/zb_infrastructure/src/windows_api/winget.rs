@@ -1,10 +1,16 @@
 use std::os::windows::process::CommandExt;
 use std::process::Command;
 
-const CREATE_NO_WINDOW: u32 = 0x08000000;
+use zb_shared::constants::CREATE_NO_WINDOW;
 
 #[derive(Debug, Clone)]
 pub struct WingetInstaller;
+
+impl Default for WingetInstaller {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl WingetInstaller {
     pub fn new() -> Self {
@@ -21,7 +27,7 @@ impl WingetInstaller {
     }
 
     pub fn install(&self, package_id: &str) -> Result<String, String> {
-        let output = Command::new("winget")
+        let mut child = Command::new("winget")
             .creation_flags(CREATE_NO_WINDOW)
             .args([
                 "install",
@@ -31,20 +37,35 @@ impl WingetInstaller {
                 "--accept-package-agreements",
                 "--silent",
             ])
-            .output()
+            .spawn()
             .map_err(|e| format!("Failed to run winget: {}", e))?;
 
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let stderr = String::from_utf8_lossy(&output.stderr);
+        let timeout = std::time::Duration::from_secs(300); // 5 minutes
+        let start = std::time::Instant::now();
 
-        if output.status.success() {
-            Ok(format!("{} installed successfully", package_id))
-        } else if stderr.contains("No installed package found")
-            || stdout.contains("No installed package found")
-        {
-            Ok(format!("{} is already installed", package_id))
-        } else {
-            Err(format!("Winget error: {} {}", stdout, stderr))
+        loop {
+            match child.try_wait() {
+                Ok(Some(status)) => {
+                    if status.success() {
+                        return Ok(format!("{} installed successfully", package_id));
+                    } else {
+                        return Err(format!("Winget exited with code: {:?}", status.code()));
+                    }
+                }
+                Ok(None) => {
+                    if start.elapsed() > timeout {
+                        let _ = child.kill();
+                        return Err(format!(
+                            "Winget install timed out after {} seconds",
+                            timeout.as_secs()
+                        ));
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(500));
+                }
+                Err(e) => {
+                    return Err(format!("Failed to wait for winget: {}", e));
+                }
+            }
         }
     }
 

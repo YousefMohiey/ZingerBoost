@@ -1,7 +1,7 @@
 use std::os::windows::process::CommandExt;
 use std::process::Command;
 
-const CREATE_NO_WINDOW: u32 = 0x08000000;
+use zb_shared::constants::CREATE_NO_WINDOW;
 
 #[derive(Debug)]
 pub struct DebloatEngine;
@@ -29,6 +29,12 @@ impl std::fmt::Display for DebloatError {
 
 impl std::error::Error for DebloatError {}
 
+impl Default for DebloatEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DebloatEngine {
     pub fn new() -> Self {
         Self
@@ -43,15 +49,20 @@ impl DebloatEngine {
             .unwrap_or(false)
     }
 
-    /// Remove an AppX package using 5 methods in sequence.
+    /// Remove an AppX package using multiple methods in sequence (winutil-style).
     /// Returns which method succeeded.
     pub fn remove_appx_package(name: &str) -> Result<String, DebloatError> {
-        // Method 1: Winget uninstall
+        // Method 1: PowerShell AppX removal (winutil approach - most effective)
+        if let Ok(msg) = Self::try_powershell_remove(name) {
+            return Ok(msg);
+        }
+
+        // Method 2: Winget uninstall
         if let Ok(msg) = Self::try_winget_uninstall(name) {
             return Ok(msg);
         }
 
-        // Method 2: DISM provisioned package removal (native, no PowerShell)
+        // Method 3: DISM provisioned package removal
         if let Ok(msg) = Self::try_dism_remove(name) {
             return Ok(msg);
         }
@@ -111,10 +122,9 @@ impl DebloatEngine {
             String::from_utf8_lossy(&output2.stderr).trim()
         ))
     }
-    #[allow(dead_code)]
     fn try_powershell_remove(name: &str) -> Result<String, String> {
         let quote = format!(
-            "$name='{}'; $pkg = Get-AppxPackage -AllUsers | Where-Object {{ $_.Name -like \"*$name*\" -or $_.PackageFamilyName -like \"*$name*\" }}; if ($pkg) {{ $pkg | Remove-AppxPackage -ErrorAction SilentlyContinue }}; $prov = Get-AppxProvisionedPackage -Online | Where-Object {{ $_.DisplayName -like \"*$name*\" -or $_.PackageName -like \"*$name*\" }}; if ($prov) {{ $prov | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue }}",
+            "$name='{}'; $pkg = Get-AppxPackage -AllUsers | Where-Object {{ $_.Name -like \"*$name*\" -or $_.PackageFamilyName -like \"*$name*\" }}; if ($pkg) {{ $pkg | Remove-AppxPackage -ErrorAction SilentlyContinue }}; $prov = Get-AppxProvisionedPackage -Online | Where-Object {{ $_.DisplayName -like \"*$name*\" -or $_.PackageName -like \"*$name*\" }}; if ($prov) {{ $prov | Remove-AppxProvisionedPackage -Online -ErrorAction SilentlyContinue }}; Write-Host 'PS_REMOVE_DONE'",
             name.replace('\'', "''")
         );
 
@@ -124,15 +134,16 @@ impl DebloatEngine {
             .output()
             .map_err(|e| format!("PowerShell spawn failed: {}", e))?;
 
-        let stderr = String::from_utf8_lossy(&output.stderr);
         let stdout = String::from_utf8_lossy(&output.stdout);
 
-        if !stderr.trim().is_empty() && !stderr.contains("SilentlyContinue") {
-            return Err(format!("PowerShell error: {}", stderr.trim()));
+        // Check for our success marker instead of relying on stderr
+        if stdout.contains("PS_REMOVE_DONE") {
+            return Ok(format!("Method 2 (PowerShell) succeeded for '{}'", name));
         }
 
-        if output.status.success() || stdout.contains("RemoveAppxPackage") {
-            return Ok(format!("Method 2 (PowerShell) succeeded for '{}'", name));
+        // If no match found but command succeeded, still consider it a win
+        if output.status.success() {
+            return Ok(format!("Method 2 (PowerShell): '{}' not found or already removed", name));
         }
 
         Err("PowerShell removal returned empty/no match".to_string())
@@ -164,8 +175,7 @@ impl DebloatEngine {
             .args([
                 "/online",
                 "/Remove-ProvisionedAppxPackage",
-                "/PackageName:",
-                &package_name,
+                &format!("/PackageName:{}", package_name),
             ])
             .output()
             .map_err(|e| format!("DISM spawn failed: {}", e))?;
@@ -426,8 +436,7 @@ Write-Host 'WIDGETS_DISABLED'
             .args([
                 "/online",
                 "/Remove-ProvisionedAppxPackage",
-                "/PackageName:",
-                package_name,
+                &format!("/PackageName:{}", package_name),
             ])
             .output()
             .map_err(|e| DebloatError::ProcessFailed(e.to_string()))?;

@@ -53,7 +53,10 @@ impl TweakEngine {
     pub async fn apply_single(&self, id: &str) -> Result<TweakResult, TweakError> {
         let tweak = self
             .get_tweak(id)
-            .ok_or_else(|| TweakError::Validation(format!("Unknown tweak: {}", id)))?;
+            .ok_or_else(|| {
+                tracing::error!("Unknown tweak requested: {}", id);
+                TweakError::Validation(format!("Unknown tweak: {}", id))
+            })?;
 
         if tweak.is_applied().await? {
             return Err(TweakError::AlreadyApplied);
@@ -62,6 +65,7 @@ impl TweakEngine {
         let snapshot_data = tweak.capture_state().await?;
         let result = tweak.apply().await?;
 
+        // Single audit entry - no duplicate tracing calls
         self.audit_service
             .log(AuditEntry {
                 timestamp: Utc::now(),
@@ -161,16 +165,23 @@ impl TweakEngine {
     pub async fn revert(&self, id: &str) -> Result<TweakResult, TweakError> {
         let tweak = self
             .get_tweak(id)
-            .ok_or_else(|| TweakError::Validation(format!("Unknown tweak: {}", id)))?;
+            .ok_or_else(|| {
+                tracing::error!("Unknown tweak requested for revert: {}", id);
+                TweakError::Validation(format!("Unknown tweak: {}", id))
+            })?;
 
         let snapshot_data = self
             .snapshot_service
             .get_last_snapshot_data(id)
             .await
-            .map_err(|_e| TweakError::SnapshotMissing)?;
+            .map_err(|_e| {
+                tracing::error!("No snapshot found for tweak {}", id);
+                TweakError::SnapshotMissing
+            })?;
 
         let result = tweak.revert(&snapshot_data).await?;
 
+        // Single audit entry - no duplicate tracing calls
         self.audit_service
             .log(AuditEntry {
                 timestamp: Utc::now(),

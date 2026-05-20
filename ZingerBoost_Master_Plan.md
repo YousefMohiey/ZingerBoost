@@ -4,7 +4,7 @@
 > **License:** MIT (Open Source)  
 > **Repository:** `ZingerBoost`  
 > **Target OS:** Windows 10 / Windows 11  
-> **Current Stack:** Rust backend + actix-web server (transitional) → **Target:** Iced desktop app  
+> **Current Stack:** Rust backend + Tauri v2 desktop app (vanilla JS frontend)  
 
 ---
 
@@ -19,40 +19,42 @@
 | **Health Score (MVP)** | Deferred; show "X Recommended Actions" instead |
 | **Distribution** | Open source, telemetry-free, offline-first |
 | **Theme Default** | Dark mode (with Light / System support) |
-| **Stack Lock** | **Rust (Iced target)** — Pure Rust desktop application |
+| **Stack Lock** | **Rust + Tauri v2** — Desktop app with vanilla JS frontend |
 
 ---
 
 ## **0.1. Current State vs. Target State**
 
-| Component | Current State (v0.4.0) | Target State |
+| Component | Current State (v0.0.6) | Target State |
 |-----------|------------------------|--------------|
-| **Backend** | 4 crates (`zb_shared`, `zb_domain`, `zb_application`, `zb_infrastructure`) + `server/` | Keep 4 crates, add `zb_app/` (Iced), remove `server/` |
-| **Tweaks** | **29 implemented** + **15 planned** (see Section 25) | Same (44 total) |
-| **UI** | `actix-web` HTTP server (`server/src/`) + static files | **Iced desktop app** (`zb_app/src/`) |
+| **Backend** | 5 crates (`zb_shared`, `zb_domain`, `zb_application`, `zb_infrastructure`, `zb_app`) | Keep 5 crates, add `zb_tray/` (background tray) |
+| **Tweaks** | **49 defined** + **32 registered** | Register all 49, add more planned |
+| **UI** | **Tauri v2** (`zb_app/src/`) + vanilla JS (`index.html`, `app.js`, `style.css`) | Enhance UI with Game Mode, Monitor pages |
+| **Frontend** | Vanilla HTML/CSS/JS (no framework, no build step) | Keep vanilla JS, add charts, animations |
 | **Debloat** | `DebloatEngine` with 5 methods (PowerShell-heavy) | Refactor to native `windows-rs` COM + DISM |
 | **Snapshots** | SQLite-only (`SqliteRepo`) | SQLite + JSON file payload with verification |
-| **System Cleaner** | **Exists** (`SystemCleaner` — 9 categories) | Integrate into Iced UI |
-| **Service Manager** | **Exists** (`ServiceController` — 19 services + 10 planned) | Integrate into Iced UI |
-| **Metrics** | **Exists** (`MetricsCollector` — CPU/RAM/Disk via PDH) | Add System Overview (WMI), integrate into Iced |
-| **Software Catalog** | **Exists** (`zb_shared/src/software.rs` — 30+ apps, 9 categories) | Integrate into Iced UI |
-| **Bloatware Catalog** | **Exists** (`zb_shared/src/software.rs` — 34 apps) | Integrate into Iced UI |
-| **Theme** | Not implemented | Dark / Light / System via Iced custom `Palette` |
+| **System Cleaner** | **Exists** (`SystemCleaner` — 9 categories) | Integrated into Tauri UI |
+| **Service Manager** | **Exists** (`ServiceController` — 19 services + 10 planned) | Integrated into Tauri UI |
+| **Metrics** | **Exists** (`MetricsCollector` — CPU/RAM/Disk via PDH) | Add System Overview (WMI), GPU metrics |
+| **Software Catalog** | **Exists** (`zb_shared/src/software.rs` — 30+ apps, 9 categories) | Integrated into Tauri UI |
+| **Bloatware Catalog** | **Exists** (`zb_shared/src/software.rs` — 44 apps) | Integrated into Tauri UI |
+| **Theme** | Dark purple theme via CSS variables | Add Light/System theme toggle |
+| **Tauri Commands** | **30 commands** wired via `invoke_handler` | Add game mode, monitor, preset commands |
 
 ---
 
 ## **1. System Architecture**
 
-**Current Stack:** Rust backend + actix-web HTTP server (transitional UI).  
-**Target Stack:** Pure Rust (Iced GUI + native OS integration). No web technologies.
-
-**Pattern:** Layered monolith with clear crate boundaries.
+**Current Stack:** Rust backend + Tauri v2 desktop app (vanilla JS frontend).  
+**Pattern:** Layered monolith with clear crate boundaries + Tauri command layer.
 - `zb_shared`: Types, errors, constants, software catalog, bloatware catalog.
-- `zb_domain`: Core traits and entities (`Tweak`, `RegistryProvider`, `Snapshot` entities, `Benchmark` traits). 25+ tweak implementations. No `std::fs`, no async, pure logic.
+- `zb_domain`: Core traits and entities (`Tweak`, `RegistryProvider`, `Snapshot` entities, `Benchmark` traits). 49 tweak implementations. No `std::fs`, no async, pure logic.
 - `zb_application`: Orchestration services (`TweakEngine`, `SnapshotService`, `AuditService`).
 - `zb_infrastructure`: OS adapters (`WinRegistryProvider`, `ServiceController`, `DebloatEngine`, `SystemCleaner`, `WingetInstaller`, `MetricsCollector`, SQLite repos).
-- `zb_app`: **DOES NOT EXIST YET.** This will be the Iced application entry point.
-- `server/`: **EXISTS NOW** but will be **deleted** once Iced UI is ready.
+- `zb_app`: **Tauri v2 desktop app** — `main.rs` entry, `commands.rs` (30 Tauri commands), `state.rs` (AppState), vanilla JS frontend (`index.html`, `app.js`, `style.css`).
+- `zb_tray`: **PLANNED** — Background tray app for quick actions and monitoring.
+- `server/`: **DELETED** — actix-web server removed during Tauri migration.
+- `iced_test/`: **LEFTOVER** — Old Iced prototype, not in workspace.
 
 ---
 
@@ -66,16 +68,20 @@ ZingerBoost/
 ├── README.md
 ├── CONTRIBUTING.md
 ├── assets/banner.svg
-├── AGENTS.md                        # Agent instructions (outdated — says Flutter)
+├── setup.iss                        # Inno Setup installer script
+├── AGENTS.md                        # Agent instructions
+├── .cargo/config.toml               # Static CRT linking
 │
 ├── crates/
+│   ├── iced_test/                   # LEFTOVER — old Iced prototype (not in workspace)
+│   │
 │   ├── zb_shared/
 │   │   ├── Cargo.toml
 │   │   └── src/
 │   │       ├── lib.rs
 │   │       ├── constants.rs
 │   │       ├── types.rs             # RegPath, RegValue, RiskLevel, TweakCategory, SystemMetrics, etc.
-│   │       └── software.rs          # Software catalog + bloatware catalog + protected apps
+│   │       └── software.rs          # Software catalog (30+ apps) + bloatware catalog (44 apps) + protected apps
 │   │
 │   ├── zb_domain/
 │   │   ├── Cargo.toml
@@ -90,7 +96,7 @@ ZingerBoost/
 │   │       └── tweaks/
 │   │           ├── mod.rs
 │   │           ├── traits.rs        # Tweak trait (6 methods)
-│   │           └── definitions/     # 29 tweak implementations
+│   │           └── definitions/     # 49 tweak implementations
 │   │               ├── mod.rs
 │   │               ├── disable_advertising_id.rs
 │   │               ├── disable_aero_shake.rs
@@ -121,6 +127,7 @@ ZingerBoost/
 │   │               ├── disable_transparency.rs
 │   │               ├── set_high_performance.rs
 │   │               └── show_file_extensions.rs
+│   │               # + 20 more network, gaming, privacy, Windows Update tweaks
 │   │
 │   ├── zb_application/
 │   │   ├── Cargo.toml
@@ -131,39 +138,43 @@ ZingerBoost/
 │   │       ├── audit_service.rs     # AuditService trait
 │   │       └── dto.rs
 │   │
-│   └── zb_infrastructure/
+│   ├── zb_infrastructure/
+│   │   ├── Cargo.toml
+│   │   └── src/
+│   │       ├── lib.rs
+│   │       ├── logging.rs           # tracing_subscriber init
+│   │       ├── registry/
+│   │       │   └── mod.rs           # WinRegistryProvider (windows-rs)
+│   │       ├── services/
+│   │       │   └── mod.rs           # ServiceController (SCM API + sc.exe fallback)
+│   │       │   └── service_controller.rs
+│   │       ├── persistence/
+│   │       │   ├── mod.rs
+│   │       │   ├── sqlite_repo.rs   # SqliteRepo (implements SnapshotService)
+│   │       │   └── audit_logger.rs  # SqliteAuditLogger (implements AuditService)
+│   │       └── windows_api/
+│   │           ├── mod.rs
+│   │           ├── debloat_engine.rs   # 5-method removal (PowerShell-heavy — see Tech Debt)
+│   │           ├── metrics_collector.rs # PDH CPU/RAM/Disk counters
+│   │           ├── system_cleaner.rs    # 9-category disk cleaner
+│   │           └── winget.rs            # WingetInstaller
+│   │
+│   └── zb_app/                      # Tauri desktop app (main binary)
 │       ├── Cargo.toml
+│       ├── build.rs                 # tauri_build::build()
+│       ├── tauri.conf.json          # Tauri v2 configuration
 │       └── src/
-│           ├── lib.rs
-│           ├── logging.rs           # tracing_subscriber init
-│           ├── registry/
-│           │   └── mod.rs           # WinRegistryProvider (windows-rs)
-│           ├── services/
-│           │   └── mod.rs           # ServiceController (SCM API + sc.exe fallback)
-│           │   └── service_controller.rs
-│           ├── persistence/
-│           │   ├── mod.rs
-│           │   ├── sqlite_repo.rs   # SqliteRepo (implements SnapshotService)
-│           │   └── audit_logger.rs  # SqliteAuditLogger (implements AuditService)
-│           └── windows_api/
-│               ├── mod.rs
-│               ├── debloat_engine.rs   # 5-method removal (PowerShell-heavy — see Tech Debt)
-│               ├── metrics_collector.rs # PDH CPU/RAM/Disk counters
-│               ├── system_cleaner.rs    # 9-category disk cleaner
-│               └── winget.rs            # WingetInstaller
-│
-├── server/                          # CURRENT UI — actix-web HTTP server
-│   ├── Cargo.toml
-│   └── src/
-│       ├── main.rs
-│       ├── lib.rs                   # HttpServer setup, routes
-│       ├── app.rs                   # AppState (engine, metrics, winget, cleaner, services)
-│       └── api.rs                   # REST endpoints (metrics, tweaks, services, cleaner, debloat, software, snapshots, audit)
+│           ├── main.rs              # Entry point, admin check, Tauri builder
+│           ├── commands.rs          # 30 Tauri #[tauri::command] handlers
+│           ├── state.rs             # AppState (engine, metrics, cleaner, etc.)
+│           ├── index.html           # SPA layout (552 lines)
+│           ├── app.js               # State management, DOM, Tauri invoke (948 lines)
+│           └── style.css            # Dark purple theme (1328 lines)
 │
 └── target/
 ```
 
-**Target Structure (post-Iced migration):**
+**Target Structure (v1.0.0):**
 ```
 ZingerBoost/
 ├── Cargo.toml
@@ -172,61 +183,70 @@ ZingerBoost/
 │   ├── zb_domain/          # Unchanged
 │   ├── zb_application/     # Unchanged
 │   ├── zb_infrastructure/  # Refactor debloat, add SystemOverviewCollector
-│   └── zb_app/             # NEW — Iced desktop app
-│       ├── Cargo.toml
+│   ├── zb_app/             # Tauri desktop app (current)
+│   │   ├── src/
+│   │   │   ├── main.rs
+│   │   │   ├── commands.rs
+│   │   │   └── state.rs
+│   │   └── src/            # Frontend (vanilla JS)
+│   │       ├── index.html
+│   │       ├── app.js
+│   │       └── style.css
+│   └── zb_tray/            # NEW — Background tray app
 │       └── src/
-│           ├── main.rs
-│           ├── lib.rs
-│           ├── state.rs
-│           ├── message.rs
-│           ├── update.rs
-│           ├── subscription.rs
-│           ├── theme.rs
-│           ├── view/
-│           │   ├── mod.rs
-│           │   ├── dashboard.rs
-│           │   ├── tweaks.rs
-│           │   ├── debloat.rs
-│           │   ├── install_apps.rs
-│           │   ├── snapshots.rs
-│           │   ├── benchmark.rs
-│           │   ├── settings.rs
-│           │   └── system_cleaner.rs
-│           └── widgets/
-│               ├── mod.rs
-│               ├── sidebar.rs
-│               ├── metric_card.rs
-│               ├── sparkline.rs
-│               └── risk_badge.rs
+│           └── main.rs
 │
-# server/ — DELETED after migration
+├── assets/
+│   ├── icons/              # SVG icons
+│   ├── themes/             # Theme definitions
+│   └── presets/            # Preset configurations
+│
+└── installer/
+    └── setup.iss           # Inno Setup installer script
 ```
 
 ---
 
-## **3. Frontend Architecture (Current: actix-web → Target: Iced)**
+## **3. Frontend Architecture (Current: Tauri v2 + Vanilla JS)**
 
-### Current (actix-web)
-- `server/src/lib.rs` sets up `HttpServer` on `127.0.0.1:19999`.
-- `server/src/api.rs` exposes REST endpoints returning JSON.
-- Static files served from `server/static/`.
-- **BUG:** `api.rs` uses `tokio::runtime::Handle::current().block_on()` inside async handlers — this blocks the async runtime and can cause deadlocks. Must be fixed immediately.
+### Current (Tauri v2)
+- **`zb_app/src/main.rs`** — `#[tokio::main]` async entry, admin elevation check, Tauri builder with 30 `invoke_handler` commands.
+- **`zb_app/src/commands.rs`** — 30 `#[tauri::command]` functions that call into `TweakEngine`, `MetricsCollector`, `SystemCleaner`, `DebloatEngine`, `ServiceController`, `SqliteRepo`.
+- **`zb_app/src/state.rs`** — `AppState` struct holding `Arc<TweakEngine>`, `Arc<MetricsCollector>`, etc., shared across commands via `tauri::State`.
+- **`zb_app/src/index.html`** — SPA layout with sidebar navigation and 10 tabs (Overview, Optimizations, Services, Cleaner, Backups, Debloat, Installer, Game Mode, Monitor, Settings, Audit Log).
+- **`zb_app/src/app.js`** — Vanilla JS state management, DOM caching, event delegation, `window.__TAURI__.core.invoke` wrapper, tab switching, metrics polling (5s interval), renderers for all lists.
+- **`zb_app/src/style.css`** — Premium dark purple theme with CSS variables, gradients, animations, responsive breakpoints. Inter font from Google Fonts.
+- **`tauri.conf.json`** — Tauri v2 config: product name, identifier, CSP, bundle settings, window config (1280x850, min 1100x700).
+- **No build step** — HTML/JS/CSS served directly by Tauri's dev server. No `package.json`, no bundler.
 
-### Target (Iced — Elm Style)
-- **State (`AppState`):** Single source of truth in `zb_app/src/state.rs`.
-- **Messages (`Message`):** User interactions and system events in `zb_app/src/message.rs`.
-- **View (`view`):** Pure functions returning `Element<Message>`.
-- **Update (`update`):** Receives `&mut AppState` and `Message`, returns `Command<Message>`.
-- **Subscriptions (`subscription`):** Periodic timers for metrics and system overview.
+### Communication Pattern
+```
+Frontend (JS)                    Rust Backend
+─────────────                    ─────────────
+window.__TAURI__.core.invoke     #[tauri::command]
+  ("get_tweaks")                 fn get_tweaks(state: State<AppState>)
+    ↓                              ↓
+  JSON response ←──────────────  TweakEngine::list_tweaks()
+                                   ↓
+                                 Serialize to JSON via serde
+```
+
+### Target Enhancements
+- Add Game Mode page with process detection and per-game profiles.
+- Add Monitor page with real-time GPU, network, and temperature metrics.
+- Add Preset System (Safe/Balanced/Aggressive) with one-click apply.
+- Add circular progress indicators and sparkline charts for metrics.
+- Add Light/System theme toggle (currently dark-only).
+- Add backup export/import functionality.
 
 ---
 
 ## **4. Backend Architecture**
 
-- **Crate Boundaries:** Domain has zero dependencies on infrastructure or Iced. Application depends only on Domain. Infrastructure implements domain traits.
-- **Construction:** `server/src/app.rs` (current) or `zb_app/src/main.rs` (target) constructs `Arc<dyn RegistryProvider>` etc. and injects into application services.
-- **Commands:** Current: REST JSON. Target: Iced `update()` dispatches to application services.
-- **Error Handling:** `thiserror` in domain (`TweakError`, `RegistryError`). `anyhow` at app boundaries.
+- **Crate Boundaries:** Domain has zero dependencies on infrastructure or Tauri. Application depends only on Domain. Infrastructure implements domain traits.
+- **Construction:** `zb_app/src/main.rs` constructs `Arc<dyn RegistryProvider>` etc. and injects into application services, then wraps in `AppState` for Tauri.
+- **Commands:** `#[tauri::command]` functions in `commands.rs` receive `State<AppState>`, call application services, return `Result<serde_json::Value, String>`.
+- **Error Handling:** `thiserror` in domain (`TweakError`, `RegistryError`). `anyhow` at app boundaries. Commands convert errors to user-friendly strings.
 
 ---
 
@@ -235,11 +255,12 @@ ZingerBoost/
 | Crate | Responsibility |
 |-------|---------------|
 | `zb_shared` | Common types, constants, software catalog, bloatware catalog |
-| `zb_domain` | `Tweak` trait, `Snapshot` entities, `RegistryValue` enum, 29 tweak implementations (15 more planned), pure logic |
+| `zb_domain` | `Tweak` trait, `Snapshot` entities, `RegistryValue` enum, 49 tweak implementations, pure logic |
 | `zb_application` | `TweakEngine`, `SnapshotService`, `AuditService`, DTOs |
 | `zb_infrastructure` | `WinRegistryProvider`, `ServiceController`, `DebloatEngine`, `SystemCleaner`, `WingetInstaller`, `MetricsCollector`, SQLite repos |
-| `zb_app` (NEW) | Iced `Application` impl, global `State`, `Message` enum, `view`, `update`, `subscription`, custom widgets, theme |
-| `server` (CURRENT, TO BE DELETED) | actix-web HTTP server providing REST API |
+| `zb_app` (CURRENT) | Tauri v2 desktop app — `main.rs` entry, `commands.rs` (30 commands), `state.rs`, vanilla JS frontend |
+| `zb_tray` (PLANNED) | Background tray app for quick actions and hardware monitoring |
+| `server` (DELETED) | actix-web HTTP server — removed during Tauri migration |
 
 ---
 
@@ -640,51 +661,55 @@ Same as previous plan.
 
 ---
 
-## **40. Recommended Pages/Screens (Iced Target)**
+## **40. Recommended Pages/Screens (Tauri Target)**
 
-1. **Onboarding** — Elevation check + baseline snapshot.
-2. **Dashboard** — Live metrics, system overview, recommended actions.
-3. **Tweaks Browser** — Filterable catalog with risk badges.
-4. **Tweak Detail** — Explanation, technical details, affected keys.
-5. **Debloat** — Bloatware removal with checkboxes.
-6. **Install Apps** — Software installer with categories.
-7. **System Cleaner** — Scan and clean 9 categories.
-8. **Service Manager** — List, stop, and disable services.
-9. **Snapshots** — Timeline, restore wizard.
-10. **Benchmark** — Run tests, view history.
-11. **Settings** — General, appearance, safety, backups, about.
-12. **Logs** — Live audit stream.
+1. **Overview** — Live metrics, system overview, quick actions, recommended actions, preset selector.
+2. **Optimizations** — Filterable tweak catalog with risk badges, apply/revert, category tabs.
+3. **Tweak Detail** — Explanation, technical details, affected registry keys.
+4. **Debloat** — Bloatware removal with checkboxes, scan + remove flow.
+5. **Installer** — Software installer with categories, winget-based install.
+6. **Cleaner** — Scan and clean 9 categories, size estimates, progress tracking.
+7. **Services** — List, stop, and disable Windows services, status indicators.
+8. **Backups** — Timeline, restore wizard, export/import JSON.
+9. **Game Mode** — Per-game profiles, auto-apply on process detection, temporary tweaks.
+10. **Monitor** — Real-time hardware monitoring (CPU, RAM, GPU, network, disk).
+11. **Settings** — General, appearance (Dark/Light/System), safety, backups, about.
+12. **Audit Log** — Live audit stream, filter by level/category, clear log.
 
 ---
 
 ## **41. Dashboard Design Ideas**
 
-**Current:** `MetricsCollector` returns CPU %, RAM %, Disk %, Network up/down.
+**Current:** `MetricsCollector` returns CPU %, RAM %, Disk %, Network up/down. Polled every 5s via `setInterval` in `app.js`.
 
 **Missing:**
 - System Overview (CPU name, cores, GPU, motherboard, OS build, uptime, disk free space).
-- Sparkline history for metrics.
-- Auto-refresh.
+- Sparkline history for metrics (1-hour trend).
+- Circular progress indicators for CPU, RAM, Disk.
+- System Health Score (0-100 based on optimizations applied).
+- Quick Actions panel (Clean Temp, Boost Now, Scan Issues).
+- Auto-refresh via Tauri event emission instead of polling.
 
-**Fix:** Add `SystemOverviewCollector` in `zb_infrastructure/src/windows_api/` using WMI.
+**Fix:** Add `SystemOverviewCollector` in `zb_infrastructure/src/windows_api/` using WMI. Replace polling with Tauri `app.emit()` for real-time updates.
 
 ---
 
-## **42. Sidebar/Navigation Structure**
+## **42. Sidebar/Navigation Structure (Current)**
 
 ```
 ┌─ ZingerBoost ──────────────┐
-│  [Icon] Dashboard          │
-│  [Icon] Tweaks             │
+│  [Icon] Overview           │
+│  [Icon] Optimizations      │
+│  [Icon] Services           │
+│  [Icon] Cleaner            │
+│  [Icon] Backups            │
 │  [Icon] Debloat            │
-│  [Icon] Install Apps       │
-│  [Icon] System Cleaner     │  ← NEW
-│  [Icon] Services           │  ← NEW
-│  [Icon] Snapshots          │
-│  [Icon] Benchmark          │
+│  [Icon] Installer          │
+│  [Icon] Game Mode          │  ← NEW
+│  [Icon] Monitor            │  ← NEW
 │  ───────────────────────── │
 │  [Icon] Settings           │
-│  [Icon] About              │
+│  [Icon] Audit Log          │
 └────────────────────────────┘
 ```
 
@@ -692,7 +717,23 @@ Same as previous plan.
 
 ## **43. Color System & Design Language**
 
-Same as previous Iced plan. Implement via Iced custom `Palette`.
+**Current:** Dark purple theme via CSS custom properties in `style.css`.
+
+```css
+:root {
+  --bg-primary: #0F172A;      /* slate-950 */
+  --bg-card: #1E293B;         /* slate-900 */
+  --primary: #3B82F6;         /* blue-500 */
+  --secondary: #10B981;       /* emerald-500 */
+  --accent: #8B5CF6;          /* purple-500 */
+  --text-primary: #F8FAFC;    /* slate-50 */
+  --text-muted: #94A3B8;      /* slate-400 */
+  --warning: #F59E0B;         /* amber-500 */
+  --danger: #EF4444;          /* red-500 */
+}
+```
+
+**Target:** Add Light and System theme variants. Theme toggle in Settings page. CSS variables switch via `data-theme` attribute on `<html>`.
 
 ---
 
@@ -706,46 +747,47 @@ Same as previous Iced plan. Use `iced_anim` + custom `Canvas` for sparklines.
 
 | Week | Focus |
 |------|-------|
-| **1** | Fix critical bugs: `block_on` in server, PowerShell in debloat, animation tweak. Scaffold `zb_app` crate with Iced hello-world. |
-| **2** | Refactor `DebloatEngine` to native `windows-rs` COM + DISM. Add `SystemOverviewCollector` (WMI). Fix `DisableAnimationsTweak`. |
-| **3** | Add file-based snapshot verification. Add `settings` table. Add `removed_apps` table. Add System Restore Point FFI. |
-| **4** | Iced UI: Dashboard with live metrics + system overview. Custom sparkline widget. |
-| **5** | Iced UI: Tweaks browser, Tweak detail, Debloat page, System Cleaner page. |
-| **6** | Iced UI: Install Apps, Service Manager, Snapshots, Settings. |
-| **7** | Iced UI: Benchmarks, Logs, Onboarding, theme system. Polish. |
-| **8** | Replace `server/` with `zb_app/`. Remove actix-web. Build MSI installer. Release. |
+| **1** | Refactor `DebloatEngine` to native `windows-rs` COM + DISM. Add `SystemOverviewCollector` (WMI). Fix `DisableAnimationsTweak`. |
+| **2** | Add file-based snapshot verification. Add `settings` table. Add `removed_apps` table. Add System Restore Point FFI. |
+| **3** | UI: Overview page with circular progress, sparkline charts, system health score, quick actions. |
+| **4** | UI: Optimizations page with category tabs, risk badges, apply/revert. Debloat page with checkboxes. Cleaner page. |
+| **5** | UI: Installer page, Services page, Backups page with export/import. Settings page with theme toggle. |
+| **6** | UI: Game Mode page with per-game profiles. Monitor page with GPU/network metrics. Audit Log page. |
+| **7** | Preset System (Safe/Balanced/Aggressive). Background tray app (`zb_tray`). Polish, animations, responsive design. |
+| **8** | Inno Setup installer (`setup.iss`). Documentation. Testing. Release v1.0.0. |
 
 ---
 
-## **48. MVP Roadmap (v0.5.0 — Iced Release)**
+## **48. MVP Roadmap (v1.0.0 — Tauri Release)**
 
-**Must-have for v0.5.0:**
-- [ ] Fix `tokio::runtime::Handle::current().block_on()` bug in server/api.rs
+**Must-have for v1.0.0:**
 - [ ] Refactor `DebloatEngine` — remove PowerShell, use native COM + DISM
 - [ ] Fix `DisableAnimationsTweak` — comprehensive animation removal
 - [ ] Add `SystemOverviewCollector` (WMI)
 - [ ] Add file-based snapshot verification
-- [ ] Iced app shell with custom Dark/Light theme
-- [ ] Dashboard with live metrics + system overview
-- [ ] Tweaks browser with apply/revert (**44 tweaks total**: 29 existing + 15 new)
+- [ ] Overview page with live metrics + system overview + circular progress
+- [ ] Optimizations page with apply/revert (**49 tweaks**: register all)
 - [ ] Debloat page with checkboxes
-- [ ] System Cleaner page
-- [ ] Service Manager page
-- [ ] Install Apps page
-- [ ] Settings page with theme selector
-- [ ] Delete `server/` crate
-- [ ] MSI installer
+- [ ] Cleaner page with 9 categories
+- [ ] Services page with status indicators
+- [ ] Installer page with software catalog
+- [ ] Backups page with export/import
+- [ ] Game Mode page
+- [ ] Monitor page with GPU/network metrics
+- [ ] Settings page with Dark/Light/System theme toggle
+- [ ] Preset System (Safe/Balanced/Aggressive)
+- [ ] Inno Setup installer
 
 ---
 
 ## **49. Scaling Roadmap**
 
-**v0.5.0:** Iced UI replaces actix-web server. 29 tweaks + 29 services.
-**v0.5.1:** Add 15 new tweaks (network, gaming, privacy, Windows Update) + 10 new services.
-**v0.6.0:** OneDrive removal, Search indexing tweak, advanced debloat (system apps).
-**v0.7.0:** Timer resolution, HPET, CPU priority, dynamic tick (advanced gaming).
-**v0.8.0:** Benchmark system, comparison charts.
-**v1.0.0:** Plugin SDK (WASM), community tweak repository, enterprise features.
+**v0.0.6:** Tauri migration complete. 30 commands, vanilla JS frontend.
+**v1.0.0:** Full UI redesign. 49 tweaks, Game Mode, Monitor, Presets, theme system.
+**v1.1.0:** Background tray app (`zb_tray`), Windows Restore Point integration, benchmark system.
+**v1.2.0:** OneDrive removal, Search indexing tweak, advanced debloat (system apps).
+**v1.3.0:** Timer resolution, HPET, CPU priority, dynamic tick (advanced gaming).
+**v2.0.0:** Plugin SDK (WASM), community tweak repository, enterprise features.
 
 ---
 
@@ -760,8 +802,10 @@ Same as previous plan.
 **Current:** GitHub Actions with `windows-latest` runner for `cargo check --workspace`.
 
 **Update needed:**
-- `ci.yml` must build `zb_app` (Iced) on Windows.
-- Add `cargo-wix` for MSI generation.
+- `ci.yml` must build `zb_app` (Tauri) on Windows with `cargo tauri build`.
+- Add Tauri CLI installation step.
+- Add Inno Setup for `setup.iss` packaging.
+- Frontend has no build step (vanilla JS), so no `npm install` needed.
 
 ---
 
@@ -777,9 +821,64 @@ Same as previous plan. Add `SystemOverviewCollector` example.
 
 ---
 
-## **54. Example Iced Application Entry**
+## **54. Example Tauri Application Entry**
 
-Same as previous plan (Section 53 in old plan).
+```rust
+// zb_app/src/main.rs
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Check admin elevation
+    if !is_admin() {
+        relaunch_as_admin();
+        return Ok(());
+    }
+
+    // Initialize logging
+    init_logging();
+
+    // Initialize SQLite database
+    let repo = SqliteRepo::new(&data_dir())?;
+
+    // Build TweakEngine with all tweaks
+    let provider = Arc::new(WinRegistryProvider::new());
+    let engine = Arc::new(TweakEngine::new(make_all_tweaks(provider.clone()), Arc::new(repo.clone())));
+
+    // Build AppState
+    let state = AppState {
+        engine,
+        metrics: Arc::new(MetricsCollector::new()),
+        cleaner: Arc::new(SystemCleaner::new()),
+        // ...
+    };
+
+    tauri::Builder::default()
+        .manage(state)
+        .invoke_handler(tauri::generate_handler![
+            get_tweaks,
+            apply_tweak,
+            revert_tweak,
+            get_metrics,
+            get_services,
+            // ... 30 commands total
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running Tauri application")
+}
+```
+
+**Tauri Command Pattern:**
+```rust
+#[tauri::command]
+async fn get_tweaks(state: tauri::State<'_, AppState>) -> Result<serde_json::Value, String> {
+    let tweaks = state.engine.list_tweaks();
+    serde_json::to_value(&tweaks).map_err(|e| e.to_string())
+}
+```
+
+**Frontend Invoke Pattern:**
+```javascript
+const tweaks = await window.__TAURI__.core.invoke('get_tweaks');
+```
 
 ---
 
@@ -809,16 +908,18 @@ provider.write(&path, "GameDVR_Enabled", &RegValue::Dword(0)).await?;
 
 | # | Issue | Severity | Fix |
 |---|-------|----------|-----|
-| 1 | `api.rs` uses `tokio::runtime::Handle::current().block_on()` inside async handlers | **CRITICAL** | Remove `block_on`; call `.await` directly on `engine` methods |
-| 2 | `DebloatEngine` relies heavily on PowerShell | **HIGH** | Refactor to `windows-rs` COM `PackageManager` + native registry |
-| 3 | `DisableAnimationsTweak` only clears one bit | **HIGH** | Expand to full animation removal (Section 25-A) |
-| 4 | `SystemCleaner::clean_recycle_bin` uses PowerShell | **MEDIUM** | Replace with `SHEmptyRecycleBinW` |
-| 5 | `WingetInstaller::remove_appx` uses PowerShell | **MEDIUM** | Move removal logic to `DebloatEngine` |
-| 6 | Snapshots are SQLite-only, no file verification | **MEDIUM** | Add `SnapshotFileStore` + verification |
-| 7 | `server/src/app.rs` creates 25 tweak instances manually | **LOW** | Use a registry/macros or builder pattern |
-| 8 | `AGENTS.md` says Flutter but project has no Flutter | **LOW** | Update `AGENTS.md` to match Iced target |
-| 9 | `SystemCleaner` silently ignores all errors | **MEDIUM** | Return `Result` with partial failure reporting |
-| 10 | `MetricsCollector::current()` blocks for 100ms (sleep) | **MEDIUM** | Move PDH sleep to background task |
+| 1 | `DebloatEngine` relies heavily on PowerShell | **CRITICAL** | Refactor to `windows-rs` COM `PackageManager` + native registry |
+| 2 | `DisableAnimationsTweak` only clears one bit | **HIGH** | Expand to full animation removal (Section 25-A) |
+| 3 | `SystemCleaner::clean_recycle_bin` uses PowerShell | **MEDIUM** | Replace with `SHEmptyRecycleBinW` |
+| 4 | `WingetInstaller::remove_appx` uses PowerShell | **MEDIUM** | Move removal logic to `DebloatEngine` |
+| 5 | Snapshots are SQLite-only, no file verification | **MEDIUM** | Add `SnapshotFileStore` + verification |
+| 6 | 49 tweaks defined but only 32 registered | **MEDIUM** | Register remaining 17 tweaks in `make_all_tweaks()` |
+| 7 | `SystemCleaner` silently ignores all errors | **MEDIUM** | Return `Result` with partial failure reporting |
+| 8 | `MetricsCollector::current()` blocks for 100ms (sleep) | **MEDIUM** | Move PDH sleep to background task |
+| 9 | `iced_test/` crate is orphaned dead code | **LOW** | Remove from repo |
+| 10 | `AGENTS.md` references Iced but project uses Tauri | **LOW** | Update `AGENTS.md` to match Tauri target |
+| 11 | Frontend uses polling (5s `setInterval`) for metrics | **LOW** | Replace with Tauri `app.emit()` for push-based updates |
+| 12 | No Light/System theme (dark-only CSS) | **LOW** | Add theme variants with CSS variables |
 
 ---
 
@@ -826,7 +927,7 @@ provider.write(&path, "GameDVR_Enabled", &RegValue::Dword(0)).await?;
 
 | Purpose | Current Crate | Target Crate |
 |---------|--------------|--------------|
-| GUI Framework | `actix-web` (server) | `iced` |
+| Desktop Framework | `tauri` v2 | `tauri` v2 |
 | Async | `tokio` | `tokio` |
 | Windows API | `windows` | `windows` |
 | DB | `rusqlite` + `rusqlite_migration` | `rusqlite` + `rusqlite_migration` |
@@ -836,11 +937,10 @@ provider.write(&path, "GameDVR_Enabled", &RegValue::Dword(0)).await?;
 | Testing | `mockall` | `mockall` |
 | Time | `chrono` | `chrono` |
 | UUID | `uuid` | `uuid` |
-| HTTP | `actix-web` | `reqwest` (update checks only) |
+| HTTP | `reqwest` (update checks only) | `reqwest` |
 | Regex | `regex` | `regex` |
-| Charts/Advanced Widgets | — | `iced_aw` |
-| Animation | — | `iced_anim` |
-| File Dialogs | — | `rfd` |
+| System Tray | — | `tauri-plugin-single-instance` + tray API |
+| File Dialogs | — | `rfd` (via Tauri dialog API) |
 
 ---
 
@@ -848,25 +948,25 @@ provider.write(&path, "GameDVR_Enabled", &RegValue::Dword(0)).await?;
 
 **These rules apply to ANY AI agent working on this codebase:**
 
-1. **STACK LOCK:** The tech stack is **Rust (Iced target)**. You are forbidden from changing it.
-2. **NO SUBSTITUTIONS:** Do NOT switch to Tauri, React, TypeScript, Flutter, HTML-only, Raui, Electron, .NET MAUI, Qt, GTK, egui, or any other framework.
-3. **UI IN RUST ONLY:** All UI code MUST be in `.rs` files using Iced widgets. No `.tsx`, `.html`, `.vue`, `.svelte`.
+1. **STACK LOCK:** The tech stack is **Rust + Tauri v2** with vanilla JS frontend. You are forbidden from changing it.
+2. **NO SUBSTITUTIONS:** Do NOT switch to Iced, React, TypeScript, Flutter, HTML-only, Raui, Electron, .NET MAUI, Qt, GTK, egui, or any other framework.
+3. **UI IN VANILLA JS ONLY:** All UI code MUST be in `.html`, `.js`, `.css` files. No React, Vue, Svelte, Angular, or any frontend framework.
 4. **PRESERVE ARCHITECTURE:** Do not rename or restructure the `zb_*` crates. New features must fit inside the existing boundaries.
 5. **DEBLOAT IS NATIVE:** The debloat engine MUST use `windows-rs` COM APIs (`PackageManager`) or `dism.exe`. NEVER use PowerShell `Remove-AppxPackage` pipelines.
 6. **SNAPSHOTS ARE MANDATORY:** Every batch tweak apply and every debloat operation MUST create a verified snapshot BEFORE modifying the system. If snapshot fails, abort.
-7. **DASHBOARD IS LIVE:** The Dashboard System Overview MUST use live WMI / Performance Counter data from the Rust backend. Static placeholder text is a bug.
-8. **THEME SUPPORT:** The app MUST support Dark, Light, and System themes via Iced custom `Palette` and `Theme`.
+7. **DASHBOARD IS LIVE:** The System Overview on the Dashboard MUST query live WMI / Performance Counter data from the Rust backend and refresh via Tauri events or polling. Static placeholder text is a bug.
+8. **THEME SUPPORT:** The app MUST support Dark, Light, and System themes via CSS custom properties.
 9. **MINIMAL CHANGES:** Only modify what is explicitly requested. Do not refactor unrelated code.
 10. **ASK BEFORE CHANGING:** If a request conflicts with these rules or the existing architecture, STOP and ask the user. Do not "fix" it by switching technologies.
 11. **NO COMMITS:** Never run `git commit`, `git push`, or any git mutations unless explicitly told to.
-12. **RESPECT EXISTING CODE:** The project already has 29 tweaks, a software catalog, a bloatware catalog, a service controller, a metrics collector, and a system cleaner. Do not rewrite them unless asked. Build ON TOP of them.
+12. **RESPECT EXISTING CODE:** The project already has 49 tweaks (32 registered), a software catalog, a bloatware catalog, a service controller, a metrics collector, a system cleaner, and 30 Tauri commands. Do not rewrite them unless asked. Build ON TOP of them.
 
 ---
 
 ## **Final Summary**
 
-**ZingerBoost v0.4.0** has a **solid Rust backend** with:
-- 29 reversible tweaks.
+**ZingerBoost v0.0.6** has a **solid Rust backend + Tauri v2 desktop app** with:
+- 49 tweaks defined (32 registered), all reversible.
 - Full registry provider (`windows-rs`).
 - Tweak engine with batch apply and auto-rollback.
 - SQLite persistence with migrations.
@@ -874,18 +974,21 @@ provider.write(&path, "GameDVR_Enabled", &RegValue::Dword(0)).await?;
 - Service controller (19 safe-to-disable services).
 - System cleaner (9 categories).
 - Software catalog (30+ apps, 9 categories).
-- Bloatware catalog (34 apps).
-- Debloat engine (5 methods, but PowerShell-heavy).
-- actix-web HTTP server providing REST API.
+- Bloatware catalog (44 apps).
+- Debloat engine (5 methods, but PowerShell-heavy — needs refactor).
+- Tauri v2 desktop app with vanilla JS frontend (30 commands).
+- Dark purple theme via CSS variables.
 
 **What needs to be built:**
-- Iced desktop UI (`zb_app` crate).
 - Refactor debloat to native Windows APIs (remove PowerShell).
 - Fix animation tweak comprehensiveness.
-- Add system overview (WMI).
+- Add system overview (WMI) with GPU metrics.
 - Add file-based snapshot verification.
-- Add settings, theme, and onboarding pages.
-- Delete `server/` once Iced is ready.
+- Add Game Mode, Monitor, Preset System pages.
+- Add Light/System theme toggle.
+- Add backup export/import.
+- Build background tray app (`zb_tray`).
+- Package with Inno Setup installer.
 
 **Author:** YousefMohiey
 

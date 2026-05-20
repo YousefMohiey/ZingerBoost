@@ -19,4 +19,10 @@ pub trait SnapshotService: Send + Sync {
 
     /// Restore a full snapshot by ID
     async fn restore_snapshot(&self, id: &str) -> Result<(), SnapshotError>;
+
+    /// Delete a single snapshot by ID
+    async fn delete_snapshot(&self, id: &str) -> Result<(), SnapshotError>;
+
+    /// Clear all snapshots
+    async fn clear_snapshots(&self) -> Result<(), SnapshotError>;
 }

@@ -24,6 +24,9 @@ pub const MAX_SNAPSHOT_RETENTION: usize = 50;
 /// Audit log retention days
 pub const AUDIT_LOG_RETENTION_DAYS: i64 = 7;
 
+/// Windows process creation flag to hide console windows
+pub const CREATE_NO_WINDOW: u32 = 0x08000000;
+
 /// Risk levels
 pub mod risk {
     pub const SAFE: &str = "safe";

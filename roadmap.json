@@ -1,0 +1,1218 @@
+{
+  "project": "ZingerBoost",
+  "version": "0.0.6",
+  "generated": "2026-05-20",
+  "stack": {
+    "language": "Rust (edition 2021)",
+    "gui": "Tauri v2 + vanilla JS frontend",
+    "backend_crates": ["zb_shared", "zb_domain", "zb_application", "zb_infrastructure"],
+    "app_crate": "zb_app",
+    "async": "Tokio",
+    "windows_api": "windows-rs 0.58",
+    "database": "SQLite (rusqlite bundled)",
+    "build": "Cargo workspace"
+  },
+  "current_state": {
+    "tweaks_defined": 44,
+    "tweaks_registered": 32,
+    "services_managed": 19,
+    "cleaner_categories": 9,
+    "bloatware_targets": 44,
+    "software_catalog_apps": 30,
+    "tauri_commands": 30,
+    "frontend": "Vanilla JS (index.html, app.js, style.css)",
+    "theme": "Dark purple (CSS variables)",
+    "ci": "GitHub Actions (check + test)",
+    "license": "MIT",
+    "distribution": "Open source, telemetry-free, offline-first"
+  },
+  "phases": [
+    {
+      "phase": 1,
+      "name": "Discovery",
+      "description": "Audit current state, identify gaps, map tech debt, assess readiness for v1.0.0",
+      "findings": [
+        {
+          "id": "D1",
+          "category": "Architecture",
+          "finding": "Clean layered architecture (shared → domain → application → infrastructure → app). Crate boundaries are well-defined with zero circular dependencies.",
+          "severity": "info",
+          "status": "healthy"
+        },
+        {
+          "id": "D2",
+          "category": "Tweak Coverage",
+          "finding": "44 tweaks defined but only 32 registered in make_all_tweaks(). 12 tweaks exist as files but are not wired into the engine.",
+          "severity": "medium",
+          "status": "action_required",
+          "fix": "Register all remaining tweaks in commands.rs make_all_tweaks()"
+        },
+        {
+          "id": "D3",
+          "category": "Debloat Engine",
+          "finding": "DebloatEngine still relies heavily on PowerShell (Get-AppxPackage pipelines, registry scripts). Violates project Rule #5 (DEBLOAT IS NATIVE).",
+          "severity": "critical",
+          "status": "action_required",
+          "fix": "Replace with windows-rs COM PackageManager + native WinRegistryProvider writes"
+        },
+        {
+          "id": "D4",
+          "category": "Snapshot System",
+          "finding": "Snapshots are SQLite-only. No file-based JSON payload with verification. No export/import functionality.",
+          "severity": "medium",
+          "status": "action_required",
+          "fix": "Add SnapshotFileStore writing to %LOCALAPPDATA%\\ZingerBoost\\snapshots\\{id}.json"
+        },
+        {
+          "id": "D5",
+          "category": "Metrics",
+          "finding": "MetricsCollector uses PDH for CPU/RAM/Disk/Network. Missing GPU metrics, temperature readings, and system overview (WMI).",
+          "severity": "medium",
+          "status": "action_required",
+          "fix": "Add SystemOverviewCollector using WMI for CPU name, GPU, motherboard, OS build, uptime"
+        },
+        {
+          "id": "D6",
+          "category": "Frontend",
+          "finding": "Vanilla JS frontend is functional but basic. No circular progress indicators, sparkline charts, or theme toggle. Uses polling (5s setInterval) instead of Tauri event emission.",
+          "severity": "low",
+          "status": "action_required",
+          "fix": "Add SVG-based circular progress, canvas sparklines, CSS theme switching, Tauri app.emit() for push updates"
+        },
+        {
+          "id": "D7",
+          "category": "Game Mode",
+          "finding": "toggle_game_mode command exists but uses raw reg.exe/powercfg calls instead of native windows-rs. No per-game profiles or process detection.",
+          "severity": "medium",
+          "status": "action_required",
+          "fix": "Refactor to native Windows API, add GameProfile entity, process detection via CreateToolhelp32Snapshot"
+        },
+        {
+          "id": "D8",
+          "category": "System Cleaner",
+          "finding": "clean_recycle_bin uses PowerShell Clear-RecycleBin. Error reporting tracks but doesn't prevent partial failures.",
+          "severity": "medium",
+          "status": "action_required",
+          "fix": "Replace with SHEmptyRecycleBinW Windows API call"
+        },
+        {
+          "id": "D9",
+          "category": "CI/CD",
+          "finding": "CI runs cargo check and cargo test. Missing cargo tauri build step, Inno Setup packaging, and release artifact upload.",
+          "severity": "low",
+          "status": "action_required",
+          "fix": "Add cargo-tauri build job, Inno Setup step, GitHub release artifact upload"
+        },
+        {
+          "id": "D10",
+          "category": "Dead Code",
+          "finding": "iced_test/ crate is orphaned dead code. Not in workspace. AGENTS.md references Iced but project uses Tauri.",
+          "severity": "low",
+          "status": "action_required",
+          "fix": "Remove iced_test/ directory, update AGENTS.md"
+        },
+        {
+          "id": "D11",
+          "category": "Security",
+          "finding": "No Windows Restore Point integration before batch operations. No SRSetRestorePoint FFI call.",
+          "severity": "high",
+          "status": "action_required",
+          "fix": "Add RestorePointService with SRSetRestorePointW FFI, call before all batch operations"
+        },
+        {
+          "id": "D12",
+          "category": "Settings",
+          "finding": "Settings page shows version and database path but lacks theme toggle, safety level selector, backup retention config, and notification preferences.",
+          "severity": "low",
+          "status": "action_required",
+          "fix": "Add settings table to SQLite, wire to frontend with all config options"
+        }
+      ],
+      "tech_debt_summary": {
+        "critical": 1,
+        "high": 1,
+        "medium": 6,
+        "low": 4,
+        "total": 12
+      }
+    },
+    {
+      "phase": 2,
+      "name": "Competitor Analysis",
+      "description": "Analyze top Windows optimization tools (CTT WinUtil, O&O ShutUp10++, Sophia Script, WinHance, BloatyNosy, Optimizer) to identify feature gaps and competitive advantages",
+      "competitors": [
+        {
+          "name": "Chris Titus Tech WinUtil",
+          "type": "PowerShell GUI",
+          "stars": "46,800+",
+          "runs": "30M+",
+          "strengths": [
+            "All-in-one: debloat + install + ISO builder + troubleshooting",
+            "WinGet + Chocolatey package manager integration",
+            "Win11 Creator for custom debloated ISO",
+            "Active community (200+ contributors)",
+            "System restore point auto-creation",
+            "Undo selected tweaks feature",
+            "Automation/export configs for fleet deployment"
+          ],
+          "weaknesses": [
+            "PowerShell-based (requires script execution policy change)",
+            "No per-tweak undo (only restore point)",
+            "No real-time metrics monitoring",
+            "No game mode",
+            "Not a native binary (script trust concerns)",
+            "Windows 10 support ended Oct 2025"
+          ],
+          "features_to_borrow": [
+            "Preset profiles (Standard/Minimal)",
+            "Bulk app installation UI",
+            "ISO builder (MicroWin/Win11 Creator)",
+            "Config export/import",
+            "Troubleshooting quick fixes (SFC, DISM, network reset)"
+          ]
+        },
+        {
+          "name": "O&O ShutUp10++",
+          "type": "Native C++ GUI",
+          "strengths": [
+            "Granular privacy toggles (100+ settings)",
+            "Color-coded risk levels (recommended/unnecessary/dangerous)",
+            "Create restore point before changes",
+            "Export/import settings",
+            "Portable (no install needed)",
+            "Regularly updated for new Windows builds"
+          ],
+          "weaknesses": [
+            "Privacy-only (no debloat, no app installer)",
+            "No performance tweaks",
+            "No game mode",
+            "Proprietary (not open source)",
+            "No real-time monitoring"
+          ],
+          "features_to_borrow": [
+            "Risk-level color coding system",
+            "Recommended/unnecessary/dangerous categorization",
+            "Settings export/import",
+            "Portable mode"
+          ]
+        },
+        {
+          "name": "Sophia Script / SophiApp",
+          "type": "PowerShell module + GUI wrapper",
+          "strengths": [
+            "150+ individual tweaks (most granular)",
+            "Uses only Microsoft documented methods",
+            "Enterprise-friendly (WinGet, Chocolatey, Scoop)",
+            "Windows 11 LTSC 2024 support",
+            "ARM64 support",
+            "Group Policy support",
+            "Wrapper GUI (SophiApp)"
+          ],
+          "weaknesses": [
+            "Complex preset file editing required",
+            "PowerShell-based (script trust concerns)",
+            "May trigger endpoint protection false positives",
+            "Not beginner-friendly"
+          ],
+          "features_to_borrow": [
+            "Granular tweak catalog (150+)",
+            "Preset file system",
+            "Enterprise deployment support",
+            "LTSC optimization profiles"
+          ]
+        },
+        {
+          "name": "WinHance",
+          "type": "C# open-source GUI",
+          "strengths": [
+            "Polished modern UI",
+            "Open source (MIT)",
+            "Many presets",
+            "Actively maintained",
+            "Good documentation"
+          ],
+          "weaknesses": [
+            ".NET dependency (heavier than native)",
+            "No real-time monitoring",
+            "No tray app",
+            "No snapshot/rollback system"
+          ],
+          "features_to_borrow": [
+            "Modern UI design patterns",
+            "Preset system with clear labels",
+            "Documentation quality"
+          ]
+        },
+        {
+          "name": "BloatyNosy (ThisIsWin11/WinPilot)",
+          "type": "C# GUI with plugin system",
+          "strengths": [
+            "Plugin store for community modules",
+            "AppMatrix.json for bloatware signatures",
+            "Built for Windows 11 specifically",
+            "Dark mode UI",
+            "7M+ downloads"
+          ],
+          "weaknesses": [
+            "Single developer maintenance risk",
+            "No Windows 10 support",
+            "Plugin system adds complexity",
+            "Was pulled from Microsoft Store previously"
+          ],
+          "features_to_borrow": [
+            "Community plugin concept",
+            "Dynamic bloatware signature updates",
+            "AppMatrix-style catalog"
+          ]
+        },
+        {
+          "name": "Optimizer (hellzerg)",
+          "type": "C# portable GUI",
+          "strengths": [
+            "Fully portable (USB drive)",
+            "Hardware info display",
+            "Bloatware removal",
+            "Service disabling",
+            "Performance tweaks",
+            "Telemetry blocking"
+          ],
+          "weaknesses": [
+            "No snapshot/rollback",
+            "No app installer",
+            "No game mode",
+            "No real-time monitoring"
+          ],
+          "features_to_borrow": [
+            "Portable mode",
+            "Hardware info display",
+            "Clean single-page layout"
+          ]
+        }
+      ],
+      "competitive_positioning": {
+        "zingerboost_unique_advantages": [
+          "100% open source + auditable (MIT)",
+          "Native Rust binary (10x lighter than Electron/.NET)",
+          "Snapshot rollback system (only optimizer with guaranteed undo)",
+          "Zero telemetry, offline-first",
+          "All features free (no premium tier)",
+          "Tauri v2 modern desktop framework",
+          "Real-time metrics dashboard (CPU/RAM/Disk/Network)",
+          "Clean layered architecture (testable, maintainable)"
+        ],
+        "zingerboost_gaps_vs_competitors": [
+          "No ISO builder (WinUtil has Win11 Creator)",
+          "No troubleshooting quick fixes (WinUtil has SFC/DISM/network reset)",
+          "No preset profiles (WinUtil has Standard/Minimal)",
+          "No config export/import (ShutUp10++ has this)",
+          "No community plugin system (BloatyNosy has this)",
+          "Fewer tweaks than Sophia Script (44 vs 150+)",
+          "No portable mode (Optimizer has this)",
+          "No hardware info display (Optimizer has this)"
+        ],
+        "market_differentiators": [
+          "Only Rust-native Windows optimizer with snapshot rollback",
+          "Lightest binary size in category (<30MB target)",
+          "Lowest RAM usage target (<25MB)",
+          "Enterprise-grade architecture with clean crate boundaries",
+          "Community-driven with transparent development"
+        ]
+      }
+    },
+    {
+      "phase": 3,
+      "name": "Feature Generation",
+      "description": "Generate prioritized feature roadmap based on discovery findings and competitor analysis gaps",
+      "epics": [
+        {
+          "epic_id": "E1",
+          "name": "Core Stability & Native APIs",
+          "priority": "P0 - Critical",
+          "target_version": "v0.0.7",
+          "features": [
+            {
+              "feature_id": "F1.1",
+              "name": "Refactor DebloatEngine to Native Windows APIs",
+              "description": "Replace all PowerShell calls with windows-rs COM PackageManager for AppX removal and native WinRegistryProvider for registry operations",
+              "acceptance_criteria": [
+                "Zero PowerShell calls in DebloatEngine",
+                "PackageManager::RemovePackageAsync for user apps",
+                "DISM for provisioned packages (already working)",
+                "WinRegistryProvider for all registry deletions",
+                "SHEmptyRecycleBinW for cleaner recycle bin",
+                "All 44 bloatware targets still removable",
+                "Passes cargo clippy -- -D warnings"
+              ],
+              "estimated_effort": "3-5 days",
+              "risk": "high",
+              "dependencies": []
+            },
+            {
+              "feature_id": "F1.2",
+              "name": "Windows Restore Point Integration",
+              "description": "Add SRSetRestorePointW FFI call to create system restore points before batch operations",
+              "acceptance_criteria": [
+                "RestorePointService in zb_infrastructure",
+                "Auto-creates restore point before apply_all_tweaks",
+                "Auto-creates restore point before debloat operations",
+                "User-configurable in Settings (enable/disable)",
+                "Graceful fallback if restore point creation fails"
+              ],
+              "estimated_effort": "1-2 days",
+              "risk": "medium",
+              "dependencies": ["F1.1"]
+            },
+            {
+              "feature_id": "F1.3",
+              "name": "Register All 44 Tweaks",
+              "description": "Wire all remaining tweak definitions into make_all_tweaks() in commands.rs",
+              "acceptance_criteria": [
+                "make_all_tweaks() returns 44 tweaks",
+                "get_tweaks command returns all 44",
+                "get_tweak_states checks all 44",
+                "apply_all_tweaks applies all 44",
+                "revert_all_tweaks reverts all 44"
+              ],
+              "estimated_effort": "0.5 days",
+              "risk": "low",
+              "dependencies": []
+            },
+            {
+              "feature_id": "F1.4",
+              "name": "File-Based Snapshot Verification",
+              "description": "Add SnapshotFileStore that writes JSON payloads to disk alongside SQLite metadata",
+              "acceptance_criteria": [
+                "JSON file written to %LOCALAPPDATA%\\ZingerBoost\\snapshots\\{id}.json",
+                "File verification (exists && size > 0) before returning success",
+                "SQLite fallback if file read fails",
+                "Auto-purge after 50 snapshots (existing behavior preserved)"
+              ],
+              "estimated_effort": "2-3 days",
+              "risk": "medium",
+              "dependencies": []
+            }
+          ]
+        },
+        {
+          "epic_id": "E2",
+          "name": "UI/UX Enhancement",
+          "priority": "P0 - Critical",
+          "target_version": "v0.1.0",
+          "features": [
+            {
+              "feature_id": "F2.1",
+              "name": "Theme System (Dark/Light/System)",
+              "description": "Add light theme and system theme detection via CSS custom properties and data-theme attribute",
+              "acceptance_criteria": [
+                "CSS variables for both dark and light themes",
+                "data-theme attribute on <html> switches themes",
+                "System theme detection via prefers-color-scheme media query",
+                "Theme selector in Settings page",
+                "Theme preference persisted to SQLite settings table"
+              ],
+              "estimated_effort": "1-2 days",
+              "risk": "low",
+              "dependencies": []
+            },
+            {
+              "feature_id": "F2.2",
+              "name": "Circular Progress Indicators",
+              "description": "Replace text-based metrics with SVG circular progress for CPU, RAM, Disk, Network",
+              "acceptance_criteria": [
+                "SVG-based circular progress component",
+                "Animated stroke-dashoffset transitions",
+                "Color-coded by usage level (green/yellow/red)",
+                "Shows percentage value in center",
+                "Responsive sizing"
+              ],
+              "estimated_effort": "2 days",
+              "risk": "low",
+              "dependencies": []
+            },
+            {
+              "feature_id": "F2.3",
+              "name": "Sparkline History Charts",
+              "description": "Add 1-hour trend history for CPU, RAM, Disk, Network using Canvas-based sparklines",
+              "acceptance_criteria": [
+                "Canvas-based sparkline rendering",
+                "Stores last 720 data points (1 hour at 5s intervals)",
+                "Smooth bezier curve interpolation",
+                "Gradient fill under curve",
+                "Tooltip on hover showing exact value and timestamp"
+              ],
+              "estimated_effort": "3 days",
+              "risk": "medium",
+              "dependencies": ["F2.2"]
+            },
+            {
+              "feature_id": "F2.4",
+              "name": "Push-Based Metrics (Replace Polling)",
+              "description": "Replace 5s setInterval polling with Tauri app.emit() for real-time push updates",
+              "acceptance_criteria": [
+                "Backend emits metrics event every 5s via app.emit()",
+                "Frontend listens via window.__TAURI__.event.listen()",
+                "Polling interval paused when tab is hidden (existing behavior preserved)",
+                "No breaking changes to MetricsDto structure"
+              ],
+              "estimated_effort": "1 day",
+              "risk": "low",
+              "dependencies": []
+            },
+            {
+              "feature_id": "F2.5",
+              "name": "System Overview Panel",
+              "description": "Add system overview showing CPU name, cores, GPU, motherboard, OS build, uptime, disk free space",
+              "acceptance_criteria": [
+                "SystemOverviewCollector using WMI in zb_infrastructure",
+                "Displays: CPU name, cores, threads, GPU name, VRAM, motherboard, OS build, uptime, disk free/total",
+                "Cached (not queried on every refresh)",
+                "Refresh button to re-query",
+                "Graceful degradation if WMI unavailable"
+              ],
+              "estimated_effort": "2-3 days",
+              "risk": "medium",
+              "dependencies": []
+            },
+            {
+              "feature_id": "F2.6",
+              "name": "Risk Badge System",
+              "description": "Color-coded risk badges (safe=green, moderate=yellow, dangerous=red) for all tweak items",
+              "acceptance_criteria": [
+                "CSS class per risk level",
+                "Badge shown on every tweak card in Optimizations page",
+                "Tooltip explains risk meaning",
+                "Consistent across all pages showing tweaks"
+              ],
+              "estimated_effort": "0.5 days",
+              "risk": "low",
+              "dependencies": []
+            }
+          ]
+        },
+        {
+          "epic_id": "E3",
+          "name": "Preset System",
+          "priority": "P1 - High",
+          "target_version": "v0.2.0",
+          "features": [
+            {
+              "feature_id": "F3.1",
+              "name": "Preset Definitions (Safe/Balanced/Aggressive)",
+              "description": "Define three preset profiles with curated tweak selections",
+              "acceptance_criteria": [
+                "Safe: 15 tweaks (privacy + visual only, no performance risks)",
+                "Balanced: 28 tweaks (safe + moderate performance tweaks)",
+                "Aggressive: 44 tweaks (all tweaks including moderate risk)",
+                "Preset definitions in zb_shared as JSON or Rust structs",
+                "Each preset has description, tweak count, risk summary"
+              ],
+              "estimated_effort": "1 day",
+              "risk": "low",
+              "dependencies": ["F1.3"]
+            },
+            {
+              "feature_id": "F3.2",
+              "name": "Preset Apply/Revert Commands",
+              "description": "Add Tauri commands to apply and revert presets with snapshot creation",
+              "acceptance_criteria": [
+                "apply_preset(preset_id) command",
+                "Creates snapshot before applying",
+                "Shows progress during apply",
+                "Reports applied/skipped/failed counts",
+                "revert_preset(preset_id) command with snapshot-based rollback"
+              ],
+              "estimated_effort": "2 days",
+              "risk": "medium",
+              "dependencies": ["F3.1", "F1.4"]
+            },
+            {
+              "feature_id": "F3.3",
+              "name": "Preset Selector UI",
+              "description": "Add preset dropdown/selector to Overview page with one-click apply",
+              "acceptance_criteria": [
+                "Dropdown or card-based selector on Overview page",
+                "Shows preset name, description, tweak count",
+                "Preview of included tweaks before apply",
+                "Confirmation dialog for Aggressive preset",
+                "Visual feedback during apply"
+              ],
+              "estimated_effort": "2 days",
+              "risk": "low",
+              "dependencies": ["F3.2"]
+            }
+          ]
+        },
+        {
+          "epic_id": "E4",
+          "name": "Game Mode Enhancement",
+          "priority": "P1 - High",
+          "target_version": "v0.2.0",
+          "features": [
+            {
+              "feature_id": "F4.1",
+              "name": "Per-Game Profiles",
+              "description": "Allow users to create game-specific optimization profiles with custom tweak selections",
+              "acceptance_criteria": [
+                "GameProfile entity in zb_domain",
+                "Profile includes: game name, executable path, tweaks to apply",
+                "CRUD operations for profiles via Tauri commands",
+                "Profiles stored in SQLite",
+                "UI for creating/editing/deleting profiles"
+              ],
+              "estimated_effort": "3 days",
+              "risk": "medium",
+              "dependencies": []
+            },
+            {
+              "feature_id": "F4.2",
+              "name": "Process Detection & Auto-Apply",
+              "description": "Detect when a game is running and auto-apply its profile, revert on game close",
+              "acceptance_criteria": [
+                "Process detection via CreateToolhelp32Snapshot",
+                "Polls every 10s for running game executables",
+                "Auto-applies profile when game process detected",
+                "Auto-reverts when game process exits",
+                "Configurable in Settings (enable/disable auto-detect)",
+                "Notification toast on apply/revert"
+              ],
+              "estimated_effort": "3-4 days",
+              "risk": "high",
+              "dependencies": ["F4.1"]
+            },
+            {
+              "feature_id": "F4.3",
+              "name": "Native Game Mode Backend",
+              "description": "Refactor toggle_game_mode to use native windows-rs instead of reg.exe/powercfg",
+              "acceptance_criteria": [
+                "Power plan switching via PowerSetActiveScheme API",
+                "GPU scheduling via native registry provider",
+                "Game DVR toggle via native registry provider",
+                "Fullscreen optimizations via native registry provider",
+                "No external process calls (reg.exe, powercfg)"
+              ],
+              "estimated_effort": "1-2 days",
+              "risk": "medium",
+              "dependencies": []
+            }
+          ]
+        },
+        {
+          "epic_id": "E5",
+          "name": "Monitor Page",
+          "priority": "P1 - High",
+          "target_version": "v0.3.0",
+          "features": [
+            {
+              "feature_id": "F5.1",
+              "name": "GPU Metrics",
+              "description": "Add GPU utilization, VRAM usage, and temperature monitoring via PDH counters",
+              "acceptance_criteria": [
+                "GPU \\GPU Engine\\Utilization Percentage counter",
+                "GPU \\GPU Adapter Memory\\Dedicated Usage counter",
+                "Temperature via WMI (MSAcpi_ThermalZoneTemperature)",
+                "Integrated into MetricsDto",
+                "Displayed in Monitor page with sparkline history"
+              ],
+              "estimated_effort": "2-3 days",
+              "risk": "medium",
+              "dependencies": ["F2.5"]
+            },
+            {
+              "feature_id": "F5.2",
+              "name": "Network Per-Process Monitoring",
+              "description": "Show network usage per process using GetExtendedTcpTable/GetExtendedUdpTable",
+              "acceptance_criteria": [
+                "List of processes with network activity",
+                "Bytes sent/received per process",
+                "Active connections with remote address",
+                "Sortable by usage",
+                "Refresh every 5s"
+              ],
+              "estimated_effort": "3 days",
+              "risk": "medium",
+              "dependencies": []
+            },
+            {
+              "feature_id": "F5.3",
+              "name": "Monitor Page UI",
+              "description": "Dedicated Monitor page with real-time graphs, per-metric panels, and history view",
+              "acceptance_criteria": [
+                "Tabbed layout: Overview, CPU, RAM, Disk, Network, GPU",
+                "Real-time sparkline for each metric",
+                "Per-process breakdown for CPU and Network",
+                "Export metrics to CSV button",
+                "Configurable refresh interval (1s, 5s, 10s)"
+              ],
+              "estimated_effort": "3 days",
+              "risk": "low",
+              "dependencies": ["F5.1", "F5.2", "F2.3"]
+            }
+          ]
+        },
+        {
+          "epic_id": "E6",
+          "name": "Backup Export/Import",
+          "priority": "P2 - Medium",
+          "target_version": "v0.3.0",
+          "features": [
+            {
+              "feature_id": "F6.1",
+              "name": "Export Backup to JSON",
+              "description": "Export snapshot as JSON file for sharing or backup",
+              "acceptance_criteria": [
+                "Export button on Backups page",
+                "File dialog for save location",
+                "JSON includes: snapshot metadata, tweak records, system info",
+                "File named zingerboost-backup-{date}.json",
+                "Compression option (gzip)"
+              ],
+              "estimated_effort": "2 days",
+              "risk": "low",
+              "dependencies": ["F1.4"]
+            },
+            {
+              "feature_id": "F6.2",
+              "name": "Import Backup from JSON",
+              "description": "Import a previously exported backup and restore from it",
+              "acceptance_criteria": [
+                "Import button on Backups page",
+                "File dialog for JSON selection",
+                "Validates JSON schema before import",
+                "Creates new snapshot from imported data",
+                "Shows preview of tweaks before restore",
+                "Option to apply or just store"
+              ],
+              "estimated_effort": "2 days",
+              "risk": "medium",
+              "dependencies": ["F6.1"]
+            }
+          ]
+        },
+        {
+          "epic_id": "E7",
+          "name": "Settings & Configuration",
+          "priority": "P2 - Medium",
+          "target_version": "v0.3.0",
+          "features": [
+            {
+              "feature_id": "F7.1",
+              "name": "Settings Table & Persistence",
+              "description": "Add SQLite settings table for persistent configuration storage",
+              "acceptance_criteria": [
+                "settings table with key-value pairs",
+                "Migration via rusqlite_migration",
+                "SettingsService in zb_infrastructure",
+                "get_setting / set_setting Tauri commands",
+                "Default values for all settings"
+              ],
+              "estimated_effort": "1 day",
+              "risk": "low",
+              "dependencies": []
+            },
+            {
+              "feature_id": "F7.2",
+              "name": "Settings UI",
+              "description": "Fully functional Settings page with all configuration options",
+              "acceptance_criteria": [
+                "Theme selector (Dark/Light/System)",
+                "Safety level selector (Conservative/Standard/Advanced)",
+                "Auto-create restore point toggle",
+                "Auto-detect games toggle",
+                "Metrics refresh interval selector",
+                "Backup retention limit (10-100)",
+                "Log level selector",
+                "About section with version, license, links"
+              ],
+              "estimated_effort": "2 days",
+              "risk": "low",
+              "dependencies": ["F7.1", "F2.1"]
+            }
+          ]
+        },
+        {
+          "epic_id": "E8",
+          "name": "Background Tray App",
+          "priority": "P2 - Medium",
+          "target_version": "v0.4.0",
+          "features": [
+            {
+              "feature_id": "F8.1",
+              "name": "zb_tray Crate",
+              "description": "New crate for system tray background monitoring",
+              "acceptance_criteria": [
+                "New zb_tray crate in workspace",
+                "System tray icon with ZingerBoost logo",
+                "Right-click menu: Quick Boost, Open App, Exit",
+                "Background metrics collection (lightweight)",
+                "Tooltip shows CPU/RAM usage",
+                "Shares SQLite database with main app",
+                "Single-instance enforcement via tauri-plugin-single-instance"
+              ],
+              "estimated_effort": "4-5 days",
+              "risk": "high",
+              "dependencies": []
+            },
+            {
+              "feature_id": "F8.2",
+              "name": "Optional Overlay Window",
+              "description": "Small always-on-top overlay showing real-time metrics",
+              "acceptance_criteria": [
+                "Borderless transparent window",
+                "Shows CPU%, RAM%, GPU% in compact format",
+                "Draggable, resizable",
+                "Toggle from tray menu",
+                "Configurable position and opacity"
+              ],
+              "estimated_effort": "3 days",
+              "risk": "high",
+              "dependencies": ["F8.1"]
+            }
+          ]
+        },
+        {
+          "epic_id": "E9",
+          "name": "Installer & Distribution",
+          "priority": "P2 - Medium",
+          "target_version": "v1.0.0",
+          "features": [
+            {
+              "feature_id": "F9.1",
+              "name": "Inno Setup Installer",
+              "description": "Professional installer using existing setup.iss script",
+              "acceptance_criteria": [
+                "Updates setup.iss for Tauri build output",
+                "Installs to %PROGRAMFILES%\\ZingerBoost",
+                "Creates Start Menu shortcut",
+                "Creates Desktop shortcut (optional)",
+                "Registers uninstaller",
+                "Installs VC++ Redistributable if missing",
+                "Signs installer with code signing certificate"
+              ],
+              "estimated_effort": "1-2 days",
+              "risk": "low",
+              "dependencies": []
+            },
+            {
+              "feature_id": "F9.2",
+              "name": "CI/CD Release Pipeline",
+              "description": "Automated build, test, and release via GitHub Actions",
+              "acceptance_criteria": [
+                "cargo tauri build on windows-latest",
+                "cargo clippy -- -D warnings check",
+                "cargo test --workspace",
+                "Inno Setup compilation",
+                "Upload artifacts to GitHub release",
+                "Generate SHA256 checksums",
+                "Update release notes from CHANGELOG.md"
+              ],
+              "estimated_effort": "1-2 days",
+              "risk": "low",
+              "dependencies": ["F9.1"]
+            },
+            {
+              "feature_id": "F9.3",
+              "name": "winget Submission",
+              "description": "Submit ZingerBoost to Windows Package Manager (winget) repository",
+              "acceptance_criteria": [
+                "Create winget-pkgs manifest",
+                "Submit PR to microsoft/winget-pkgs",
+                "Manifest includes: installer URL, SHA256, version",
+                "Silent install switch configured",
+                "Tested with winget install ZingerBoost"
+              ],
+              "estimated_effort": "1 day",
+              "risk": "low",
+              "dependencies": ["F9.1", "F9.2"]
+            }
+          ]
+        },
+        {
+          "epic_id": "E10",
+          "name": "Advanced Tweaks & Features",
+          "priority": "P3 - Low",
+          "target_version": "v1.1.0",
+          "features": [
+            {
+              "feature_id": "F10.1",
+              "name": "Timer Resolution Adjustment",
+              "description": "Allow users to adjust Windows timer resolution via NtSetTimerResolution for lower input latency",
+              "acceptance_criteria": [
+                "NtSetTimerResolution FFI call",
+                "Configurable resolution (0.5ms - 15.6ms)",
+                "Warning about battery impact on laptops",
+                "Auto-revert on app exit",
+                "Moderate risk level"
+              ],
+              "estimated_effort": "1 day",
+              "risk": "medium",
+              "dependencies": []
+            },
+            {
+              "feature_id": "F10.2",
+              "name": "HPET Control",
+              "description": "Enable/disable High Precision Event Timer via bcdedit",
+              "acceptance_criteria": [
+                "bcdedit /set useplatformclock true/false",
+                "Detection of current HPET state",
+                "Warning about compatibility issues",
+                "Requires reboot (user notified)",
+                "Moderate risk level"
+              ],
+              "estimated_effort": "0.5 days",
+              "risk": "medium",
+              "dependencies": []
+            },
+            {
+              "feature_id": "F10.3",
+              "name": "OneDrive Removal",
+              "description": "Safe OneDrive uninstallation and removal option",
+              "acceptance_criteria": [
+                "Detects OneDrive installation state",
+                "Stops OneDrive process",
+                "Uninstalls via winget or native uninstall",
+                "Removes startup entry",
+                "Optional: removes OneDrive from Explorer sidebar",
+                "Reversible (reinstall via winget)"
+              ],
+              "estimated_effort": "1 day",
+              "risk": "medium",
+              "dependencies": ["F1.1"]
+            },
+            {
+              "feature_id": "F10.4",
+              "name": "Copilot Removal",
+              "description": "Disable and remove Windows Copilot integration",
+              "acceptance_criteria": [
+                "Registry keys: HKLM\\SOFTWARE\\Policies\\Microsoft\\Windows\\WindowsCopilot\\TurnOffWindowsCopilot",
+                "Taskbar button removal",
+                "Edge sidebar Copilot removal",
+                "Reversible",
+                "Safe risk level"
+              ],
+              "estimated_effort": "1 day",
+              "risk": "low",
+              "dependencies": []
+            },
+            {
+              "feature_id": "F10.5",
+              "name": "Search Indexing Tweak",
+              "description": "Control Windows Search indexing scope and intensity",
+              "acceptance_criteria": [
+                "Toggle indexing on/off",
+                "Exclude specific folders",
+                "Show current index size",
+                "Rebuild index option",
+                "Moderate risk level"
+              ],
+              "estimated_effort": "1-2 days",
+              "risk": "medium",
+              "dependencies": []
+            }
+          ]
+        },
+        {
+          "epic_id": "E11",
+          "name": "Quality & Polish",
+          "priority": "P2 - Medium",
+          "target_version": "v1.0.0",
+          "features": [
+            {
+              "feature_id": "F11.1",
+              "name": "Comprehensive Documentation",
+              "description": "Update all documentation for v1.0.0 release",
+              "acceptance_criteria": [
+                "README.md updated with screenshots",
+                "AGENTS.md updated with current Tauri architecture",
+                "CHANGELOG.md created with all changes",
+                "CONTRIBUTING.md updated",
+                "Wiki pages for common tasks"
+              ],
+              "estimated_effort": "2 days",
+              "risk": "low",
+              "dependencies": []
+            },
+            {
+              "feature_id": "F11.2",
+              "name": "Integration Test Suite",
+              "description": "Add integration tests for critical paths",
+              "acceptance_criteria": [
+                "TweakEngine batch apply/rollback test",
+                "Snapshot save/restore test",
+                "Service controller test",
+                "Registry provider mock tests",
+                ">80% code coverage on domain crate"
+              ],
+              "estimated_effort": "3 days",
+              "risk": "low",
+              "dependencies": []
+            },
+            {
+              "feature_id": "F11.3",
+              "name": "Performance Optimization",
+              "description": "Optimize binary size and RAM usage for v1.0.0 targets",
+              "acceptance_criteria": [
+                "Binary size <30MB (release build)",
+                "RAM usage <25MB at idle",
+                "Metrics collection <100ms per cycle",
+                "UI render <16ms (60fps)",
+                "Profile-guided optimization (PGO) if beneficial"
+              ],
+              "estimated_effort": "2 days",
+              "risk": "medium",
+              "dependencies": []
+            },
+            {
+              "feature_id": "F11.4",
+              "name": "Frontend Animations & Transitions",
+              "description": "Add smooth CSS transitions and animations throughout the UI",
+              "acceptance_criteria": [
+                "Tab transitions (fade/slide)",
+                "Toggle switch animations",
+                "Progress bar animations",
+                "Card hover effects",
+                "Loading spinner animations",
+                "Respect prefers-reduced-motion"
+              ],
+              "estimated_effort": "2 days",
+              "risk": "low",
+              "dependencies": ["F2.1"]
+            }
+          ]
+        }
+      ],
+      "feature_summary": {
+        "total_epics": 11,
+        "total_features": 28,
+        "by_priority": {
+          "P0_critical": 10,
+          "P1_high": 8,
+          "P2_medium": 7,
+          "P3_low": 3
+        },
+        "total_estimated_effort": "40-55 days"
+      }
+    },
+    {
+      "phase": 4,
+      "name": "Critic Review",
+      "description": "Critical review of the generated roadmap for feasibility, risks, gaps, and recommendations",
+      "review": {
+        "strengths": [
+          "Roadmap is grounded in actual codebase analysis (not hypothetical)",
+          "Prioritization aligns with existing tech debt severity ratings",
+          "Feature dependencies are explicitly mapped",
+          "Acceptance criteria are specific and testable",
+          "Competitor analysis identifies concrete gaps to fill",
+          "Preserves project's unique advantages (Rust native, snapshot rollback, open source)",
+          "Version targets are realistic given feature scope",
+          "All features respect the locked tech stack (Rule #1-12)"
+        ],
+        "risks_and_mitigations": [
+          {
+            "risk": "F1.1 DebloatEngine refactor is high-risk and could break existing functionality",
+            "mitigation": "Keep PowerShell as fallback during transition. Add integration tests for each bloatware target. Test on clean Windows 11 VM before merging.",
+            "impact": "high",
+            "likelihood": "medium"
+          },
+          {
+            "risk": "F4.2 Process detection adds polling overhead and may miss short-lived processes",
+            "mitigation": "Use WMI event subscription (Win32_ProcessStartTrace) instead of polling for more reliable detection. Add debounce to prevent rapid apply/revert cycles.",
+            "impact": "medium",
+            "likelihood": "medium"
+          },
+          {
+            "risk": "F8.1 zb_tray crate adds significant complexity (new binary, IPC, shared state)",
+            "mitigation": "Consider using Tauri's built-in system tray API in zb_app first before creating a separate crate. Only split if main app needs to run independently.",
+            "impact": "high",
+            "likelihood": "low"
+          },
+          {
+            "risk": "F5.1 GPU temperature via WMI may not work on all hardware",
+            "mitigation": "Use multiple fallback strategies: WMI → PDH → OpenHardwareMonitorLib DLL. Gracefully degrade with 'N/A' if no source available.",
+            "impact": "low",
+            "likelihood": "high"
+          },
+          {
+            "risk": "Feature creep: 28 features across 11 epics may be too ambitious for v1.0.0",
+            "mitigation": "Strictly scope v1.0.0 to E1-E4 only. Move E5-E11 to v1.1.0/v1.2.0. Focus on core stability and UI polish first.",
+            "impact": "high",
+            "likelihood": "high"
+          },
+          {
+            "risk": "No automated UI testing strategy for Tauri + vanilla JS frontend",
+            "mitigation": "Add Playwright or Spectron for E2E testing of frontend. At minimum, add manual test checklist for each release.",
+            "impact": "medium",
+            "likelihood": "medium"
+          }
+        ],
+        "recommendations": [
+          {
+            "id": "R1",
+            "recommendation": "Scope v1.0.0 to E1 + E2 + E3 only (Core Stability + UI Enhancement + Presets). This delivers the most value with manageable risk.",
+            "priority": "critical"
+          },
+          {
+            "id": "R2",
+            "recommendation": "Defer zb_tray (E8) to v1.2.0. Use Tauri's built-in system tray in zb_app for basic tray functionality in v1.0.0 instead of a separate crate.",
+            "priority": "high"
+          },
+          {
+            "id": "R3",
+            "recommendation": "Add a 'Copilot Removal' tweak (F10.4) to the v0.0.7 release. This is a high-demand feature in 2026 and competitors are already addressing it.",
+            "priority": "high"
+          },
+          {
+            "id": "R4",
+            "recommendation": "Implement F1.4 (File-Based Snapshots) before F3.2 (Preset Apply). Preset apply depends on reliable snapshot creation for rollback safety.",
+            "priority": "high"
+          },
+          {
+            "id": "R5",
+            "recommendation": "Add a 'Troubleshooting' tab (like WinUtil's Config tab) with SFC, DISM, network reset, and Windows Update repair. This is a frequently-used feature that competitors offer.",
+            "priority": "medium"
+          },
+          {
+            "id": "R6",
+            "recommendation": "Create a 'Removed Apps' log in SQLite to track what was debloated. Enable reinstallation via winget. This addresses the 'no undo for debloat' gap.",
+            "priority": "medium"
+          },
+          {
+            "id": "R7",
+            "recommendation": "Add a 'Before/After' benchmark feature. Measure boot time, RAM usage, and process count before and after applying tweaks. Provides tangible proof of optimization.",
+            "priority": "medium"
+          },
+          {
+            "id": "R8",
+            "recommendation": "Consider adding a 'Portable Mode' build option (like Optimizer). Some users prefer running from USB without installation. Can be achieved by storing data in app directory instead of %LOCALAPPDATA%.",
+            "priority": "low"
+          }
+        ],
+        "version_targets": {
+          "v0.0.7": {
+            "focus": "Core Stability & Native APIs",
+            "epics": ["E1"],
+            "key_deliverables": [
+              "Native DebloatEngine (no PowerShell)",
+              "Windows Restore Point integration",
+              "All 44 tweaks registered",
+              "File-based snapshot verification",
+              "Copilot Removal tweak"
+            ],
+            "estimated_timeline": "2-3 weeks"
+          },
+          "v0.1.0": {
+            "focus": "UI/UX Enhancement",
+            "epics": ["E2"],
+            "key_deliverables": [
+              "Dark/Light/System theme toggle",
+              "Circular progress indicators",
+              "Sparkline history charts",
+              "Push-based metrics",
+              "System overview panel",
+              "Risk badge system"
+            ],
+            "estimated_timeline": "2-3 weeks"
+          },
+          "v0.2.0": {
+            "focus": "Preset System + Game Mode",
+            "epics": ["E3", "E4"],
+            "key_deliverables": [
+              "Safe/Balanced/Aggressive presets",
+              "One-click preset apply",
+              "Per-game profiles",
+              "Process detection & auto-apply",
+              "Native Game Mode backend"
+            ],
+            "estimated_timeline": "3-4 weeks"
+          },
+          "v0.3.0": {
+            "focus": "Monitor + Backups + Settings",
+            "epics": ["E5", "E6", "E7"],
+            "key_deliverables": [
+              "GPU metrics & temperature",
+              "Per-process network monitoring",
+              "Monitor page with real-time graphs",
+              "Backup export/import",
+              "Full Settings page"
+            ],
+            "estimated_timeline": "3-4 weeks"
+          },
+          "v0.4.0": {
+            "focus": "Tray App + Advanced Features",
+            "epics": ["E8", "E10"],
+            "key_deliverables": [
+              "System tray with quick actions",
+              "Optional overlay window",
+              "Timer resolution tweak",
+              "HPET control",
+              "OneDrive removal",
+              "Search indexing control"
+            ],
+            "estimated_timeline": "3-4 weeks"
+          },
+          "v1.0.0": {
+            "focus": "Release Ready",
+            "epics": ["E9", "E11"],
+            "key_deliverables": [
+              "Inno Setup installer",
+              "CI/CD release pipeline",
+              "winget submission",
+              "Comprehensive documentation",
+              "Integration test suite",
+              "Performance optimization",
+              "Frontend animations"
+            ],
+            "estimated_timeline": "2-3 weeks"
+          },
+          "v1.1.0": {
+            "focus": "Post-Launch Enhancements",
+            "epics": [],
+            "key_deliverables": [
+              "Troubleshooting tab",
+              "Removed apps log & reinstall",
+              "Before/After benchmarks",
+              "Community tweak suggestions",
+              "Performance profiling & optimization"
+            ],
+            "estimated_timeline": "3-4 weeks"
+          },
+          "v1.2.0": {
+            "focus": "Advanced Features",
+            "epics": ["E8"],
+            "key_deliverables": [
+              "zb_tray background monitoring crate",
+              "Plugin SDK exploration",
+              "Enterprise deployment features",
+              "Portable mode build option"
+            ],
+            "estimated_timeline": "4-6 weeks"
+          }
+        },
+        "overall_assessment": {
+          "feasibility": "high",
+          "risk_level": "medium",
+          "estimated_total_timeline": "18-24 weeks to v1.0.0",
+          "critical_path": "E1 (Core Stability) → E2 (UI/UX) → E3 (Presets) → E4 (Game Mode) → E9+E11 (Release)",
+          "key_success_factors": [
+            "Maintain strict scope discipline per version",
+            "Test DebloatEngine refactor thoroughly on clean VMs",
+            "Keep snapshot rollback as the #1 safety feature",
+            "Preserve Rust native advantage (no Electron/PowerShell regression)",
+            "Community engagement for feedback and testing"
+          ]
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "analysis_date": "2026-05-20",
+    "codebase_version": "0.0.6",
+    "files_analyzed": 15,
+    "competitors_analyzed": 6,
+    "features_generated": 28,
+    "epics_defined": 11,
+    "risks_identified": 6,
+    "recommendations": 8,
+    "pipeline": "discovery → competitor analysis → feature generation → critic review"
+  }
+}
