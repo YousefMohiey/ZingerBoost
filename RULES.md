@@ -113,5 +113,5 @@
 
 Paste these rules into every new chat session. The user has the right to reject any output that violates them.
 
-**Last Updated:** 2026-05-10  
+**Last Updated:** 2026-05-20  
 **Author:** YousefMohiey
