@@ -14,13 +14,19 @@ pub struct DisableWpbtTweak {
 }
 
 impl Default for DisableWpbtTweak {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl DisableWpbtTweak {
-    pub fn new() -> Self { Self { provider: None } }
+    pub fn new() -> Self {
+        Self { provider: None }
+    }
     pub fn with_provider(provider: Arc<dyn crate::registry::RegistryProvider>) -> Self {
-        Self { provider: Some(provider) }
+        Self {
+            provider: Some(provider),
+        }
     }
 }
 
@@ -30,7 +36,9 @@ impl Tweak for DisableWpbtTweak {
         TweakMetadata {
             id: "security_disable_wpbt".into(),
             name: "Disable WPBT (Vendor Bloat)".into(),
-            description: "Prevents your computer vendor from force-installing software at boot via WPBT.".into(),
+            description:
+                "Prevents your computer vendor from force-installing software at boot via WPBT."
+                    .into(),
             category: TweakCategory::Privacy,
             risk: RiskLevel::Safe,
             requires_reboot: true,
@@ -38,7 +46,9 @@ impl Tweak for DisableWpbtTweak {
             affected_keys: vec![RegPath::hklm(
                 r"SYSTEM\CurrentControlSet\Control\Session Manager",
             )],
-            source_url: Some("https://winutil.christitus.com/dev/tweaks/essential-tweaks/wpbt".into()),
+            source_url: Some(
+                "https://winutil.christitus.com/dev/tweaks/essential-tweaks/wpbt".into(),
+            ),
         }
     }
 
@@ -57,8 +67,15 @@ impl Tweak for DisableWpbtTweak {
     async fn capture_state(&self) -> Result<SnapshotData, TweakError> {
         if let Some(provider) = &self.provider {
             let path = RegPath::hklm(r"SYSTEM\CurrentControlSet\Control\Session Manager");
-            let val = provider.read(&path, "DisableWpbtExecution").await.unwrap_or(RegValue::Dword(0));
-            Ok(SnapshotData::Registry { path, name: "DisableWpbtExecution".into(), previous: val })
+            let val = provider
+                .read(&path, "DisableWpbtExecution")
+                .await
+                .unwrap_or(RegValue::Dword(0));
+            Ok(SnapshotData::Registry {
+                path,
+                name: "DisableWpbtExecution".into(),
+                previous: val,
+            })
         } else {
             Ok(SnapshotData::Registry {
                 path: RegPath::hklm(r"SYSTEM\CurrentControlSet\Control\Session Manager"),
@@ -71,20 +88,38 @@ impl Tweak for DisableWpbtTweak {
     async fn apply(&self) -> Result<TweakResult, TweakError> {
         if let Some(provider) = &self.provider {
             provider
-                .write(&RegPath::hklm(r"SYSTEM\CurrentControlSet\Control\Session Manager"), "DisableWpbtExecution", &RegValue::Dword(1))
+                .write(
+                    &RegPath::hklm(r"SYSTEM\CurrentControlSet\Control\Session Manager"),
+                    "DisableWpbtExecution",
+                    &RegValue::Dword(1),
+                )
                 .await
                 .map_err(|e| TweakError::Registry(e.to_string()))?;
         }
-        Ok(TweakResult { reboot_required: true, message: "WPBT execution disabled. Reboot to apply.".into() })
+        Ok(TweakResult {
+            reboot_required: true,
+            message: "WPBT execution disabled. Reboot to apply.".into(),
+        })
     }
 
     async fn revert(&self, snapshot: &SnapshotData) -> Result<TweakResult, TweakError> {
-        if let SnapshotData::Registry { path, name, previous } = snapshot {
+        if let SnapshotData::Registry {
+            path,
+            name,
+            previous,
+        } = snapshot
+        {
             if let Some(provider) = &self.provider {
-                provider.write(path, name, previous).await.map_err(|e| TweakError::Registry(e.to_string()))?;
+                provider
+                    .write(path, name, previous)
+                    .await
+                    .map_err(|e| TweakError::Registry(e.to_string()))?;
             }
         }
-        Ok(TweakResult { reboot_required: true, message: "WPBT restored. Reboot to apply.".into() })
+        Ok(TweakResult {
+            reboot_required: true,
+            message: "WPBT restored. Reboot to apply.".into(),
+        })
     }
 
     fn explain(&self) -> TweakExplanation {

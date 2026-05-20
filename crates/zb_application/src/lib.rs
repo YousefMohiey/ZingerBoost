@@ -119,10 +119,7 @@ mod tests {
             Ok(())
         }
 
-        async fn delete_snapshot(
-            &self,
-            _id: &str,
-        ) -> Result<(), zb_domain::errors::SnapshotError> {
+        async fn delete_snapshot(&self, _id: &str) -> Result<(), zb_domain::errors::SnapshotError> {
             Ok(())
         }
 

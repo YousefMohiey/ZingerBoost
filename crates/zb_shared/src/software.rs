@@ -814,7 +814,8 @@ pub fn get_bloatware_catalog() -> Vec<SoftwarePackage> {
         SoftwarePackage {
             id: "bloat_xbox_id_provider".into(),
             name: "Xbox Identity Provider".into(),
-            description: "Xbox authentication component — safe to remove if not gaming on Xbox.".into(),
+            description: "Xbox authentication component — safe to remove if not gaming on Xbox."
+                .into(),
             category: SoftwareCategory::Bloatware,
             winget_id: "Microsoft.XboxIdentityProvider".into(),
             website: None,

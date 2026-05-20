@@ -14,13 +14,19 @@ pub struct DisableConsumerFeaturesTweak {
 }
 
 impl Default for DisableConsumerFeaturesTweak {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl DisableConsumerFeaturesTweak {
-    pub fn new() -> Self { Self { provider: None } }
+    pub fn new() -> Self {
+        Self { provider: None }
+    }
     pub fn with_provider(provider: Arc<dyn crate::registry::RegistryProvider>) -> Self {
-        Self { provider: Some(provider) }
+        Self {
+            provider: Some(provider),
+        }
     }
 }
 
@@ -57,8 +63,15 @@ impl Tweak for DisableConsumerFeaturesTweak {
     async fn capture_state(&self) -> Result<SnapshotData, TweakError> {
         if let Some(provider) = &self.provider {
             let path = RegPath::hklm(r"SOFTWARE\Policies\Microsoft\Windows\CloudContent");
-            let val = provider.read(&path, "DisableWindowsConsumerFeatures").await.unwrap_or(RegValue::Dword(0));
-            Ok(SnapshotData::Registry { path, name: "DisableWindowsConsumerFeatures".into(), previous: val })
+            let val = provider
+                .read(&path, "DisableWindowsConsumerFeatures")
+                .await
+                .unwrap_or(RegValue::Dword(0));
+            Ok(SnapshotData::Registry {
+                path,
+                name: "DisableWindowsConsumerFeatures".into(),
+                previous: val,
+            })
         } else {
             Ok(SnapshotData::Registry {
                 path: RegPath::hklm(r"SOFTWARE\Policies\Microsoft\Windows\CloudContent"),
@@ -71,20 +84,38 @@ impl Tweak for DisableConsumerFeaturesTweak {
     async fn apply(&self) -> Result<TweakResult, TweakError> {
         if let Some(provider) = &self.provider {
             provider
-                .write(&RegPath::hklm(r"SOFTWARE\Policies\Microsoft\Windows\CloudContent"), "DisableWindowsConsumerFeatures", &RegValue::Dword(1))
+                .write(
+                    &RegPath::hklm(r"SOFTWARE\Policies\Microsoft\Windows\CloudContent"),
+                    "DisableWindowsConsumerFeatures",
+                    &RegValue::Dword(1),
+                )
                 .await
                 .map_err(|e| TweakError::Registry(e.to_string()))?;
         }
-        Ok(TweakResult { reboot_required: false, message: "Consumer features disabled.".into() })
+        Ok(TweakResult {
+            reboot_required: false,
+            message: "Consumer features disabled.".into(),
+        })
     }
 
     async fn revert(&self, snapshot: &SnapshotData) -> Result<TweakResult, TweakError> {
-        if let SnapshotData::Registry { path, name, previous } = snapshot {
+        if let SnapshotData::Registry {
+            path,
+            name,
+            previous,
+        } = snapshot
+        {
             if let Some(provider) = &self.provider {
-                provider.write(path, name, previous).await.map_err(|e| TweakError::Registry(e.to_string()))?;
+                provider
+                    .write(path, name, previous)
+                    .await
+                    .map_err(|e| TweakError::Registry(e.to_string()))?;
             }
         }
-        Ok(TweakResult { reboot_required: false, message: "Consumer features restored.".into() })
+        Ok(TweakResult {
+            reboot_required: false,
+            message: "Consumer features restored.".into(),
+        })
     }
 
     fn explain(&self) -> TweakExplanation {

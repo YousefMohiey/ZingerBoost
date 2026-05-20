@@ -148,7 +148,7 @@ async fn main() {
         .setup(move |app| {
             // Start background metrics emitter
             start_metrics_emitter(app.handle().clone(), metrics_for_emitter);
-            
+
             // Enable devtools only in debug builds
             #[cfg(debug_assertions)]
             {
@@ -156,7 +156,7 @@ async fn main() {
                     let _ = window.open_devtools();
                 }
             }
-            
+
             Ok(())
         })
         .manage(app_state)

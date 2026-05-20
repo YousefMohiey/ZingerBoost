@@ -4,9 +4,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 use zb_application::tweak_engine::TweakEngine;
+use zb_infrastructure::services::ServiceController;
 use zb_infrastructure::windows_api::metrics_collector::MetricsCollector;
 use zb_infrastructure::windows_api::system_cleaner::SystemCleaner;
-use zb_infrastructure::services::ServiceController;
 
 pub struct AppState {
     pub engine: Mutex<Option<Arc<TweakEngine>>>,
@@ -31,7 +31,10 @@ impl FavoritesManager {
         }
         let file_path = dir.join("favorites.json");
         let favorites = Self::load_from_file(&file_path);
-        Self { favorites, file_path }
+        Self {
+            favorites,
+            file_path,
+        }
     }
 
     fn load_from_file(path: &PathBuf) -> HashSet<String> {

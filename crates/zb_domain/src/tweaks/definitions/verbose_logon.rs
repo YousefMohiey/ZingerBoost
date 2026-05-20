@@ -14,13 +14,19 @@ pub struct VerboseLogonTweak {
 }
 
 impl Default for VerboseLogonTweak {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl VerboseLogonTweak {
-    pub fn new() -> Self { Self { provider: None } }
+    pub fn new() -> Self {
+        Self { provider: None }
+    }
     pub fn with_provider(provider: Arc<dyn crate::registry::RegistryProvider>) -> Self {
-        Self { provider: Some(provider) }
+        Self {
+            provider: Some(provider),
+        }
     }
 }
 
@@ -30,7 +36,8 @@ impl Tweak for VerboseLogonTweak {
         TweakMetadata {
             id: "visual_verbose_logon".into(),
             name: "Enable Verbose Logon Messages".into(),
-            description: "Shows detailed status messages during login instead of the animated dots.".into(),
+            description:
+                "Shows detailed status messages during login instead of the animated dots.".into(),
             category: TweakCategory::Visual,
             risk: RiskLevel::Safe,
             requires_reboot: false,
@@ -38,7 +45,10 @@ impl Tweak for VerboseLogonTweak {
             affected_keys: vec![RegPath::hklm(
                 r"SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System",
             )],
-            source_url: Some("https://winutil.christitus.com/dev/tweaks/customize-preferences/verboselogon".into()),
+            source_url: Some(
+                "https://winutil.christitus.com/dev/tweaks/customize-preferences/verboselogon"
+                    .into(),
+            ),
         }
     }
 
@@ -57,8 +67,15 @@ impl Tweak for VerboseLogonTweak {
     async fn capture_state(&self) -> Result<SnapshotData, TweakError> {
         if let Some(provider) = &self.provider {
             let path = RegPath::hklm(r"SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System");
-            let val = provider.read(&path, "VerboseStatus").await.unwrap_or(RegValue::Dword(0));
-            Ok(SnapshotData::Registry { path, name: "VerboseStatus".into(), previous: val })
+            let val = provider
+                .read(&path, "VerboseStatus")
+                .await
+                .unwrap_or(RegValue::Dword(0));
+            Ok(SnapshotData::Registry {
+                path,
+                name: "VerboseStatus".into(),
+                previous: val,
+            })
         } else {
             Ok(SnapshotData::Registry {
                 path: RegPath::hklm(r"SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"),
@@ -71,20 +88,38 @@ impl Tweak for VerboseLogonTweak {
     async fn apply(&self) -> Result<TweakResult, TweakError> {
         if let Some(provider) = &self.provider {
             provider
-                .write(&RegPath::hklm(r"SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"), "VerboseStatus", &RegValue::Dword(1))
+                .write(
+                    &RegPath::hklm(r"SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"),
+                    "VerboseStatus",
+                    &RegValue::Dword(1),
+                )
                 .await
                 .map_err(|e| TweakError::Registry(e.to_string()))?;
         }
-        Ok(TweakResult { reboot_required: false, message: "Verbose logon enabled.".into() })
+        Ok(TweakResult {
+            reboot_required: false,
+            message: "Verbose logon enabled.".into(),
+        })
     }
 
     async fn revert(&self, snapshot: &SnapshotData) -> Result<TweakResult, TweakError> {
-        if let SnapshotData::Registry { path, name, previous } = snapshot {
+        if let SnapshotData::Registry {
+            path,
+            name,
+            previous,
+        } = snapshot
+        {
             if let Some(provider) = &self.provider {
-                provider.write(path, name, previous).await.map_err(|e| TweakError::Registry(e.to_string()))?;
+                provider
+                    .write(path, name, previous)
+                    .await
+                    .map_err(|e| TweakError::Registry(e.to_string()))?;
             }
         }
-        Ok(TweakResult { reboot_required: false, message: "Verbose logon disabled.".into() })
+        Ok(TweakResult {
+            reboot_required: false,
+            message: "Verbose logon disabled.".into(),
+        })
     }
 
     fn explain(&self) -> TweakExplanation {

@@ -143,7 +143,10 @@ impl DebloatEngine {
 
         // If no match found but command succeeded, still consider it a win
         if output.status.success() {
-            return Ok(format!("Method 2 (PowerShell): '{}' not found or already removed", name));
+            return Ok(format!(
+                "Method 2 (PowerShell): '{}' not found or already removed",
+                name
+            ));
         }
 
         Err("PowerShell removal returned empty/no match".to_string())

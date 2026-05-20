@@ -20,15 +20,13 @@ pub fn make_all_tweaks() -> Vec<Arc<dyn Tweak>> {
     let rp = WinRegistryProvider::new();
     vec![
         // ---- Visual Effects (consolidated) ----
-        Arc::new(zb_domain::tweaks::definitions::VisualBestPerformanceTweak::with_provider(
-            rp.clone(),
-        )),
+        Arc::new(
+            zb_domain::tweaks::definitions::VisualBestPerformanceTweak::with_provider(rp.clone()),
+        ),
         Arc::new(
             zb_domain::tweaks::definitions::ShowFileExtensionsTweak::with_provider(rp.clone()),
         ),
-        Arc::new(
-            zb_domain::tweaks::definitions::EndTaskOnTaskbarTweak::with_provider(rp.clone()),
-        ),
+        Arc::new(zb_domain::tweaks::definitions::EndTaskOnTaskbarTweak::with_provider(rp.clone())),
         Arc::new(zb_domain::tweaks::definitions::VerboseLogonTweak::with_provider(rp.clone())),
         // ---- Privacy ----
         Arc::new(zb_domain::tweaks::definitions::DisableTelemetryTweak::with_provider(rp.clone())),
@@ -233,22 +231,62 @@ pub async fn uninstall_app() -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
         use std::path::PathBuf;
+        use std::process::Command;
+        use zb_shared::constants::CREATE_NO_WINDOW;
 
-        let local_app_data = std::env::var("LOCALAPPDATA")
-            .unwrap_or_else(|_| std::env::var("APPDATA").unwrap_or_else(|_| ".".into()));
-        let dir = PathBuf::from(&local_app_data).join("ZingerBoost");
+        // First, try to find and run the NSIS uninstaller
+        let program_files =
+            std::env::var("ProgramFiles").unwrap_or_else(|_| "C:\\Program Files".into());
+        let uninstaller_path = PathBuf::from(&program_files)
+            .join("ZingerBoost")
+            .join("Uninstall ZingerBoost.exe");
 
-        if dir.exists() {
-            match std::fs::remove_dir_all(&dir) {
-                Ok(_) => Ok(format!("Removed: {}", dir.display())),
-                Err(e) => Err(format!("Failed to remove {}: {}", dir.display(), e)),
+        if uninstaller_path.exists() {
+            // Run the NSIS uninstaller silently
+            let result = Command::new(&uninstaller_path)
+                .creation_flags(CREATE_NO_WINDOW)
+                .args(["/S"]) // Silent uninstall
+                .spawn();
+
+            match result {
+                Ok(_) => {
+                    // Give it a moment to start, then clean up app data
+                    std::thread::sleep(std::time::Duration::from_secs(1));
+
+                    // Clean up app data
+                    if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
+                        let dir = PathBuf::from(local_app_data).join("ZingerBoost");
+                        let _ = std::fs::remove_dir_all(&dir);
+                    }
+
+                    Ok("Uninstall started. The application will be removed.".to_string())
+                }
+                Err(e) => Err(format!("Failed to run uninstaller: {}", e)),
             }
         } else {
-            Ok("No data directory found".to_string())
+            // Fallback: just clean up app data if no uninstaller found
+            if let Ok(local_app_data) = std::env::var("LOCALAPPDATA") {
+                let dir = PathBuf::from(local_app_data).join("ZingerBoost");
+                if dir.exists() {
+                    match std::fs::remove_dir_all(&dir) {
+                        Ok(_) => Ok(
+                            "Removed app data. Please manually uninstall from Settings > Apps."
+                                .to_string(),
+                        ),
+                        Err(e) => Err(format!("Failed to remove data: {}", e)),
+                    }
+                } else {
+                    Ok("App data not found. Please uninstall from Settings > Apps.".to_string())
+                }
+            } else {
+                Err("Could not find LOCALAPPDATA".to_string())
+            }
         }
     }
     #[cfg(not(target_os = "windows"))]
-    Ok("Uninstall not supported on this platform".to_string())
+    {
+        Ok("Uninstall not supported on this platform".to_string())
+    }
 }
 
 #[tauri::command]
@@ -336,7 +374,7 @@ pub async fn get_tweaks(state: tauri::State<'_, AppState>) -> Result<String, Str
     let engine = get_engine(&state).await?;
     let all_tweaks = engine.list_tweaks();
     tracing::info!("Engine has {} tweaks", all_tweaks.len());
-    
+
     let tweaks: Vec<TweakDto> = all_tweaks
         .iter()
         .map(|t| {
@@ -375,9 +413,7 @@ pub async fn get_tweak_states(state: tauri::State<'_, AppState>) -> Result<Strin
 pub async fn apply_tweak(id: String, state: tauri::State<'_, AppState>) -> Result<String, String> {
     let engine = get_engine(&state).await?;
     match engine.apply_single(&id).await {
-        Ok(r) => {
-            Ok(serde_json::json!({"success": true, "message": r.message}).to_string())
-        }
+        Ok(r) => Ok(serde_json::json!({"success": true, "message": r.message}).to_string()),
         Err(e) => {
             tracing::error!("apply_tweak failed: id={}, error={:?}", id, e);
             Err(format!("{:?}", e))
@@ -389,9 +425,7 @@ pub async fn apply_tweak(id: String, state: tauri::State<'_, AppState>) -> Resul
 pub async fn revert_tweak(id: String, state: tauri::State<'_, AppState>) -> Result<String, String> {
     let engine = get_engine(&state).await?;
     match engine.revert(&id).await {
-        Ok(r) => {
-            Ok(serde_json::json!({"success": true, "message": r.message}).to_string())
-        }
+        Ok(r) => Ok(serde_json::json!({"success": true, "message": r.message}).to_string()),
         Err(e) => {
             tracing::error!("revert_tweak failed: id={}, error={:?}", id, e);
             Err(format!("{:?}", e))
@@ -527,7 +561,8 @@ pub async fn revert_all_tweaks(state: tauri::State<'_, AppState>) -> Result<Stri
 
 #[tauri::command]
 pub async fn get_services(state: tauri::State<'_, AppState>) -> Result<String, String> {
-    let services: Vec<ServiceDto> = state.services
+    let services: Vec<ServiceDto> = state
+        .services
         .query_services()
         .into_iter()
         .map(|s| ServiceDto {
@@ -543,17 +578,26 @@ pub async fn get_services(state: tauri::State<'_, AppState>) -> Result<String, S
 }
 
 #[tauri::command]
-pub async fn start_service(name: String, state: tauri::State<'_, AppState>) -> Result<String, String> {
+pub async fn start_service(
+    name: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<String, String> {
     state.services.start_service(&name)
 }
 
 #[tauri::command]
-pub async fn stop_service(name: String, state: tauri::State<'_, AppState>) -> Result<String, String> {
+pub async fn stop_service(
+    name: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<String, String> {
     state.services.stop_service(&name)
 }
 
 #[tauri::command]
-pub async fn disable_service(name: String, state: tauri::State<'_, AppState>) -> Result<String, String> {
+pub async fn disable_service(
+    name: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<String, String> {
     state.services.disable_service(&name)
 }
 
@@ -563,7 +607,8 @@ pub async fn disable_service(name: String, state: tauri::State<'_, AppState>) ->
 
 #[tauri::command]
 pub async fn get_cleaner_items(state: tauri::State<'_, AppState>) -> Result<String, String> {
-    let items: Vec<CleanerItemDto> = state.cleaner
+    let items: Vec<CleanerItemDto> = state
+        .cleaner
         .scan_categories()
         .into_iter()
         .map(|c| CleanerItemDto {
@@ -579,7 +624,10 @@ pub async fn get_cleaner_items(state: tauri::State<'_, AppState>) -> Result<Stri
 }
 
 #[tauri::command]
-pub async fn clean_category(name: String, state: tauri::State<'_, AppState>) -> Result<String, String> {
+pub async fn clean_category(
+    name: String,
+    state: tauri::State<'_, AppState>,
+) -> Result<String, String> {
     let result = state.cleaner.clean_category(&name);
     let mut msg = format!(
         "{} - freed {:.1} MB, {} items removed",
@@ -624,7 +672,11 @@ pub async fn clean_all(state: tauri::State<'_, AppState>) -> Result<String, Stri
         total_items
     );
     if !all_errors.is_empty() {
-        msg.push_str(&format!(", {} error(s): {}", all_errors.len(), all_errors.join("; ")));
+        msg.push_str(&format!(
+            ", {} error(s): {}",
+            all_errors.len(),
+            all_errors.join("; ")
+        ));
     }
     Ok(msg)
 }
@@ -651,15 +703,23 @@ pub async fn get_bloatware() -> Result<String, String> {
 /// Derive subcategory from bloatware item ID prefix
 fn derive_bloatware_subcategory(id: &str) -> String {
     // Games: xbox, game_bar, solitaire, candy crush, etc.
-    if id.contains("xbox") || id.contains("game_bar") || id.contains("solitaire")
-        || id.contains("candy") || id.contains("gaming")
+    if id.contains("xbox")
+        || id.contains("game_bar")
+        || id.contains("solitaire")
+        || id.contains("candy")
+        || id.contains("gaming")
     {
         return "games".into();
     }
     // System: mixed reality, 3d viewer, paint 3d, onedrive, widgets, cortana, etc.
-    if id.contains("mixedreality") || id.contains("3dviewer") || id.contains("paint3d")
-        || id.contains("onedrive") || id.contains("widgets") || id.contains("cortana")
-        || id.contains("ads") || id.contains("family")
+    if id.contains("mixedreality")
+        || id.contains("3dviewer")
+        || id.contains("paint3d")
+        || id.contains("onedrive")
+        || id.contains("widgets")
+        || id.contains("cortana")
+        || id.contains("ads")
+        || id.contains("family")
     {
         return "system".into();
     }
@@ -759,7 +819,13 @@ pub async fn check_bloatware_installed(winget_id: String) -> Result<bool, String
         // Fallback to winget for desktop apps
         let output = Command::new("winget")
             .creation_flags(CREATE_NO_WINDOW)
-            .args(["list", "--id", &winget_id, "--exact", "--accept-source-agreements"])
+            .args([
+                "list",
+                "--id",
+                &winget_id,
+                "--exact",
+                "--accept-source-agreements",
+            ])
             .output();
 
         match output {
@@ -788,8 +854,11 @@ pub async fn get_metrics(state: tauri::State<'_, AppState>) -> Result<String, St
     let metrics = state.metrics.current().await;
     tracing::debug!(
         "[metrics] cpu={:.1}% ram={:.1}% disk={:.1}% net={:.2}/{:.2}Mbps",
-        metrics.cpu_percent, metrics.ram_percent, metrics.disk_active_percent,
-        metrics.network_down_mbps, metrics.network_up_mbps
+        metrics.cpu_percent,
+        metrics.ram_percent,
+        metrics.disk_active_percent,
+        metrics.network_down_mbps,
+        metrics.network_up_mbps
     );
     let dto = MetricsDto {
         cpu_percent: metrics.cpu_percent,
@@ -986,10 +1055,7 @@ pub async fn toggle_favorite(
 }
 
 #[tauri::command]
-pub async fn is_favorite(
-    key: String,
-    state: tauri::State<'_, AppState>,
-) -> Result<bool, String> {
+pub async fn is_favorite(key: String, state: tauri::State<'_, AppState>) -> Result<bool, String> {
     Ok(state.favorites.lock().await.is_favorite(&key))
 }
 

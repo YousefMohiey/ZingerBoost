@@ -27,7 +27,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["nsis", "msi"],
     "icon": [
       "icons/32x32.png",
       "icons/64x64.png",
@@ -39,7 +39,21 @@
     "windows": {
       "webviewInstallMode": {
         "type": "embedBootstrapper"
+      },
+      "nsis": {
+        "displayLanguageSelector": false,
+        "installerIcon": "icons/icon.ico",
+        "installMode": "currentUser",
+        "languages": ["English"],
+        "license": null,
+        "headerImage": null,
+        "sidebarImage": null
       }
-    }
+    },
+    "shortDescription": "Windows System Optimizer",
+    "longDescription": "ZingerBoost is a safe, reversible Windows optimization tool with 49 tweaks, system cleaner, service manager, and software installer.",
+    "category": "Utility",
+    "publisher": "YousefMohiey",
+    "copyright": "Copyright 2024 YousefMohiey"
   }
 }

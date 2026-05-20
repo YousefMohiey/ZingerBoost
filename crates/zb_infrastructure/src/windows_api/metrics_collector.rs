@@ -177,28 +177,42 @@ fn run_sampler(state: &MetricsState) {
 
         // --- Add Network counters ---
         // Use GetAdaptersAddresses for reliable adapter detection on all systems including VMs
-        use windows::Win32::NetworkManagement::IpHelper::{GetAdaptersAddresses, GAA_FLAG_INCLUDE_ALL_INTERFACES};
+        use windows::core::PWSTR;
+        use windows::Win32::NetworkManagement::IpHelper::{
+            GetAdaptersAddresses, GAA_FLAG_INCLUDE_ALL_INTERFACES,
+        };
         use windows::Win32::NetworkManagement::Ndis::IF_OPER_STATUS;
         use windows::Win32::System::Performance::{PdhEnumObjectItemsW, PERF_DETAIL};
-        use windows::core::PWSTR;
-        
+
         let mut net_down_counters: Vec<isize> = Vec::new();
         let mut net_up_counters: Vec<isize> = Vec::new();
-        
+
         // PRIMARY: Use wildcard - typeperf confirmed this works!
         // This is the SIMPLEST and MOST RELIABLE approach
         let down_path = "\\Network Interface(*)\\Bytes Received/sec\0";
         let down_path_w: Vec<u16> = down_path.encode_utf16().collect();
         let mut down_counter: isize = 0;
-        if PdhAddEnglishCounterW(query, PCWSTR::from_raw(down_path_w.as_ptr()), 0, &mut down_counter) == 0 {
+        if PdhAddEnglishCounterW(
+            query,
+            PCWSTR::from_raw(down_path_w.as_ptr()),
+            0,
+            &mut down_counter,
+        ) == 0
+        {
             net_down_counters.push(down_counter);
             info!("[metrics] Added wildcard down counter: *");
         }
-        
+
         let up_path = "\\Network Interface(*)\\Bytes Sent/sec\0";
         let up_path_w: Vec<u16> = up_path.encode_utf16().collect();
         let mut up_counter: isize = 0;
-        if PdhAddEnglishCounterW(query, PCWSTR::from_raw(up_path_w.as_ptr()), 0, &mut up_counter) == 0 {
+        if PdhAddEnglishCounterW(
+            query,
+            PCWSTR::from_raw(up_path_w.as_ptr()),
+            0,
+            &mut up_counter,
+        ) == 0
+        {
             net_up_counters.push(up_counter);
             info!("[metrics] Added wildcard up counter: *");
         }
@@ -206,97 +220,125 @@ fn run_sampler(state: &MetricsState) {
         // Method 1 (backup): GetAdaptersAddresses for additional interfaces
         // First call to get required buffer size
         let mut buf_size: u32 = 0;
-        let initial_result = 
-            GetAdaptersAddresses(
-                0, // AF_UNSPEC - get both IPv4 and IPv6
-                GAA_FLAG_INCLUDE_ALL_INTERFACES,
-                None,
-                None,
-                &mut buf_size
-            );
-        
-        info!("[metrics] GetAdaptersAddresses initial result={}, required size={}", initial_result, buf_size);
-        
+        let initial_result = GetAdaptersAddresses(
+            0, // AF_UNSPEC - get both IPv4 and IPv6
+            GAA_FLAG_INCLUDE_ALL_INTERFACES,
+            None,
+            None,
+            &mut buf_size,
+        );
+
+        info!(
+            "[metrics] GetAdaptersAddresses initial result={}, required size={}",
+            initial_result, buf_size
+        );
+
         // Allocate proper buffer and call again
         if buf_size > 0 {
             let mut buf: Vec<u8> = vec![0; buf_size as usize];
-            let result = 
-                GetAdaptersAddresses(
-                    0,
-                    GAA_FLAG_INCLUDE_ALL_INTERFACES,
-                    None,
-                    Some(buf.as_mut_ptr() as *mut _),
-                    &mut buf_size
-                );
-            
+            let result = GetAdaptersAddresses(
+                0,
+                GAA_FLAG_INCLUDE_ALL_INTERFACES,
+                None,
+                Some(buf.as_mut_ptr() as *mut _),
+                &mut buf_size,
+            );
+
             info!("[metrics] GetAdaptersAddresses second result={}", result);
-            
+
             if result == 0 {
                 use windows::Win32::NetworkManagement::IpHelper::IP_ADAPTER_ADDRESSES_LH;
-                
+
                 let mut adapter = buf.as_ptr() as *const IP_ADAPTER_ADDRESSES_LH;
                 let mut found_count = 0;
-                
+
                 while !adapter.is_null() {
                     let info = &*adapter;
-                    
+
                     // Skip non-operational adapters
-                    if info.OperStatus != IF_OPER_STATUS(1) { // IfOperStatusUp
+                    if info.OperStatus != IF_OPER_STATUS(1) {
+                        // IfOperStatusUp
                         adapter = info.Next;
                         continue;
                     }
-                    
+
                     // Get adapter name (FriendlyName)
                     let friendly_name = info.FriendlyName;
                     if !friendly_name.is_null() {
-                        let name_len = (0..).take_while(|&i| *friendly_name.0.offset(i as isize) != 0).count();
+                        let name_len = (0..)
+                            .take_while(|&i| *friendly_name.0.offset(i as isize) != 0)
+                            .count();
                         let name_slice = std::slice::from_raw_parts(friendly_name.0, name_len);
                         if let Ok(name) = String::from_utf16(name_slice) {
                             if !name.is_empty() {
                                 // Skip loopback and known pseudo-adapters
                                 let lower = name.to_lowercase();
-                                if !lower.contains("loopback") && !lower.contains("isatap") && !lower.contains("teredo") {
+                                if !lower.contains("loopback")
+                                    && !lower.contains("isatap")
+                                    && !lower.contains("teredo")
+                                {
                                     // Escape PDH-special chars
                                     let escaped = name
                                         .replace('\\', "\\\\")
                                         .replace('(', "\\(")
                                         .replace(')', "\\)")
                                         .replace('#', "\\#");
-                                    
-                                    info!("[metrics] Found active adapter: {} -> {}", name, escaped);
-                                    
+
+                                    info!(
+                                        "[metrics] Found active adapter: {} -> {}",
+                                        name, escaped
+                                    );
+
                                     // Add Bytes Received/sec
-                                    let down_path = format!("\\Network Interface({escaped})\\Bytes Received/sec\0");
+                                    let down_path = format!(
+                                        "\\Network Interface({escaped})\\Bytes Received/sec\0"
+                                    );
                                     let down_path_w: Vec<u16> = down_path.encode_utf16().collect();
                                     let mut down_counter: isize = 0;
-                                    if PdhAddEnglishCounterW(query, PCWSTR::from_raw(down_path_w.as_ptr()), 0, &mut down_counter) == 0 {
+                                    if PdhAddEnglishCounterW(
+                                        query,
+                                        PCWSTR::from_raw(down_path_w.as_ptr()),
+                                        0,
+                                        &mut down_counter,
+                                    ) == 0
+                                    {
                                         net_down_counters.push(down_counter);
                                         info!("[metrics] Added network down: {}", name);
                                     } else {
                                         info!("[metrics] Failed to add down counter for {}", name);
                                     }
-                                    
+
                                     // Add Bytes Sent/sec
-                                    let up_path = format!("\\Network Interface({escaped})\\Bytes Sent/sec\0");
+                                    let up_path =
+                                        format!("\\Network Interface({escaped})\\Bytes Sent/sec\0");
                                     let up_path_w: Vec<u16> = up_path.encode_utf16().collect();
                                     let mut up_counter: isize = 0;
-                                    if PdhAddEnglishCounterW(query, PCWSTR::from_raw(up_path_w.as_ptr()), 0, &mut up_counter) == 0 {
+                                    if PdhAddEnglishCounterW(
+                                        query,
+                                        PCWSTR::from_raw(up_path_w.as_ptr()),
+                                        0,
+                                        &mut up_counter,
+                                    ) == 0
+                                    {
                                         net_up_counters.push(up_counter);
                                         info!("[metrics] Added network up: {}", name);
                                     } else {
                                         info!("[metrics] Failed to add up counter for {}", name);
                                     }
-                                    
+
                                     found_count += 1;
                                 }
                             }
                         }
                     }
-                    
+
                     adapter = info.Next;
                 }
 
-                info!("[metrics] GetAdaptersAddresses found {} active adapters", found_count);
+                info!(
+                    "[metrics] GetAdaptersAddresses found {} active adapters",
+                    found_count
+                );
             }
 
             // Fallback: Use wildcard since PDH supports * and typeperf confirmed it works
@@ -305,31 +347,49 @@ fn run_sampler(state: &MetricsState) {
                 let down_path = "\\Network Interface(*)\\Bytes Received/sec\0";
                 let down_path_w: Vec<u16> = down_path.encode_utf16().collect();
                 let mut down_counter: isize = 0;
-                if PdhAddEnglishCounterW(query, PCWSTR::from_raw(down_path_w.as_ptr()), 0, &mut down_counter) == 0 {
+                if PdhAddEnglishCounterW(
+                    query,
+                    PCWSTR::from_raw(down_path_w.as_ptr()),
+                    0,
+                    &mut down_counter,
+                ) == 0
+                {
                     net_down_counters.push(down_counter);
                     info!("[metrics] Added wildcard down counter");
                 }
-                
+
                 let up_path = "\\Network Interface(*)\\Bytes Sent/sec\0";
                 let up_path_w: Vec<u16> = up_path.encode_utf16().collect();
                 let mut up_counter: isize = 0;
-                if PdhAddEnglishCounterW(query, PCWSTR::from_raw(up_path_w.as_ptr()), 0, &mut up_counter) == 0 {
+                if PdhAddEnglishCounterW(
+                    query,
+                    PCWSTR::from_raw(up_path_w.as_ptr()),
+                    0,
+                    &mut up_counter,
+                ) == 0
+                {
                     net_up_counters.push(up_counter);
                     info!("[metrics] Added wildcard up counter");
                 }
             }
 
-            info!("[metrics] Network counters: down={} up={}", net_down_counters.len(), net_up_counters.len());
+            info!(
+                "[metrics] Network counters: down={} up={}",
+                net_down_counters.len(),
+                net_up_counters.len()
+            );
         }
 
         // Method 2: Fallback to PDH enumeration - this gives us the REAL instance names that PDH understands
         if net_down_counters.is_empty() {
-            info!("[metrics] GetAdaptersAddresses found no usable counters, trying PDH enumeration");
-            
+            info!(
+                "[metrics] GetAdaptersAddresses found no usable counters, trying PDH enumeration"
+            );
+
             let obj_name: Vec<u16> = "Network Interface\0".encode_utf16().collect();
             let mut counter_len: u32 = 0;
             let mut instance_len: u32 = 0;
-            
+
             let enum_result = PdhEnumObjectItemsW(
                 PCWSTR::null(),
                 PCWSTR::null(),
@@ -341,11 +401,11 @@ fn run_sampler(state: &MetricsState) {
                 PERF_DETAIL(0),
                 0,
             );
-            
+
             if (enum_result == 0x800007D2 || enum_result == 0) && instance_len > 0 {
                 let mut counter_buf: Vec<u16> = vec![0; counter_len as usize + 1];
                 let mut instance_buf: Vec<u16> = vec![0; instance_len as usize + 1];
-                
+
                 let enum_result2 = PdhEnumObjectItemsW(
                     PCWSTR::null(),
                     PCWSTR::null(),
@@ -357,7 +417,7 @@ fn run_sampler(state: &MetricsState) {
                     PERF_DETAIL(0),
                     0,
                 );
-                
+
                 if enum_result2 == 0 && instance_len > 0 {
                     let raw = &instance_buf[..instance_len as usize];
                     let mut instances: Vec<String> = Vec::new();
@@ -374,40 +434,60 @@ fn run_sampler(state: &MetricsState) {
                             current.push(ch);
                         }
                     }
-                    
-                    info!("[metrics] PDH enumerated {} instances: {:?}", instances.len(), instances);
-                    
+
+                    info!(
+                        "[metrics] PDH enumerated {} instances: {:?}",
+                        instances.len(),
+                        instances
+                    );
+
                     // Use the FIRST valid non-loopback interface
                     for instance in &instances {
                         let lower = instance.to_lowercase();
-                        if lower.contains("loopback") || lower.contains("isatap") || lower.contains("teredo") {
+                        if lower.contains("loopback")
+                            || lower.contains("isatap")
+                            || lower.contains("teredo")
+                        {
                             continue;
                         }
-                        
+
                         info!("[metrics] Trying PDH instance: {}", instance);
-                        
+
                         let escaped = instance
                             .replace('\\', "\\\\")
                             .replace('(', "\\(")
                             .replace(')', "\\)")
                             .replace('#', "\\#");
-                        
-                        let down_path = format!("\\Network Interface({escaped})\\Bytes Received/sec\0");
+
+                        let down_path =
+                            format!("\\Network Interface({escaped})\\Bytes Received/sec\0");
                         let down_path_w: Vec<u16> = down_path.encode_utf16().collect();
                         let mut down_counter: isize = 0;
-                        if PdhAddEnglishCounterW(query, PCWSTR::from_raw(down_path_w.as_ptr()), 0, &mut down_counter) == 0 {
+                        if PdhAddEnglishCounterW(
+                            query,
+                            PCWSTR::from_raw(down_path_w.as_ptr()),
+                            0,
+                            &mut down_counter,
+                        ) == 0
+                        {
                             net_down_counters.push(down_counter);
                             info!("[metrics] PDH down OK: {}", instance);
                         }
-                        
+
                         let up_path = format!("\\Network Interface({escaped})\\Bytes Sent/sec\0");
                         let up_path_w: Vec<u16> = up_path.encode_utf16().collect();
                         let mut up_counter: isize = 0;
-                        if PdhAddEnglishCounterW(query, PCWSTR::from_raw(up_path_w.as_ptr()), 0, &mut up_counter) == 0 {
+                        if PdhAddEnglishCounterW(
+                            query,
+                            PCWSTR::from_raw(up_path_w.as_ptr()),
+                            0,
+                            &mut up_counter,
+                        ) == 0
+                        {
                             net_up_counters.push(up_counter);
                             info!("[metrics] PDH up OK: {}", instance);
                         }
-                        
+
                         if !net_down_counters.is_empty() && !net_up_counters.is_empty() {
                             break;
                         }
@@ -415,14 +495,14 @@ fn run_sampler(state: &MetricsState) {
                 }
             }
         }
-        
+
         // Method 3: Last resort - try more common adapter names (expanded list)
         if net_down_counters.is_empty() {
             info!("[metrics] Still no counters, trying expanded hardcoded names");
-            
+
             // Try WITHOUT escaping - some systems use raw names
             let raw_adapters = [
-                "*",  // Try wildcard - may work on some systems
+                "*", // Try wildcard - may work on some systems
                 "eth0",
                 "eth1",
                 "en0",
@@ -432,22 +512,34 @@ fn run_sampler(state: &MetricsState) {
                 "Wireless",
                 "Local Area Connection",
             ];
-            
+
             for adapter in &raw_adapters {
                 if *adapter == "*" {
                     // Try wildcard approach
                     let down_path = "\\Network Interface(*)\\Bytes Received/sec\0";
                     let down_path_w: Vec<u16> = down_path.encode_utf16().collect();
                     let mut down_counter: isize = 0;
-                    if PdhAddEnglishCounterW(query, PCWSTR::from_raw(down_path_w.as_ptr()), 0, &mut down_counter) == 0 {
+                    if PdhAddEnglishCounterW(
+                        query,
+                        PCWSTR::from_raw(down_path_w.as_ptr()),
+                        0,
+                        &mut down_counter,
+                    ) == 0
+                    {
                         net_down_counters.push(down_counter);
                         info!("[metrics] Wildcard down OK");
                     }
-                    
+
                     let up_path = "\\Network Interface(*)\\Bytes Sent/sec\0";
                     let up_path_w: Vec<u16> = up_path.encode_utf16().collect();
                     let mut up_counter: isize = 0;
-                    if PdhAddEnglishCounterW(query, PCWSTR::from_raw(up_path_w.as_ptr()), 0, &mut up_counter) == 0 {
+                    if PdhAddEnglishCounterW(
+                        query,
+                        PCWSTR::from_raw(up_path_w.as_ptr()),
+                        0,
+                        &mut up_counter,
+                    ) == 0
+                    {
                         net_up_counters.push(up_counter);
                         info!("[metrics] Wildcard up OK");
                     }
@@ -457,80 +549,125 @@ fn run_sampler(state: &MetricsState) {
                         .replace('(', "\\(")
                         .replace(')', "\\)")
                         .replace('#', "\\#");
-                    
+
                     let down_path = format!("\\Network Interface({escaped})\\Bytes Received/sec\0");
                     let down_path_w: Vec<u16> = down_path.encode_utf16().collect();
                     let mut down_counter: isize = 0;
-                    if PdhAddEnglishCounterW(query, PCWSTR::from_raw(down_path_w.as_ptr()), 0, &mut down_counter) == 0 {
+                    if PdhAddEnglishCounterW(
+                        query,
+                        PCWSTR::from_raw(down_path_w.as_ptr()),
+                        0,
+                        &mut down_counter,
+                    ) == 0
+                    {
                         net_down_counters.push(down_counter);
                         info!("[metrics] Hardcoded down OK: {}", adapter);
                     }
-                    
+
                     let up_path = format!("\\Network Interface({escaped})\\Bytes Sent/sec\0");
                     let up_path_w: Vec<u16> = up_path.encode_utf16().collect();
                     let mut up_counter: isize = 0;
-                    if PdhAddEnglishCounterW(query, PCWSTR::from_raw(up_path_w.as_ptr()), 0, &mut up_counter) == 0 {
+                    if PdhAddEnglishCounterW(
+                        query,
+                        PCWSTR::from_raw(up_path_w.as_ptr()),
+                        0,
+                        &mut up_counter,
+                    ) == 0
+                    {
                         net_up_counters.push(up_counter);
                         info!("[metrics] Hardcoded up OK: {}", adapter);
                     }
                 }
-                
+
                 if !net_down_counters.is_empty() && !net_up_counters.is_empty() {
                     break;
                 }
             }
         }
-        
+
         // Method 4: Direct _Total interface (aggregate of all)
         if net_down_counters.is_empty() {
             info!("[metrics] Trying _Total interface");
-            
+
             let down_path = "\\Network Interface(_Total)\\Bytes Received/sec\0";
             let down_path_w: Vec<u16> = down_path.encode_utf16().collect();
             let mut down_counter: isize = 0;
-            if PdhAddEnglishCounterW(query, PCWSTR::from_raw(down_path_w.as_ptr()), 0, &mut down_counter) == 0 {
+            if PdhAddEnglishCounterW(
+                query,
+                PCWSTR::from_raw(down_path_w.as_ptr()),
+                0,
+                &mut down_counter,
+            ) == 0
+            {
                 net_down_counters.push(down_counter);
                 info!("[metrics] _Total down OK");
             }
-            
+
             let up_path = "\\Network Interface(_Total)\\Bytes Sent/sec\0";
             let up_path_w: Vec<u16> = up_path.encode_utf16().collect();
             let mut up_counter: isize = 0;
-            if PdhAddEnglishCounterW(query, PCWSTR::from_raw(up_path_w.as_ptr()), 0, &mut up_counter) == 0 {
+            if PdhAddEnglishCounterW(
+                query,
+                PCWSTR::from_raw(up_path_w.as_ptr()),
+                0,
+                &mut up_counter,
+            ) == 0
+            {
                 net_up_counters.push(up_counter);
                 info!("[metrics] _Total up OK");
             }
         }
-        
+
         // Method 5: Try non-English counter paths (some systems use localized names)
         if net_down_counters.is_empty() {
             info!("[metrics] Trying non-English counter paths");
-            
+
             // These are common non-English network interface names
             let locale_paths = [
-                ("\\Network Interface(ethernet)\\Bytes Received/sec", "\\Network Interface(ethernet)\\Bytes Sent/sec"),
-                ("\\Network Interface(以太网)\\Bytes Received/sec", "\\Network Interface(以太网)\\Bytes Sent/sec"),
-                ("\\Network Interface(LAN)\\Bytes Received/sec", "\\Network Interface(LAN)\\Bytes Sent/sec"),
+                (
+                    "\\Network Interface(ethernet)\\Bytes Received/sec",
+                    "\\Network Interface(ethernet)\\Bytes Sent/sec",
+                ),
+                (
+                    "\\Network Interface(以太网)\\Bytes Received/sec",
+                    "\\Network Interface(以太网)\\Bytes Sent/sec",
+                ),
+                (
+                    "\\Network Interface(LAN)\\Bytes Received/sec",
+                    "\\Network Interface(LAN)\\Bytes Sent/sec",
+                ),
             ];
-            
+
             for (down, up) in &locale_paths {
                 let down_w: Vec<u16> = down.encode_utf16().collect();
                 let mut down_counter: isize = 0;
-                if PdhAddEnglishCounterW(query, PCWSTR::from_raw(down_w.as_ptr()), 0, &mut down_counter) == 0 {
+                if PdhAddEnglishCounterW(
+                    query,
+                    PCWSTR::from_raw(down_w.as_ptr()),
+                    0,
+                    &mut down_counter,
+                ) == 0
+                {
                     net_down_counters.push(down_counter);
                     info!("[metrics] Locale down OK");
                 }
-                
+
                 let up_w: Vec<u16> = up.encode_utf16().collect();
                 let mut up_counter: isize = 0;
-                if PdhAddEnglishCounterW(query, PCWSTR::from_raw(up_w.as_ptr()), 0, &mut up_counter) == 0 {
+                if PdhAddEnglishCounterW(query, PCWSTR::from_raw(up_w.as_ptr()), 0, &mut up_counter)
+                    == 0
+                {
                     net_up_counters.push(up_counter);
                     info!("[metrics] Locale up OK");
                 }
             }
         }
-        
-        info!("[metrics] Network counters: down={} up={}", net_down_counters.len(), net_up_counters.len());
+
+        info!(
+            "[metrics] Network counters: down={} up={}",
+            net_down_counters.len(),
+            net_up_counters.len()
+        );
 
         // Prime counters - need multiple collections for PDH to return valid data
         for _ in 0..5 {
@@ -538,7 +675,7 @@ fn run_sampler(state: &MetricsState) {
             thread::sleep(Duration::from_millis(100));
         }
         info!("[metrics] Counters primed with 5 collections");
-        
+
         info!("[metrics] Sampler ready, starting loop");
 
         let mut sample_count: u64 = 0;

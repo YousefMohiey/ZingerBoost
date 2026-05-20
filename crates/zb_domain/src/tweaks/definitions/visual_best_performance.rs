@@ -14,13 +14,19 @@ pub struct VisualBestPerformanceTweak {
 }
 
 impl Default for VisualBestPerformanceTweak {
-    fn default() -> Self { Self::new() }
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl VisualBestPerformanceTweak {
-    pub fn new() -> Self { Self { provider: None } }
+    pub fn new() -> Self {
+        Self { provider: None }
+    }
     pub fn with_provider(provider: Arc<dyn crate::registry::RegistryProvider>) -> Self {
-        Self { provider: Some(provider) }
+        Self {
+            provider: Some(provider),
+        }
     }
 }
 
@@ -77,7 +83,10 @@ Write-Host "REGISTRY_OK"
         .map_err(|e| format!("explorer start error: {}", e))?;
 
     if !start_output.status.success() {
-        return Err(format!("Failed to restart explorer: {}", String::from_utf8_lossy(&start_output.stderr)));
+        return Err(format!(
+            "Failed to restart explorer: {}",
+            String::from_utf8_lossy(&start_output.stderr)
+        ));
     }
 
     Ok(())
@@ -127,7 +136,10 @@ Write-Host "REGISTRY_OK"
         .map_err(|e| format!("explorer start error: {}", e))?;
 
     if !start_output.status.success() {
-        return Err(format!("Failed to restart explorer: {}", String::from_utf8_lossy(&start_output.stderr)));
+        return Err(format!(
+            "Failed to restart explorer: {}",
+            String::from_utf8_lossy(&start_output.stderr)
+        ));
     }
 
     Ok(())
@@ -160,9 +172,11 @@ impl Tweak for VisualBestPerformanceTweak {
 
     async fn is_applied(&self) -> Result<bool, TweakError> {
         if let Some(provider) = &self.provider {
-            let vis = RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects");
+            let vis =
+                RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects");
             let desk = RegPath::hkcu(r"Control Panel\Desktop");
-            let _adv = RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced");
+            let _adv =
+                RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced");
 
             let fx = provider.read(&vis, "VisualFXSetting").await.ok();
             let drag = provider.read(&desk, "DragFullWindows").await.ok();
@@ -180,12 +194,22 @@ impl Tweak for VisualBestPerformanceTweak {
 
     async fn capture_state(&self) -> Result<SnapshotData, TweakError> {
         if let Some(provider) = &self.provider {
-            let vis = RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects");
-            let fx = provider.read(&vis, "VisualFXSetting").await.unwrap_or(RegValue::Dword(1));
-            Ok(SnapshotData::Registry { path: vis, name: "VisualFXSetting".into(), previous: fx })
+            let vis =
+                RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects");
+            let fx = provider
+                .read(&vis, "VisualFXSetting")
+                .await
+                .unwrap_or(RegValue::Dword(1));
+            Ok(SnapshotData::Registry {
+                path: vis,
+                name: "VisualFXSetting".into(),
+                previous: fx,
+            })
         } else {
             Ok(SnapshotData::Registry {
-                path: RegPath::hkcu(r"Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects"),
+                path: RegPath::hkcu(
+                    r"Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects",
+                ),
                 name: "VisualFXSetting".into(),
                 previous: RegValue::Dword(1),
             })
@@ -197,12 +221,16 @@ impl Tweak for VisualBestPerformanceTweak {
 
         Ok(TweakResult {
             reboot_required: false,
-            message: "Visual effects applied. Explorer restarted to apply changes immediately.".into(),
+            message: "Visual effects applied. Explorer restarted to apply changes immediately."
+                .into(),
         })
     }
 
     async fn revert(&self, snapshot: &SnapshotData) -> Result<TweakResult, TweakError> {
-        let previous_value = if let SnapshotData::Registry { name: _, previous, .. } = snapshot {
+        let previous_value = if let SnapshotData::Registry {
+            name: _, previous, ..
+        } = snapshot
+        {
             match previous {
                 RegValue::Dword(v) => *v,
                 _ => 1,

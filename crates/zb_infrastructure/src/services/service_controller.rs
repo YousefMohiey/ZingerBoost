@@ -169,7 +169,8 @@ impl ServiceController {
         let stdout = String::from_utf8_lossy(&output.stdout);
         let stderr = String::from_utf8_lossy(&output.stderr);
 
-        if output.status.success() || stdout.contains("RUNNING") || stdout.contains("START_PENDING") {
+        if output.status.success() || stdout.contains("RUNNING") || stdout.contains("START_PENDING")
+        {
             Ok(format!("{} is starting", name))
         } else if stdout.contains("1056") || stderr.contains("already running") {
             Ok(format!("{} is already running", name))

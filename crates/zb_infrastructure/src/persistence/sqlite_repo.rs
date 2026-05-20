@@ -264,20 +264,18 @@ impl SnapshotService for SqliteRepo {
             .unchecked_transaction()
             .map_err(|e| SnapshotError::Storage(e.to_string()))?;
 
-        tx.execute(
-            "DELETE FROM snapshot_tweaks WHERE snapshot_id = ?1",
-            [id],
-        )
-        .map_err(|e| SnapshotError::Storage(e.to_string()))?;
+        tx.execute("DELETE FROM snapshot_tweaks WHERE snapshot_id = ?1", [id])
+            .map_err(|e| SnapshotError::Storage(e.to_string()))?;
 
-        let deleted = tx.execute(
-            "DELETE FROM snapshots WHERE id = ?1",
-            [id],
-        )
-        .map_err(|e| SnapshotError::Storage(e.to_string()))?;
+        let deleted = tx
+            .execute("DELETE FROM snapshots WHERE id = ?1", [id])
+            .map_err(|e| SnapshotError::Storage(e.to_string()))?;
 
         if deleted == 0 {
-            return Err(SnapshotError::NotFound(format!("Snapshot {} not found", id)));
+            return Err(SnapshotError::NotFound(format!(
+                "Snapshot {} not found",
+                id
+            )));
         }
 
         tx.commit()

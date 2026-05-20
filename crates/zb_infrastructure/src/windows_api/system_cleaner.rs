@@ -206,7 +206,7 @@ impl SystemCleaner {
     fn clean_recycle_bin(&self) -> CleanResult {
         let rec_bin = system_drive().join("$Recycle.Bin");
         let before = dir_size(&rec_bin);
-        
+
         // If recycle bin doesn't exist or is already empty, treat as success
         if !rec_bin.exists() || before == 0 {
             return CleanResult {
@@ -218,8 +218,12 @@ impl SystemCleaner {
                 deleted_paths: vec![],
             };
         }
-        
-        let drive_letter = system_drive().to_string_lossy().chars().next().unwrap_or('C');
+
+        let drive_letter = system_drive()
+            .to_string_lossy()
+            .chars()
+            .next()
+            .unwrap_or('C');
         let result = Command::new("powershell")
             .creation_flags(CREATE_NO_WINDOW)
             .args(["-Command", &format!(
@@ -227,7 +231,7 @@ impl SystemCleaner {
                 drive_letter
             )])
             .output();
-        
+
         let success = match &result {
             Ok(o) => {
                 let stdout = String::from_utf8_lossy(&o.stdout);
@@ -235,7 +239,7 @@ impl SystemCleaner {
             }
             Err(_) => false,
         };
-        
+
         let errors = if !success {
             match result {
                 Ok(o) => {
@@ -251,10 +255,10 @@ impl SystemCleaner {
         } else {
             vec![]
         };
-        
+
         let after = dir_size(&rec_bin);
         let bytes_freed = before.saturating_sub(after);
-        
+
         CleanResult {
             category: "recycle_bin".into(),
             bytes_freed,
@@ -404,7 +408,7 @@ impl SystemCleaner {
             .creation_flags(CREATE_NO_WINDOW)
             .args(["/flushdns"])
             .output();
-        
+
         let success = result.as_ref().map(|o| o.status.success()).unwrap_or(false);
         let errors = if !success {
             match result {
@@ -414,7 +418,7 @@ impl SystemCleaner {
         } else {
             vec![]
         };
-        
+
         CleanResult {
             category: "dns_cache".into(),
             bytes_freed: 0,
@@ -480,7 +484,7 @@ fn remove_dir_contents_with_errors<P: AsRef<Path>>(path: P) -> (u32, Vec<String>
     let mut count = 0u32;
     let mut errors = Vec::new();
     let mut deleted = Vec::new();
-    
+
     match fs::read_dir(p) {
         Ok(entries) => {
             for entry in entries.flatten() {
@@ -507,7 +511,7 @@ fn remove_dir_contents_with_errors<P: AsRef<Path>>(path: P) -> (u32, Vec<String>
         }
         Err(e) => errors.push(format!("Failed to read directory {:?}: {}", p, e)),
     }
-    
+
     (count, deleted, errors)
 }
 

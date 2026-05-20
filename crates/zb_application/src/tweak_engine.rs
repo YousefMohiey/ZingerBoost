@@ -51,12 +51,10 @@ impl TweakEngine {
 
     /// Apply a single tweak with automatic snapshot
     pub async fn apply_single(&self, id: &str) -> Result<TweakResult, TweakError> {
-        let tweak = self
-            .get_tweak(id)
-            .ok_or_else(|| {
-                tracing::error!("Unknown tweak requested: {}", id);
-                TweakError::Validation(format!("Unknown tweak: {}", id))
-            })?;
+        let tweak = self.get_tweak(id).ok_or_else(|| {
+            tracing::error!("Unknown tweak requested: {}", id);
+            TweakError::Validation(format!("Unknown tweak: {}", id))
+        })?;
 
         if tweak.is_applied().await? {
             return Err(TweakError::AlreadyApplied);
@@ -163,12 +161,10 @@ impl TweakEngine {
 
     /// Revert a tweak using the last known snapshot
     pub async fn revert(&self, id: &str) -> Result<TweakResult, TweakError> {
-        let tweak = self
-            .get_tweak(id)
-            .ok_or_else(|| {
-                tracing::error!("Unknown tweak requested for revert: {}", id);
-                TweakError::Validation(format!("Unknown tweak: {}", id))
-            })?;
+        let tweak = self.get_tweak(id).ok_or_else(|| {
+            tracing::error!("Unknown tweak requested for revert: {}", id);
+            TweakError::Validation(format!("Unknown tweak: {}", id))
+        })?;
 
         let snapshot_data = self
             .snapshot_service
