@@ -14,6 +14,10 @@ struct MetricsState {
     disk_active_percent: AtomicU64,
     network_down_mbps: AtomicU64,
     network_up_mbps: AtomicU64,
+    // For fallback network tracking
+    last_net_in: AtomicU64,
+    last_net_out: AtomicU64,
+    last_net_sample: AtomicU64,
 }
 
 impl MetricsState {
@@ -26,6 +30,9 @@ impl MetricsState {
             disk_active_percent: AtomicU64::new(0),
             network_down_mbps: AtomicU64::new(0),
             network_up_mbps: AtomicU64::new(0),
+            last_net_in: AtomicU64::new(0),
+            last_net_out: AtomicU64::new(0),
+            last_net_sample: AtomicU64::new(0),
         }
     }
 
@@ -729,6 +736,27 @@ fn run_sampler(state: &MetricsState) {
                 }
             }
 
+            // Fallback: if PDH gives zero, use netstat
+            if (net_down == 0.0 && net_up == 0.0 && sample_count > 10)
+                || net_down_counters.is_empty()
+            {
+                if let Some((curr_in, curr_out)) = get_network_fallback() {
+                    let last_in = state.last_net_in.load(Ordering::Relaxed);
+                    let last_out = state.last_net_out.load(Ordering::Relaxed);
+                    if state.last_net_sample.load(Ordering::Relaxed) > 0 {
+                        let di = curr_in.saturating_sub(last_in);
+                        let do_ = curr_out.saturating_sub(last_out);
+                        if di < 10_000_000_000 && do_ < 10_000_000_000 {
+                            net_down = di as f64 * 8.0 / 1_000_000.0;
+                            net_up = do_ as f64 * 8.0 / 1_000_000.0;
+                        }
+                    }
+                    state.last_net_in.store(curr_in, Ordering::Relaxed);
+                    state.last_net_out.store(curr_out, Ordering::Relaxed);
+                    state.last_net_sample.store(sample_count, Ordering::Relaxed);
+                }
+            }
+
             // RAM
             let mut mem: MEMORYSTATUSEX = std::mem::zeroed();
             mem.dwLength = std::mem::size_of::<MEMORYSTATUSEX>() as u32;
@@ -780,4 +808,32 @@ fn run_sampler(state: &MetricsState) {
             }
         }
     }
+}
+
+/// Fallback: get network bytes via netstat when PDH counters unavailable
+#[cfg(target_os = "windows")]
+fn get_network_fallback() -> Option<(u64, u64)> {
+    use std::os::windows::process::CommandExt;
+
+    let output = std::process::Command::new("netstat")
+        .creation_flags(0x08000000)
+        .args(["-e"])
+        .output();
+
+    if let Ok(o) = output {
+        if o.status.success() {
+            for line in String::from_utf8_lossy(&o.stdout).lines().rev() {
+                let t = line.trim();
+                if t.starts_with("Bytes") {
+                    let parts: Vec<&str> = t.split_whitespace().collect();
+                    if parts.len() >= 3 {
+                        if let (Ok(a), Ok(b)) = (parts[1].parse::<u64>(), parts[2].parse::<u64>()) {
+                            return Some((a, b));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    None
 }
