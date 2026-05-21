@@ -25,6 +25,6 @@ jobs:
           files: release/zingerboost.exe
           name: "ZingerBoost ${{ github.ref_name }}"
           body: |
-            Run `zingerboost.exe` — pure Rust Iced desktop app.
+            Run `zb_app.exe` — Windows optimization tool built with Rust + Tauri v2.
             Requires [VC++ Redistributable](https://aka.ms/vs/17/release/vc_redist.x64.exe) (one-time).
           fail_on_unmatched_files: false
