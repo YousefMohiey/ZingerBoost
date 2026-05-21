@@ -234,17 +234,67 @@ pub async fn uninstall_app() -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
         use std::process::Command;
+        use std::path::PathBuf;
         use zb_shared::constants::CREATE_NO_WINDOW;
+        
+        let program_files = std::env::var("ProgramFiles").unwrap_or_else(|_| "C:\\Program Files".into());
+        let uninstaller_path = PathBuf::from(&program_files)
+            .join("ZingerBoost")
+            .join("Uninstall ZingerBoost.exe");
 
-        // Cannot uninstall while app is running - Windows Settings is the proper way
-        // Open Windows Settings > Apps page where the real uninstaller lives
-        let result = Command::new("ms-settings:appsfeatures")
-            .creation_flags(CREATE_NO_WINDOW)
-            .spawn();
+        if uninstaller_path.exists() {
+            // Create a temporary batch file to handle the uninstall process
+            // This is needed because the app cannot uninstall itself while running,
+            // and we also want to clean up AppData which NSIS doesn't do by default.
+            let temp_dir = std::env::var("TEMP").unwrap_or_else(|_| "C:\\Windows\\Temp".into());
+            let bat_path = PathBuf::from(&temp_dir).join("zb_uninstall.bat");
+            
+            let bat_content = format!(
+                "@echo off\r\n\
+                echo Waiting for ZingerBoost to close...\r\n\
+                timeout /t 3 /nobreak > nul\r\n\
+                echo Removing AppData...\r\n\
+                rmdir /s /q \"%LOCALAPPDATA%\\ZingerBoost\"\r\n\
+                rmdir /s /q \"%APPDATA%\\ZingerBoost\"\r\n\
+                echo Starting Uninstaller...\r\n\
+                start \"\" \"{}\" /S\r\n\
+                (goto) 2>nul & del \"%~f0\"\r\n",
+                uninstaller_path.display()
+            );
 
-match result {
-            Ok(_) => Ok("Windows Settings opened. Find 'ZingerBoost' in the app list and click Uninstall to remove it.".to_string()),
-            Err(e) => Err(format!("Failed to open Settings: {}. Please manually go to Settings > Apps > ZingerBoost > Uninstall", e)),
+            if let Err(e) = std::fs::write(&bat_path, bat_content) {
+                return Err(format!("Failed to create uninstall script: {}", e));
+            }
+
+            // Spawn the batch file completely detached
+            let result = Command::new("cmd")
+                .creation_flags(CREATE_NO_WINDOW)
+                .args(["/C", "start", "", &bat_path.to_string_lossy()])
+                .spawn();
+
+            match result {
+                Ok(_) => {
+                    // Tell the frontend that we're exiting
+                    // We wait a tiny bit to ensure the message gets sent, then exit
+                    std::thread::spawn(|| {
+                        std::thread::sleep(std::time::Duration::from_millis(500));
+                        std::process::exit(0);
+                    });
+                    
+                    Ok("Uninstall process started. ZingerBoost will now close and remove all data.".to_string())
+                },
+                Err(e) => Err(format!("Failed to launch uninstall script: {}", e)),
+            }
+        } else {
+            // Fallback: Just open Windows Settings
+            let result = Command::new("ms-settings:appsfeatures")
+                .creation_flags(CREATE_NO_WINDOW)
+                .spawn();
+
+            match result {
+                Ok(_) => Ok("Windows Settings opened. Find 'ZingerBoost' in the app list and click Uninstall to remove it.".to_string()),
+                Err(e) => Err(format!("Failed to open Settings: {}. Please manually go to Settings > Apps > ZingerBoost > Uninstall", e)),
+            }
         }
     }
     #[cfg(not(target_os = "windows"))]

@@ -810,28 +810,37 @@ fn run_sampler(state: &MetricsState) {
     }
 }
 
-/// Fallback: get network bytes via netstat when PDH counters unavailable
+/// Fallback: get network bytes via GetIfTable2 when PDH counters unavailable
 #[cfg(target_os = "windows")]
 fn get_network_fallback() -> Option<(u64, u64)> {
-    use std::os::windows::process::CommandExt;
+    use windows::Win32::NetworkManagement::IpHelper::{GetIfTable2, FreeMibTable, MIB_IF_TABLE2};
+    use windows::Win32::NetworkManagement::Ndis::IF_OPER_STATUS;
 
-    let output = std::process::Command::new("netstat")
-        .creation_flags(0x08000000)
-        .args(["-e"])
-        .output();
+    unsafe {
+        let mut table: *mut MIB_IF_TABLE2 = std::ptr::null_mut();
+        if GetIfTable2(&mut table).is_ok() && !table.is_null() {
+            let mut total_in = 0u64;
+            let mut total_out = 0u64;
+            
+            let table_ref = &*table;
+            let entries = std::slice::from_raw_parts(
+                table_ref.Table.as_ptr(),
+                table_ref.NumEntries as usize,
+            );
 
-    if let Ok(o) = output {
-        if o.status.success() {
-            for line in String::from_utf8_lossy(&o.stdout).lines().rev() {
-                let t = line.trim();
-                if t.starts_with("Bytes") {
-                    let parts: Vec<&str> = t.split_whitespace().collect();
-                    if parts.len() >= 3 {
-                        if let (Ok(a), Ok(b)) = (parts[1].parse::<u64>(), parts[2].parse::<u64>()) {
-                            return Some((a, b));
-                        }
-                    }
+            for row in entries {
+                // Only count operational interfaces and exclude loopback
+                // dwType 24 is loopback (IF_TYPE_SOFTWARE_LOOPBACK)
+                if row.OperStatus == IF_OPER_STATUS(1) && row.Type != 24 {
+                    total_in += row.InOctets;
+                    total_out += row.OutOctets;
                 }
+            }
+
+            FreeMibTable(table as *mut std::ffi::c_void);
+            
+            if total_in > 0 || total_out > 0 {
+                return Some((total_in, total_out));
             }
         }
     }
