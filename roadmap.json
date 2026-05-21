@@ -108,8 +108,8 @@
           "category": "Dead Code",
           "finding": "iced_test/ crate is orphaned dead code. Not in workspace. AGENTS.md references Iced but project uses Tauri.",
           "severity": "low",
-          "status": "action_required",
-          "fix": "Remove iced_test/ directory, update AGENTS.md"
+          "status": "fixed",
+          "fix": "Removed iced_test/ directory from repo, AGENTS.md correctly describes Tauri v2"
         },
         {
           "id": "D11",

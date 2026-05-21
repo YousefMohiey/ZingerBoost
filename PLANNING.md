@@ -54,7 +54,7 @@
 - `zb_app`: **Tauri v2 desktop app** — `main.rs` entry, `commands.rs` (30 Tauri commands), `state.rs` (AppState), vanilla JS frontend (`index.html`, `app.js`, `style.css`).
 - `zb_tray`: **PLANNED** — Background tray app for quick actions and monitoring.
 - `server/`: **DELETED** — actix-web server removed during Tauri migration.
-- `iced_test/`: **LEFTOVER** — Old Iced prototype, not in workspace.
+- `iced_test/`: **REMOVED** — Old Iced prototype, deleted from repo.
 
 ---
 
@@ -73,7 +73,6 @@ ZingerBoost/
 ├── .cargo/config.toml               # Static CRT linking
 │
 ├── crates/
-│   ├── iced_test/                   # LEFTOVER — old Iced prototype (not in workspace)
 │   │
 │   ├── zb_shared/
 │   │   ├── Cargo.toml
@@ -916,8 +915,8 @@ provider.write(&path, "GameDVR_Enabled", &RegValue::Dword(0)).await?;
 | 6 | 49 tweaks defined but only 32 registered | **MEDIUM** | Register remaining 17 tweaks in `make_all_tweaks()` |
 | 7 | `SystemCleaner` silently ignores all errors | **MEDIUM** | Return `Result` with partial failure reporting |
 | 8 | `MetricsCollector::current()` blocks for 100ms (sleep) | **MEDIUM** | Move PDH sleep to background task |
-| 9 | `iced_test/` crate is orphaned dead code | **LOW** | Remove from repo |
-| 10 | `AGENTS.md` references Iced but project uses Tauri | **LOW** | Update `AGENTS.md` to match Tauri target |
+| 9 | `iced_test/` crate is orphaned dead code | **FIXED** | Removed from repo |
+| 10 | `AGENTS.md` references Iced but project uses Tauri | **FIXED** | `AGENTS.md` correctly describes Tauri v2 stack |
 | 11 | Frontend uses polling (5s `setInterval`) for metrics | **LOW** | Replace with Tauri `app.emit()` for push-based updates |
 | 12 | No Light/System theme (dark-only CSS) | **LOW** | Add theme variants with CSS variables |
 

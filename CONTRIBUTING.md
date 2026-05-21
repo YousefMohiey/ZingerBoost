@@ -40,14 +40,6 @@ cargo fmt --all
 cargo clippy -p zb_shared -p zb_domain -p zb_application --all-targets -- -D warnings
 ```
 
-### Dart / Flutter
-
-```bash
-cd zingerboost_flutter
-flutter analyze
-flutter test
-```
-
 ### Commit Messages
 
 We follow **Conventional Commits**:
@@ -114,13 +106,12 @@ cargo test --workspace
 
 ```
 ZingerBoost/
-├── bridge/                  # Rust FFI bridge (cdylib)
 ├── crates/
 │   ├── zb_shared/           # Types, constants, software catalog
 │   ├── zb_domain/           # Tweak trait + implementations
 │   ├── zb_application/      # TweakEngine, SnapshotService
-│   └── zb_infrastructure/   # WinRegistry, SQLite, Winget, PDH
-└── zingerboost_flutter/     # Flutter desktop app
+│   ├── zb_infrastructure/   # WinRegistry, SQLite, Winget, Metrics
+│   └── zb_app/              # Tauri v2 desktop application
 ```
 
 ---
