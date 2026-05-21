@@ -10,21 +10,14 @@ use zb_infrastructure::persistence::sqlite_repo::{init_database, SqliteRepo};
 use zb_infrastructure::services::ServiceController;
 use zb_infrastructure::windows_api::metrics_collector::MetricsCollector;
 use zb_infrastructure::windows_api::system_cleaner::SystemCleaner;
-use zb_shared::constants::CREATE_NO_WINDOW;
 
 mod commands;
 mod state;
 
 #[cfg(target_os = "windows")]
 fn is_admin() -> bool {
-    use std::os::windows::process::CommandExt;
-    use std::process::Command;
-    Command::new("net")
-        .creation_flags(CREATE_NO_WINDOW)
-        .args(["session"])
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
+    use windows::Win32::UI::Shell::IsUserAnAdmin;
+    unsafe { IsUserAnAdmin().as_bool() }
 }
 
 #[cfg(target_os = "windows")]
@@ -160,6 +153,7 @@ async fn main() {
             Ok(())
         })
         .manage(app_state)
+        .plugin(tauri_plugin_mcp_bridge::init())
         .invoke_handler(tauri::generate_handler![
             commands::get_app_info,
             commands::check_for_updates,

@@ -503,6 +503,8 @@ mod integration_tests {
     #[tokio::test]
     async fn test_metrics_collector() {
         let mc = zb_infrastructure::windows_api::metrics_collector::MetricsCollector::new();
+        // Wait for the sampler thread to initialize and collect its first sample
+        tokio::time::sleep(std::time::Duration::from_secs(3)).await;
         let metrics = mc.current().await;
         assert!(metrics.cpu_percent >= 0.0);
         assert!(metrics.ram_percent >= 0.0);

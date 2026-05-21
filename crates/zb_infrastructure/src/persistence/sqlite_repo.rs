@@ -301,4 +301,14 @@ impl SnapshotService for SqliteRepo {
 
         Ok(())
     }
+
+    async fn clear_tweak_state(&self, tweak_id: &str) -> Result<(), SnapshotError> {
+        let conn = self.conn.lock().await;
+        conn.execute(
+            "DELETE FROM tweak_states WHERE tweak_id = ?1",
+            [tweak_id],
+        )
+        .map_err(|e| SnapshotError::Storage(e.to_string()))?;
+        Ok(())
+    }
 }

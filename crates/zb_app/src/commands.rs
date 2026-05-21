@@ -362,18 +362,8 @@ pub async fn get_app_info() -> Result<String, String> {
 pub async fn check_admin() -> Result<bool, String> {
     #[cfg(target_os = "windows")]
     {
-        use std::os::windows::process::CommandExt;
-        use std::process::Command;
-
-        let output = Command::new("net")
-            .creation_flags(CREATE_NO_WINDOW)
-            .args(["session"])
-            .output();
-
-        match output {
-            Ok(o) => Ok(o.status.success()),
-            Err(_) => Ok(false),
-        }
+        use windows::Win32::UI::Shell::IsUserAnAdmin;
+        Ok(unsafe { IsUserAnAdmin().as_bool() })
     }
     #[cfg(not(target_os = "windows"))]
     Ok(true)
@@ -471,26 +461,14 @@ pub async fn apply_all_tweaks(state: tauri::State<'_, AppState>) -> Result<Strin
             skipped += 1;
             continue;
         }
-        match tweak.capture_state().await {
-            Ok(snapshot_data) => match tweak.apply().await {
-                Ok(_result) => {
-                    applied += 1;
-                    if let Err(e) = engine
-                        .snapshot_service()
-                        .save_applied(&id, snapshot_data)
-                        .await
-                    {
-                        tracing::error!("Failed to save snapshot for {}: {:?}", id, e);
-                    }
-                }
-                Err(e) => {
-                    tracing::error!("Failed to apply {}: {:?}", id, e);
-                    failed.push(format!("{}: {:?}", id, e));
-                }
-            },
+        // Use engine.apply_single to ensure audit logging and snapshot saving
+        match engine.apply_single(&id).await {
+            Ok(_result) => {
+                applied += 1;
+            }
             Err(e) => {
-                tracing::error!("Failed to capture state for {}: {:?}", id, e);
-                failed.push(format!("{}: could not capture state: {:?}", id, e));
+                tracing::error!("Failed to apply {}: {:?}", id, e);
+                failed.push(format!("{}: {:?}", id, e));
             }
         }
     }
@@ -534,6 +512,10 @@ pub async fn revert_all_tweaks(state: tauri::State<'_, AppState>) -> Result<Stri
             Ok(snapshot_data) => match tweak.revert(&snapshot_data).await {
                 Ok(_result) => {
                     reverted += 1;
+                    // Clear the tweak_state in DB so is_applied() returns false
+                    if let Err(e) = engine.snapshot_service().clear_tweak_state(&id).await {
+                        tracing::error!("Failed to clear tweak state for {}: {:?}", id, e);
+                    }
                 }
                 Err(e) => {
                     tracing::error!("Failed to revert {}: {:?}", id, e);
@@ -781,26 +763,31 @@ pub async fn check_software_installed(winget_id: String) -> Result<bool, String>
     if winget_id == "built-in" {
         return Ok(true);
     }
-    #[cfg(target_os = "windows")]
-    {
-        use std::os::windows::process::CommandExt;
-        use std::process::Command;
+    // Wrap blocking process calls in spawn_blocking
+    tokio::task::spawn_blocking(move || {
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            use std::process::Command;
 
-        let output = Command::new("winget")
-            .creation_flags(CREATE_NO_WINDOW)
-            .args(["list", "--id", &winget_id, "--exact"])
-            .output();
+            let output = Command::new("winget")
+                .creation_flags(CREATE_NO_WINDOW)
+                .args(["list", "--id", &winget_id, "--exact"])
+                .output();
 
-        match output {
-            Ok(o) => {
-                let stdout = String::from_utf8_lossy(&o.stdout);
-                Ok(o.status.success() && stdout.contains(&winget_id))
+            match output {
+                Ok(o) => {
+                    let stdout = String::from_utf8_lossy(&o.stdout);
+                    Ok(o.status.success() && stdout.contains(&winget_id))
+                }
+                Err(_) => Ok(false),
             }
-            Err(_) => Ok(false),
         }
-    }
-    #[cfg(not(target_os = "windows"))]
-    Ok(false)
+        #[cfg(not(target_os = "windows"))]
+        Ok(false)
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?
 }
 
 #[tauri::command]
@@ -808,56 +795,66 @@ pub async fn check_bloatware_installed(winget_id: String) -> Result<bool, String
     if winget_id.is_empty() {
         return Ok(true);
     }
-    #[cfg(target_os = "windows")]
-    {
-        use std::os::windows::process::CommandExt;
-        use std::process::Command;
+    // Wrap blocking process calls in spawn_blocking
+    tokio::task::spawn_blocking(move || {
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            use std::process::Command;
 
-        // First try AppX package detection (most bloatware is AppX)
-        let ps_script = format!(
-            "$pkg = Get-AppxPackage -AllUsers | Where-Object {{ $_.Name -like '*{}*' -or $_.PackageFamilyName -like '*{}*' }}; if ($pkg) {{ Write-Host 'FOUND' }}",
-            winget_id.replace('\'', "''"),
-            winget_id.replace('\'', "''")
-        );
-        let output = Command::new("powershell")
-            .creation_flags(CREATE_NO_WINDOW)
-            .args(["-NoProfile", "-Command", &ps_script])
-            .output();
+            // First try AppX package detection (most bloatware is AppX)
+            let ps_script = format!(
+                "$pkg = Get-AppxPackage -AllUsers | Where-Object {{ $_.Name -like '*{}*' -or $_.PackageFamilyName -like '*{}*' }}; if ($pkg) {{ Write-Host 'FOUND' }}",
+                winget_id.replace('\'', "''"),
+                winget_id.replace('\'', "''")
+            );
+            let output = Command::new("powershell")
+                .creation_flags(CREATE_NO_WINDOW)
+                .args(["-NoProfile", "-Command", &ps_script])
+                .output();
 
-        if let Ok(o) = output {
-            let stdout = String::from_utf8_lossy(&o.stdout);
-            if stdout.contains("FOUND") {
-                return Ok(true);
-            }
-        }
-
-        // Fallback to winget for desktop apps
-        let output = Command::new("winget")
-            .creation_flags(CREATE_NO_WINDOW)
-            .args([
-                "list",
-                "--id",
-                &winget_id,
-                "--exact",
-                "--accept-source-agreements",
-            ])
-            .output();
-
-        match output {
-            Ok(o) => {
+            if let Ok(o) = output {
                 let stdout = String::from_utf8_lossy(&o.stdout);
-                Ok(o.status.success() && stdout.contains(&winget_id))
+                if stdout.contains("FOUND") {
+                    return Ok(true);
+                }
             }
-            Err(_) => Ok(false),
+
+            // Fallback to winget for desktop apps
+            let output = Command::new("winget")
+                .creation_flags(CREATE_NO_WINDOW)
+                .args([
+                    "list",
+                    "--id",
+                    &winget_id,
+                    "--exact",
+                    "--accept-source-agreements",
+                ])
+                .output();
+
+            match output {
+                Ok(o) => {
+                    let stdout = String::from_utf8_lossy(&o.stdout);
+                    Ok(o.status.success() && stdout.contains(&winget_id))
+                }
+                Err(_) => Ok(false),
+            }
         }
-    }
-    #[cfg(not(target_os = "windows"))]
-    Ok(true)
+        #[cfg(not(target_os = "windows"))]
+        Ok(true)
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?
 }
 
 #[tauri::command]
 pub async fn install_software(winget_id: String) -> Result<String, String> {
-    WingetInstaller::new().install(&winget_id)
+    // Wrap blocking winget install in spawn_blocking to avoid freezing the async runtime
+    tokio::task::spawn_blocking(move || {
+        WingetInstaller::new().install(&winget_id)
+    })
+    .await
+    .map_err(|e| format!("Task join error: {}", e))?
 }
 
 // ============================================================================
@@ -1168,14 +1165,18 @@ pub async fn toggle_game_mode(active: bool) -> Result<String, String> {
                 },
             );
 
-            // Reset Hardware GPU Scheduling to default
+            // Reset Hardware GPU Scheduling to default (1 = enabled, which is Windows default)
             let _ = Command::new("reg")
                 .creation_flags(CREATE_NO_WINDOW)
                 .args([
-                    "delete",
+                    "add",
                     "HKLM\\SYSTEM\\CurrentControlSet\\Control\\GraphicsDrivers",
                     "/v",
                     "HwSchMode",
+                    "/t",
+                    "REG_DWORD",
+                    "/d",
+                    "1",
                     "/f",
                 ])
                 .output();

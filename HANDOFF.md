@@ -26,7 +26,7 @@ ZingerBoost has been migrated to **Tauri v2** with a vanilla JS frontend. The ba
 
 ## Workspace Architecture
 - `zb_shared`: Common types, constants, and the software catalog.
-- `zb_domain`: The `Tweak` trait and all 49 tweak implementations (32 currently active).
+- `zb_domain`: The `Tweak` trait and all tweak implementations (32 currently active in production).
 - `zb_infrastructure`: Windows APIs (Registry, Services, Cleaner, Metrics), and SQLite persistence.
 - `zb_application`: The business logic (`TweakEngine`, `SnapshotService`, `AuditService`).
 - `zb_app`: The Tauri v2 application, serving the frontend, routing commands, and bundling installers.

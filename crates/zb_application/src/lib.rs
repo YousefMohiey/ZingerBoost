@@ -126,6 +126,10 @@ mod tests {
         async fn clear_snapshots(&self) -> Result<(), zb_domain::errors::SnapshotError> {
             Ok(())
         }
+
+        async fn clear_tweak_state(&self, _tweak_id: &str) -> Result<(), zb_domain::errors::SnapshotError> {
+            Ok(())
+        }
     }
 
     struct MockAuditService;

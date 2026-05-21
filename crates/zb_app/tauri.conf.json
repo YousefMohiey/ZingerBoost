@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicklasxyz/tauri/tauri-v2/crates/tauri-config-schema/schema.json",
   "productName": "ZingerBoost",
-  "version": "0.0.6",
+  "version": "0.1.0",
   "identifier": "com.zingerboost.app",
   "build": {
     "frontendDist": "src"

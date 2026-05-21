@@ -491,9 +491,11 @@ fn remove_dir_contents_with_errors<P: AsRef<Path>>(path: P) -> (u32, Vec<String>
                 let ep = entry.path();
                 let path_str = ep.to_string_lossy().to_string();
                 if ep.is_dir() {
+                    // Count files inside the directory before removing
+                    let inner_count = count_files_recursive(&ep);
                     match fs::remove_dir_all(&ep) {
                         Ok(_) => {
-                            count += 1;
+                            count += 1 + inner_count; // Count the dir itself + its contents
                             deleted.push(path_str);
                         }
                         Err(e) => errors.push(format!("Failed to remove {:?}: {}", ep, e)),
@@ -513,6 +515,22 @@ fn remove_dir_contents_with_errors<P: AsRef<Path>>(path: P) -> (u32, Vec<String>
     }
 
     (count, deleted, errors)
+}
+
+/// Count files recursively inside a directory (not including the directory itself)
+fn count_files_recursive(path: &Path) -> u32 {
+    let mut count = 0u32;
+    if let Ok(entries) = fs::read_dir(path) {
+        for entry in entries.flatten() {
+            let p = entry.path();
+            if p.is_dir() {
+                count += 1 + count_files_recursive(&p); // Count the subdir itself
+            } else {
+                count += 1;
+            }
+        }
+    }
+    count
 }
 
 fn get_local_appdata() -> PathBuf {

@@ -196,6 +196,8 @@ fn run_sampler(state: &MetricsState) {
 
         // PRIMARY: Use wildcard - typeperf confirmed this works!
         // This is the SIMPLEST and MOST RELIABLE approach
+        // If wildcard succeeds, we skip individual adapters to avoid double-counting
+        let mut wildcard_added = false;
         let down_path = "\\Network Interface(*)\\Bytes Received/sec\0";
         let down_path_w: Vec<u16> = down_path.encode_utf16().collect();
         let mut down_counter: isize = 0;
@@ -207,6 +209,7 @@ fn run_sampler(state: &MetricsState) {
         ) == 0
         {
             net_down_counters.push(down_counter);
+            wildcard_added = true;
             info!("[metrics] Added wildcard down counter: *");
         }
 
@@ -221,10 +224,13 @@ fn run_sampler(state: &MetricsState) {
         ) == 0
         {
             net_up_counters.push(up_counter);
+            wildcard_added = true;
             info!("[metrics] Added wildcard up counter: *");
         }
 
         // Method 1 (backup): GetAdaptersAddresses for additional interfaces
+        // ONLY used when wildcard fails — to avoid double-counting
+        if !wildcard_added {
         // First call to get required buffer size
         let mut buf_size: u32 = 0;
         let initial_result = GetAdaptersAddresses(
@@ -386,6 +392,7 @@ fn run_sampler(state: &MetricsState) {
                 net_up_counters.len()
             );
         }
+        } // end if !wildcard_added
 
         // Method 2: Fallback to PDH enumeration - this gives us the REAL instance names that PDH understands
         if net_down_counters.is_empty() {

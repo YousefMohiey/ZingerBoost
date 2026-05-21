@@ -233,8 +233,10 @@ function setupEventListeners() {
             const { id } = btn.dataset;
             if (id) window.deleteBackup(id);
         } else if (btn.classList.contains('remove-bloat-btn')) {
-            const { id, name } = btn.dataset;
-            if (id && name) window.removeBloatware(id, name);
+            const { winget, name, id } = btn.dataset;
+            // Pass winget_id to backend (not internal ID like "bloat_candycrush")
+            const removalId = (winget !== undefined) ? winget : (id || '');
+            if (removalId !== undefined) window.removeBloatware(removalId, name || removalId);
         } else if (btn.classList.contains('install-btn')) {
             const { name, winget } = btn.dataset;
             if (name && winget) window.installSoftware(name, winget);
@@ -922,7 +924,7 @@ function renderTweaks() {
         renderList(DOM.lists.tweaks, filtered, (tweak) => {
             const i = AppState.tweaksData.indexOf(tweak);
             const applied = stateMap.get(tweak.id) || false;
-            const isFav = AppState.favorites.has(`tweak-${i}`);
+            const isFav = AppState.favorites.has(`tweak-${tweak.id}`);
             
             return renderCard({
                 title: tweak.name,
@@ -935,7 +937,7 @@ function renderTweaks() {
                 toggleClass: 'tweak-toggle',
                 toggleData: `data-index="${i}" data-id="${escapeHtml(tweak.id)}" data-name="${escapeHtml(tweak.name)}"`,
                 favType: 'tweak',
-                favIndex: i,
+                favIndex: tweak.id,
                 isFav
             });
         });
@@ -950,7 +952,7 @@ function renderTweaks() {
         renderList(DOM.lists.tweaks, filtered, (tweak) => {
             const i = AppState.tweaksData.indexOf(tweak);
             const applied = stateMap.get(tweak.id) || false;
-            const isFav = AppState.favorites.has(`tweak-${i}`);
+            const isFav = AppState.favorites.has(`tweak-${tweak.id}`);
             
             return renderCard({
                 title: tweak.name,
@@ -963,7 +965,7 @@ function renderTweaks() {
                 toggleClass: 'tweak-toggle',
                 toggleData: `data-index="${i}" data-id="${escapeHtml(tweak.id)}" data-name="${escapeHtml(tweak.name)}"`,
                 favType: 'tweak',
-                favIndex: i,
+                favIndex: tweak.id,
                 isFav
             });
         });
@@ -1075,7 +1077,7 @@ function renderServices() {
     
     renderList(DOM.lists.services, filtered, (svc, i) => {
         const isRunning = svc.status === 'Running';
-        const isFav = AppState.favorites.has(`service-${i}`);
+        const isFav = AppState.favorites.has(`service-${svc.name}`);
         
         return renderCard({
             title: svc.display_name,
@@ -1088,7 +1090,7 @@ function renderServices() {
             toggleClass: 'service-toggle',
             toggleData: `data-index="${i}" data-name="${escapeHtml(svc.name)}" data-display="${escapeHtml(svc.display_name)}"`,
             favType: 'service',
-            favIndex: i,
+            favIndex: svc.name,
             isFav
         });
     });
@@ -1142,11 +1144,11 @@ async function loadCleaner() {
             statusActive: item.risk === 'safe',
             hasButton: true,
             buttonText: 'Clean',
-            buttonData: `data-id="${escapeHtml(item.id)}" data-name="${escapeHtml(item.name)}"`,
+            buttonData: `data-id="${escapeHtml(item.id)}" data-name="${escapeHtml(item.name)}" data-winget="${escapeHtml(item.winget_id)}"`,
             buttonClass: 'clean-btn',
             favType: 'cleaner',
-            favIndex: i,
-            isFav: AppState.favorites.has(`cleaner-${i}`)
+            favIndex: item.id,
+            isFav: AppState.favorites.has(`cleaner-${item.id}`)
         }));
     } catch (err) {
         showError(DOM.lists.cleaner, 'Failed to load cleaner items');
@@ -1295,12 +1297,14 @@ async function handleCreateBackup() {
         input: true,
         inputValue: `Backup ${new Date().toLocaleString()}`
     });
-    if (!desc) return;
+    // desc is `false` when cancelled, or a string (possibly empty) when confirmed
+    if (desc === false) return;
+    const description = (typeof desc === 'string' && desc.trim()) ? desc.trim() : `Backup ${new Date().toLocaleString()}`;
     
     showStatus('Creating backup...');
     
     try {
-        const result = await invoke('create_backup', { description: desc });
+        const result = await invoke('create_backup', { description: description });
         showStatus(result);
         await loadBackups();
     } catch (err) {
@@ -1338,8 +1342,7 @@ function renderBloatware() {
         : AppState.bloatwareData.filter(item => item.subcategory === AppState.debloatCategory);
     
     renderList(DOM.lists.bloatware, filtered, (item, i) => {
-        const globalIndex = AppState.bloatwareData.indexOf(item);
-        const isFav = AppState.favorites.has(`bloatware-${globalIndex}`);
+        const isFav = AppState.favorites.has(`bloatware-${item.id}`);
         
         return renderCard({
             title: item.name,
@@ -1352,7 +1355,7 @@ function renderBloatware() {
             buttonData: `data-id="${escapeHtml(item.id)}" data-name="${escapeHtml(item.name)}"`,
             buttonClass: 'danger remove-bloat-btn',
             favType: 'bloatware',
-            favIndex: globalIndex,
+            favIndex: item.id,
             isFav
         });
     });
@@ -1361,12 +1364,12 @@ function renderBloatware() {
 /**
  * Remove bloatware
  */
-window.removeBloatware = async function(id, name) {
+window.removeBloatware = async function(wingetId, name) {
     showStatus(`Removing ${name}...`);
     showProgress(30);
     
     try {
-        const result = await invoke('remove_bloatware', { name: id });
+        const result = await invoke('remove_bloatware', { name: wingetId });
         showProgress(100);
         setTimeout(() => hideProgress(), 500);
         showStatus(result);
@@ -1407,8 +1410,7 @@ function renderSoftware() {
         : AppState.softwareData.filter(item => item.category === AppState.installerCategory);
     
     renderList(DOM.lists.software, filtered, (item, i) => {
-        const globalIndex = AppState.softwareData.indexOf(item);
-        const isFav = AppState.favorites.has(`software-${globalIndex}`);
+        const isFav = AppState.favorites.has(`software-${item.id}`);
         
         return renderCard({
             title: item.name,
@@ -1421,7 +1423,7 @@ function renderSoftware() {
             buttonData: `data-name="${escapeHtml(item.name)}" data-winget="${escapeHtml(item.winget_id)}"`,
             buttonClass: 'install-btn',
             favType: 'software',
-            favIndex: globalIndex,
+            favIndex: item.id,
             isFav
         });
     });
@@ -1616,9 +1618,13 @@ function renderFavorites() {
     // Group favorites by type
     const grouped = {};
     for (const key of favKeys) {
-        const [type, index] = key.split('-');
+        // Key format: "type-itemId" where itemId may contain hyphens
+        const dashIndex = key.indexOf('-');
+        if (dashIndex === -1) continue;
+        const type = key.substring(0, dashIndex);
+        const itemId = key.substring(dashIndex + 1);
         if (!grouped[type]) grouped[type] = [];
-        grouped[type].push({ key, index: parseInt(index) });
+        grouped[type].push({ key, itemId });
     }
     
     const typeLabels = {
@@ -1646,7 +1652,9 @@ function renderFavorites() {
         html += `<div class="fav-group"><h3>${escapeHtml(label)}</h3><div class="fav-grid">`;
         
         for (const item of items) {
-            const data = source[item.index];
+            // Look up data by item ID instead of array index
+            const idKey = type === 'service' ? 'name' : 'id';
+            const data = source.find(s => s[idKey] === item.itemId);
             if (!data) continue;
             
             if (type === 'tweak') {
@@ -1660,7 +1668,7 @@ function renderFavorites() {
                     buttonClass: 'btn-action',
                     buttonData: `onclick="switchTab('optimizations')"`,
                     favType: type,
-                    favIndex: item.index
+                    favIndex: item.itemId
                 });
             } else if (type === 'service') {
                 const isRunning = data.status === 'Running';
@@ -1673,9 +1681,9 @@ function renderFavorites() {
                     hasToggle: true,
                     toggleChecked: isRunning,
                     toggleClass: 'service-toggle',
-                    toggleData: `data-index="${item.index}" data-name="${escapeHtml(data.name)}" data-display="${escapeHtml(data.display_name)}"`,
+                    toggleData: `data-index="${item.itemId}" data-name="${escapeHtml(data.name)}" data-display="${escapeHtml(data.display_name)}"`,
                     favType: type,
-                    favIndex: item.index
+                    favIndex: item.itemId
                 });
             } else if (type === 'cleaner') {
                 html += renderFavCard({
@@ -1689,7 +1697,7 @@ function renderFavorites() {
                     buttonData: `data-id="${escapeHtml(data.id)}" data-name="${escapeHtml(data.name)}"`,
                     buttonClass: 'clean-btn',
                     favType: type,
-                    favIndex: item.index
+                    favIndex: item.itemId
                 });
             } else if (type === 'bloatware') {
                 html += renderFavCard({
@@ -1699,10 +1707,10 @@ function renderFavorites() {
                     statusText: 'Installed',
                     hasButton: true,
                     buttonText: 'Remove',
-                    buttonData: `data-id="${escapeHtml(data.id)}" data-name="${escapeHtml(data.name)}"`,
+                    buttonData: `data-id="${escapeHtml(data.id)}" data-name="${escapeHtml(data.name)}" data-winget="${escapeHtml(data.winget_id)}"`,
                     buttonClass: 'danger remove-bloat-btn',
                     favType: type,
-                    favIndex: item.index
+                    favIndex: item.itemId
                 });
             } else if (type === 'software') {
                 html += renderFavCard({
@@ -1715,7 +1723,7 @@ function renderFavorites() {
                     buttonData: `data-name="${escapeHtml(data.name)}" data-winget="${escapeHtml(data.winget_id)}"`,
                     buttonClass: 'install-btn',
                     favType: type,
-                    favIndex: item.index
+                    favIndex: item.itemId
                 });
             }
         }
@@ -1817,10 +1825,13 @@ function updateMaximizeIcon(isMaximized) {
 
 /**
  * Escape HTML to prevent XSS
+ * Also escapes quotes for safe use in HTML attribute values
  */
 function escapeHtml(text) {
     if (!text) return '';
     const div = document.createElement('div');
     div.textContent = text;
-    return div.innerHTML;
+    return div.innerHTML
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
 }

@@ -18,7 +18,7 @@
 ╔══════════════════════════════════════════════════════════════╗
 ║      ZINGERBOOST - SAFE, REVERSIBLE WINDOWS OPTIMIZATION   ║
 ╠══════════════════════════════════════════════════════════════╣
-║  49 tweaks  │  19 services  │  9 cleaner categories        ║
+║  32 tweaks  │  19 services  │  9 cleaner categories        ║
 ║  44 bloatware targets  │  30+ software installs via Winget ║
 ╚══════════════════════════════════════════════════════════════╝
 ```
@@ -30,7 +30,7 @@
 ```powershell
 C:\> deploy --safe --aggressive
 [ OK ] Initializing engine...
-[ OK ] 49 registered tweaks available
+[ OK ] 32 registered tweaks available
 [ OK ] Snapshot system armed
 [ OK ] System ready for optimization
 ```

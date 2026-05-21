@@ -25,4 +25,7 @@ pub trait SnapshotService: Send + Sync {
 
     /// Clear all snapshots
     async fn clear_snapshots(&self) -> Result<(), SnapshotError>;
+
+    /// Clear the tweak_state entry for a specific tweak (after revert)
+    async fn clear_tweak_state(&self, tweak_id: &str) -> Result<(), SnapshotError>;
 }
