@@ -233,11 +233,12 @@ pub async fn debug_log(message: String) -> Result<String, String> {
 pub async fn uninstall_app() -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
-        use std::process::Command;
         use std::path::PathBuf;
+        use std::process::Command;
         use zb_shared::constants::CREATE_NO_WINDOW;
-        
-        let program_files = std::env::var("ProgramFiles").unwrap_or_else(|_| "C:\\Program Files".into());
+
+        let program_files =
+            std::env::var("ProgramFiles").unwrap_or_else(|_| "C:\\Program Files".into());
         let uninstaller_path = PathBuf::from(&program_files)
             .join("ZingerBoost")
             .join("Uninstall ZingerBoost.exe");
@@ -248,7 +249,7 @@ pub async fn uninstall_app() -> Result<String, String> {
             // and we also want to clean up AppData which NSIS doesn't do by default.
             let temp_dir = std::env::var("TEMP").unwrap_or_else(|_| "C:\\Windows\\Temp".into());
             let bat_path = PathBuf::from(&temp_dir).join("zb_uninstall.bat");
-            
+
             let bat_content = format!(
                 "@echo off\r\n\
                 echo Waiting for ZingerBoost to close...\r\n\
@@ -280,9 +281,9 @@ pub async fn uninstall_app() -> Result<String, String> {
                         std::thread::sleep(std::time::Duration::from_millis(500));
                         std::process::exit(0);
                     });
-                    
+
                     Ok("Uninstall process started. ZingerBoost will now close and remove all data.".to_string())
-                },
+                }
                 Err(e) => Err(format!("Failed to launch uninstall script: {}", e)),
             }
         } else {

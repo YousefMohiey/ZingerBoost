@@ -787,7 +787,7 @@ fn run_sampler(state: &MetricsState) {
             state.set(&metrics);
 
             // Write to file directly to bypass tracing buffering
-            if sample_count % 5 == 0 {
+            if sample_count.is_multiple_of(5) {
                 let msg = format!(
                     "[metrics] sample#{} cpu={:.1}% ram={:.1}%({}MB/{}) disk={:.1}% net={:.2}/{:.2}Mbps\n",
                     sample_count, cpu, ram_pct, used_mb, total_mb, disk_usage_pct, net_down, net_up
@@ -813,7 +813,7 @@ fn run_sampler(state: &MetricsState) {
 /// Fallback: get network bytes via GetIfTable2 when PDH counters unavailable
 #[cfg(target_os = "windows")]
 fn get_network_fallback() -> Option<(u64, u64)> {
-    use windows::Win32::NetworkManagement::IpHelper::{GetIfTable2, FreeMibTable, MIB_IF_TABLE2};
+    use windows::Win32::NetworkManagement::IpHelper::{FreeMibTable, GetIfTable2, MIB_IF_TABLE2};
     use windows::Win32::NetworkManagement::Ndis::IF_OPER_STATUS;
 
     unsafe {
@@ -821,12 +821,10 @@ fn get_network_fallback() -> Option<(u64, u64)> {
         if GetIfTable2(&mut table).is_ok() && !table.is_null() {
             let mut total_in = 0u64;
             let mut total_out = 0u64;
-            
+
             let table_ref = &*table;
-            let entries = std::slice::from_raw_parts(
-                table_ref.Table.as_ptr(),
-                table_ref.NumEntries as usize,
-            );
+            let entries =
+                std::slice::from_raw_parts(table_ref.Table.as_ptr(), table_ref.NumEntries as usize);
 
             for row in entries {
                 // Only count operational interfaces and exclude loopback
@@ -838,7 +836,7 @@ fn get_network_fallback() -> Option<(u64, u64)> {
             }
 
             FreeMibTable(table as *mut std::ffi::c_void);
-            
+
             if total_in > 0 || total_out > 0 {
                 return Some((total_in, total_out));
             }

@@ -153,7 +153,7 @@ async fn main() {
             #[cfg(debug_assertions)]
             {
                 if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.open_devtools();
+                    window.open_devtools();
                 }
             }
 

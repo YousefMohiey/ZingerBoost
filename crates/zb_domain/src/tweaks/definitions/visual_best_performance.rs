@@ -217,7 +217,7 @@ impl Tweak for VisualBestPerformanceTweak {
     }
 
     async fn apply(&self) -> Result<TweakResult, TweakError> {
-        apply_visual_fx().map_err(|e| TweakError::Unknown(e))?;
+        apply_visual_fx().map_err(TweakError::Unknown)?;
 
         Ok(TweakResult {
             reboot_required: false,
@@ -228,18 +228,17 @@ impl Tweak for VisualBestPerformanceTweak {
 
     async fn revert(&self, snapshot: &SnapshotData) -> Result<TweakResult, TweakError> {
         let previous_value = if let SnapshotData::Registry {
-            name: _, previous, ..
+            name: _,
+            previous: RegValue::Dword(v),
+            ..
         } = snapshot
         {
-            match previous {
-                RegValue::Dword(v) => *v,
-                _ => 1,
-            }
+            *v
         } else {
             1
         };
 
-        revert_visual_fx(previous_value).map_err(|e| TweakError::Unknown(e))?;
+        revert_visual_fx(previous_value).map_err(TweakError::Unknown)?;
 
         Ok(TweakResult {
             reboot_required: false,
