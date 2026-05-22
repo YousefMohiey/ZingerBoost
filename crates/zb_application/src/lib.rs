@@ -127,7 +127,10 @@ mod tests {
             Ok(())
         }
 
-        async fn clear_tweak_state(&self, _tweak_id: &str) -> Result<(), zb_domain::errors::SnapshotError> {
+        async fn clear_tweak_state(
+            &self,
+            _tweak_id: &str,
+        ) -> Result<(), zb_domain::errors::SnapshotError> {
             Ok(())
         }
     }

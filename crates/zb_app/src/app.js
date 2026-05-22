@@ -20,7 +20,13 @@ const AppState = {
     favorites: new Set(),
     isLoading: false,
     // Window state tracking
-    isMaximized: false
+    isMaximized: false,
+    // Debloat status tracking (Map<bloatwareId, 'installed'|'removed'|'checking'>)
+    bloatwareStatuses: new Map(),
+    // Debloat multi-select
+    debloatSelection: new Set(),
+    // Whether bloatware statuses are currently being checked
+    bloatwareChecking: false
 };
 
 const DOM = {
@@ -64,11 +70,49 @@ document.addEventListener('DOMContentLoaded', async () => {
     cacheDOM();
     Modal.init();
     setupEventListeners();
+    setupResizeObserver();
     loadAppInfo();
     checkAdminStatus();
     loadInitialData();
     await startMetricsPolling();
 });
+
+/**
+ * Setup ResizeObserver for dynamic layout adjustments
+ * Adjusts card grid min-width based on available content area
+ */
+function setupResizeObserver() {
+    const content = document.getElementById('content');
+    if (!content || typeof ResizeObserver === 'undefined') return;
+
+    const observer = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+            const width = entry.contentRect.width;
+            const root = document.documentElement;
+
+            // Dynamic card min-width based on content area width
+            if (width >= 1200) {
+                root.style.setProperty('--card-min-width', '280px');
+            } else if (width >= 900) {
+                root.style.setProperty('--card-min-width', '250px');
+            } else if (width >= 600) {
+                root.style.setProperty('--card-min-width', '210px');
+            } else if (width >= 400) {
+                root.style.setProperty('--card-min-width', '170px');
+            } else if (width >= 280) {
+                root.style.setProperty('--card-min-width', '140px');
+            } else {
+                root.style.setProperty('--card-min-width', '120px');
+            }
+
+            // Add a class to body for JS-based responsive logic
+            document.body.classList.toggle('compact-layout', width < 500);
+            document.body.classList.toggle('wide-layout', width >= 1200);
+        }
+    });
+
+    observer.observe(content);
+}
 
 /**
  * Cache DOM references
@@ -171,10 +215,14 @@ function setupEventListeners() {
                 btn.classList.add('active');
                 btn.setAttribute('aria-selected', 'true');
                 AppState.debloatCategory = btn.dataset.cat;
+                // Clear selection when switching categories
+                AppState.debloatSelection.clear();
                 renderBloatware();
             });
         });
     }
+    // Update debloat tab badges with counts
+    updateDebloatTabBadges();
 
     // Installer category tabs
     const installerTabs = document.getElementById('installer-tabs');
@@ -243,6 +291,38 @@ function setupEventListeners() {
         } else if (btn.classList.contains('fav-btn')) {
             const { type, index } = btn.dataset;
             if (type && index) toggleFavorite(type, index);
+        } else if (btn.id === 'debloat-remove-selected') {
+            window.removeSelectedBloatware();
+        } else if (btn.id === 'debloat-remove-all') {
+            window.removeAllBloatware();
+        } else if (btn.id === 'debloat-refresh-status') {
+            // Re-check all statuses
+            for (const item of AppState.bloatwareData) {
+                AppState.bloatwareStatuses.set(item.id, 'checking');
+                updateBloatwareCardStatus(item.id);
+            }
+            checkAllBloatwareStatuses();
+        }
+    });
+
+    // Debloat toolbar "Select All" button delegation (styled button, not checkbox)
+    document.addEventListener('click', (e) => {
+        const selectAllBtn = e.target.closest('#debloat-select-all-btn');
+        if (selectAllBtn) {
+            const filtered = getFilteredBloatware();
+            const selectable = filtered.filter(item => {
+                const status = AppState.bloatwareStatuses.get(item.id);
+                return status !== 'removed';
+            });
+            const allSelected = selectable.length > 0 && selectable.every(item => AppState.debloatSelection.has(item.id));
+            
+            AppState.debloatSelection.clear();
+            if (!allSelected) {
+                for (const item of selectable) {
+                    AppState.debloatSelection.add(item.id);
+                }
+            }
+            renderBloatware();
         }
     });
 
@@ -452,8 +532,15 @@ function bindTopbarActions(tab) {
 async function loadAppInfo() {
     try {
         const info = await invoke('get_app_info');
-        const versionEl = document.getElementById('app-version');
-        if (versionEl && info.version) versionEl.textContent = `v${info.version}`;
+        if (info.version) {
+            const versionStr = `v${info.version}`;
+            // Update settings tab version
+            const settingsVersionEl = document.getElementById('app-version');
+            if (settingsVersionEl) settingsVersionEl.textContent = versionStr;
+            // Update sidebar version
+            const sidebarVersionEl = document.getElementById('version-display');
+            if (sidebarVersionEl) sidebarVersionEl.textContent = versionStr;
+        }
     } catch (err) {
         console.error('[loadAppInfo] Failed:', err);
     }
@@ -684,7 +771,14 @@ async function loadTabData(tab) {
         services: loadServices,
         cleaner: loadCleaner,
         backups: loadBackups,
-        debloat: loadBloatware,
+        debloat: () => {
+            // Only reload if data hasn't been loaded yet
+            if (AppState.bloatwareData.length === 0) {
+                return loadBloatware();
+            }
+            // Otherwise just re-render (status checks may still be running)
+            renderBloatware();
+        },
         installer: loadSoftware,
         favorites: renderFavorites,
         audit: loadAuditLog
@@ -720,32 +814,55 @@ async function loadMetrics() {
  * Update home page metrics
  */
 function updateHomeMetrics(metrics) {
-    if (!metrics) return;
+    if (!metrics || typeof metrics !== 'object') return;
     
-    const cpuPct = metrics.cpu_percent;
-    const ramPct = metrics.ram_percent;
-    const diskPct = metrics.disk_active_percent;
-    const netMbps = metrics.network_down_mbps + metrics.network_up_mbps;
+    // Safety: ensure all values are valid numbers (guard against NaN/undefined/null)
+    const cpuPct = (typeof metrics.cpu_percent === 'number' && isFinite(metrics.cpu_percent)) ? metrics.cpu_percent : 0;
+    const ramPct = (typeof metrics.ram_percent === 'number' && isFinite(metrics.ram_percent)) ? metrics.ram_percent : 0;
+    const ramUsed = (typeof metrics.ram_used_mb === 'number' && isFinite(metrics.ram_used_mb)) ? metrics.ram_used_mb : 0;
+    const ramTotal = (typeof metrics.ram_total_mb === 'number' && isFinite(metrics.ram_total_mb)) ? metrics.ram_total_mb : 0;
+    const diskPct = (typeof metrics.disk_active_percent === 'number' && isFinite(metrics.disk_active_percent)) ? metrics.disk_active_percent : 0;
+    const netDown = (typeof metrics.network_down_mbps === 'number' && isFinite(metrics.network_down_mbps)) ? metrics.network_down_mbps : 0;
+    const netUp = (typeof metrics.network_up_mbps === 'number' && isFinite(metrics.network_up_mbps)) ? metrics.network_up_mbps : 0;
+    const netMbps = netDown + netUp;
     
+    // CPU
     const cpuVal = document.getElementById('home-cpu-value');
     const cpuBar = document.getElementById('home-cpu-bar');
     if (cpuVal) { cpuVal.textContent = `${Math.round(cpuPct)}%`; flashElement(cpuVal); }
-    if (cpuBar) { cpuBar.style.width = `${Math.min(cpuPct, 100)}%`; cpuBar.parentElement.setAttribute('aria-valuenow', Math.round(cpuPct)); }
+    if (cpuBar) { cpuBar.style.width = `${Math.min(Math.max(cpuPct, 0), 100)}%`; cpuBar.parentElement.setAttribute('aria-valuenow', Math.round(cpuPct)); }
     
+    // RAM — show "X.X / Y.Y GB" format + percentage
     const ramVal = document.getElementById('home-ram-value');
     const ramBar = document.getElementById('home-ram-bar');
-    if (ramVal) { ramVal.textContent = `${Math.round(ramPct)}%`; flashElement(ramVal); }
-    if (ramBar) { ramBar.style.width = `${Math.min(ramPct, 100)}%`; ramBar.parentElement.setAttribute('aria-valuenow', Math.round(ramPct)); }
+    if (ramVal) {
+        const usedGB = (ramUsed / 1024).toFixed(1);
+        const totalGB = (ramTotal / 1024).toFixed(1);
+        ramVal.textContent = ramTotal > 0 ? `${usedGB} / ${totalGB} GB` : `${Math.round(ramPct)}%`;
+        flashElement(ramVal);
+    }
+    if (ramBar) { ramBar.style.width = `${Math.min(Math.max(ramPct, 0), 100)}%`; ramBar.parentElement.setAttribute('aria-valuenow', Math.round(ramPct)); }
     
+    // Disk
     const diskVal = document.getElementById('home-disk-value');
     const diskBar = document.getElementById('home-disk-bar');
     if (diskVal) { diskVal.textContent = `${Math.round(diskPct)}%`; flashElement(diskVal); }
-    if (diskBar) { diskBar.style.width = `${Math.min(diskPct, 100)}%`; diskBar.parentElement.setAttribute('aria-valuenow', Math.round(diskPct)); }
+    if (diskBar) { diskBar.style.width = `${Math.min(Math.max(diskPct, 0), 100)}%`; diskBar.parentElement.setAttribute('aria-valuenow', Math.round(diskPct)); }
     
+    // Network
     const netVal = document.getElementById('home-network-value');
     const netBar = document.getElementById('home-network-bar');
-    if (netVal) { netVal.textContent = netMbps < 1 ? `${(netMbps * 1000).toFixed(0)} Kbps` : `${netMbps.toFixed(1)} Mbps`; flashElement(netVal); }
-    if (netBar) { const np = Math.min(netMbps * 5, 100); netBar.style.width = `${np}%`; netBar.parentElement.setAttribute('aria-valuenow', Math.round(np)); }
+    if (netVal) {
+        if (netMbps < 0.001) {
+            netVal.textContent = '0 Kbps';
+        } else if (netMbps < 1) {
+            netVal.textContent = `${(netMbps * 1000).toFixed(0)} Kbps`;
+        } else {
+            netVal.textContent = `${netMbps.toFixed(1)} Mbps`;
+        }
+        flashElement(netVal);
+    }
+    if (netBar) { const np = Math.min(Math.max(netMbps * 5, 0), 100); netBar.style.width = `${np}%`; netBar.parentElement.setAttribute('aria-valuenow', Math.round(np)); }
 }
 
 function flashElement(el) {
@@ -756,12 +873,43 @@ function flashElement(el) {
 }
 
 /**
- * Start metrics updates. Backend pushes via eval() every second.
- * This function just does initial load.
+ * Start metrics updates. Backend emits 'metrics-update' event every second.
+ * This function sets up the event listener and does initial load.
  */
 async function startMetricsPolling() {
     // Initial load
     await loadMetrics();
+    
+    // Listen for metrics updates from backend via Tauri events
+    if (window.__TAURI__ && window.__TAURI__.event) {
+        try {
+            await window.__TAURI__.event.listen('metrics-update', (event) => {
+                let metrics = event.payload;
+                // Payload may be a JSON string (if backend emits via current_json())
+                // or an object (if backend emits the struct directly). Handle both.
+                if (typeof metrics === 'string') {
+                    try {
+                        metrics = JSON.parse(metrics);
+                    } catch (e) {
+                        console.warn('[metrics] Failed to parse event payload:', e);
+                        return;
+                    }
+                }
+                if (metrics && typeof metrics === 'object') {
+                    updateHomeMetrics(metrics);
+                    
+                    const tsEl = document.getElementById('metrics-last-update');
+                    if (tsEl) {
+                        const now = new Date();
+                        tsEl.textContent = now.toLocaleTimeString();
+                    }
+                }
+            });
+            console.log('[metrics] Event listener registered for metrics-update');
+        } catch (err) {
+            console.error('[metrics] Failed to register event listener:', err);
+        }
+    }
 }
 
 /**
@@ -1075,7 +1223,7 @@ function renderServices() {
             return true;
         });
     
-    renderList(DOM.lists.services, filtered, (svc, i) => {
+    renderList(DOM.lists.services, filtered, (svc) => {
         const isRunning = svc.status === 'Running';
         const isFav = AppState.favorites.has(`service-${svc.name}`);
         
@@ -1088,7 +1236,7 @@ function renderServices() {
             hasToggle: true,
             toggleChecked: isRunning,
             toggleClass: 'service-toggle',
-            toggleData: `data-index="${i}" data-name="${escapeHtml(svc.name)}" data-display="${escapeHtml(svc.display_name)}"`,
+            toggleData: `data-index="${escapeHtml(svc.name)}" data-name="${escapeHtml(svc.name)}" data-display="${escapeHtml(svc.display_name)}"`,
             favType: 'service',
             favIndex: svc.name,
             isFav
@@ -1100,12 +1248,16 @@ function renderServices() {
  * Toggle a service
  */
 window.toggleService = async function(index, name, displayName) {
-    const toggle = document.querySelector(`.service-toggle[data-index="${index}"]`);
-    if (!toggle) return;
+    // Find ALL matching toggles (may exist in both Services and Favorites tabs)
+    const toggles = document.querySelectorAll(`.service-toggle[data-index="${index}"]`);
+    if (toggles.length === 0) return;
     
-    const shouldBeActive = toggle.checked;
+    const primaryToggle = toggles[0];
+    const shouldBeActive = primaryToggle.checked;
     showStatus(shouldBeActive ? `Starting ${displayName}...` : `Stopping ${displayName}...`);
-    toggle.disabled = true;
+    
+    // Disable all matching toggles
+    toggles.forEach(t => t.disabled = true);
     
     try {
         if (shouldBeActive) {
@@ -1118,11 +1270,17 @@ window.toggleService = async function(index, name, displayName) {
         
         // Auto-refresh services list after toggle
         await loadServices();
+        
+        // Also refresh favorites if on that tab
+        if (AppState.currentTab === 'favorites') {
+            renderFavorites();
+        }
     } catch (err) {
         showStatus(`Error: ${err}`);
-        toggle.checked = !shouldBeActive;
+        // Revert all matching toggles
+        toggles.forEach(t => t.checked = !shouldBeActive);
     } finally {
-        toggle.disabled = false;
+        toggles.forEach(t => t.disabled = false);
     }
 };
 
@@ -1144,7 +1302,7 @@ async function loadCleaner() {
             statusActive: item.risk === 'safe',
             hasButton: true,
             buttonText: 'Clean',
-            buttonData: `data-id="${escapeHtml(item.id)}" data-name="${escapeHtml(item.name)}" data-winget="${escapeHtml(item.winget_id)}"`,
+            buttonData: `data-id="${escapeHtml(item.id)}" data-name="${escapeHtml(item.name)}"`,
             buttonClass: 'clean-btn',
             favType: 'cleaner',
             favIndex: item.id,
@@ -1316,15 +1474,104 @@ async function handleCreateBackup() {
  * Load bloatware data
  */
 async function loadBloatware() {
-    showLoading(DOM.lists.bloatware);
+    if (DOM.lists.bloatware) {
+        DOM.lists.bloatware.innerHTML = `
+            <div class="loading-spinner">
+                <div class="spinner"></div>
+                <p>Loading bloatware list...</p>
+            </div>
+        `;
+    }
     
     try {
         const items = await invoke('get_bloatware');
         AppState.bloatwareData = Array.isArray(items) ? items : [];
+        
+        // Initialize statuses as 'checking' for all items
+        for (const item of AppState.bloatwareData) {
+            if (!AppState.bloatwareStatuses.has(item.id)) {
+                AppState.bloatwareStatuses.set(item.id, 'checking');
+            }
+        }
+        
         renderBloatware();
+        
+        // Check installed status for all items in background
+        checkAllBloatwareStatuses();
     } catch (err) {
         console.error('[loadBloatware] Error:', err);
-        showError(DOM.lists.bloatware, 'Failed to load bloatware: ' + err);
+        if (DOM.lists.bloatware) {
+            DOM.lists.bloatware.innerHTML = `<p class="empty-state error">Failed to load bloatware: ${escapeHtml(err)}</p>`;
+        }
+    }
+}
+
+/**
+ * Check installed status for all bloatware items in parallel batches
+ */
+async function checkAllBloatwareStatuses() {
+    if (AppState.bloatwareChecking) return;
+    AppState.bloatwareChecking = true;
+    
+    const items = AppState.bloatwareData;
+    const BATCH_SIZE = 5; // Check 5 at a time to avoid overwhelming the system
+    
+    for (let i = 0; i < items.length; i += BATCH_SIZE) {
+        const batch = items.slice(i, i + BATCH_SIZE);
+        const promises = batch.map(async (item) => {
+            try {
+                // Items with empty winget_id (like "Remove Ads & Widgets") use special handling
+                const installed = await invoke('check_bloatware_installed', { wingetId: item.winget_id });
+                AppState.bloatwareStatuses.set(item.id, installed ? 'installed' : 'removed');
+            } catch (err) {
+                console.warn(`[checkBloatwareStatus] Failed for ${item.name}:`, err);
+                AppState.bloatwareStatuses.set(item.id, 'unknown');
+            }
+            // Update the card status in DOM without full re-render
+            updateBloatwareCardStatus(item.id);
+        });
+        
+        await Promise.allSettled(promises);
+    }
+    
+    AppState.bloatwareChecking = false;
+    updateDebloatToolbar();
+}
+
+/**
+ * Update a single bloatware card's status indicator in the DOM
+ */
+function updateBloatwareCardStatus(itemId) {
+    const card = document.querySelector(`.card[data-bloat-id="${itemId}"]`);
+    if (!card) return;
+    
+    const status = AppState.bloatwareStatuses.get(itemId) || 'unknown';
+    const statusEl = card.querySelector('.card-status');
+    const removeBtn = card.querySelector('.remove-bloat-btn');
+    
+    if (statusEl) {
+        const isInstalled = status === 'installed';
+        const isRemoved = status === 'removed';
+        const isChecking = status === 'checking';
+        
+        statusEl.className = `card-status ${isInstalled ? 'active' : 'inactive'}`;
+        statusEl.innerHTML = `
+            <span class="status-dot"></span>
+            <span>${isChecking ? 'Checking...' : isRemoved ? 'Removed' : isInstalled ? 'Installed' : 'Unknown'}</span>
+        `;
+    }
+    
+    // Disable remove button if already removed
+    if (removeBtn) {
+        if (status === 'removed') {
+            removeBtn.disabled = true;
+            removeBtn.textContent = 'Removed';
+        } else if (status === 'checking') {
+            removeBtn.disabled = true;
+        } else {
+            removeBtn.disabled = false;
+            removeBtn.textContent = 'Remove';
+        }
     }
 }
 
@@ -1333,32 +1580,221 @@ async function loadBloatware() {
  */
 function renderBloatware() {
     if (!AppState.bloatwareData.length) {
-        renderList(DOM.lists.bloatware, [], () => '');
+        DOM.lists.bloatware.innerHTML = '<p class="empty-state">No bloatware items available</p>';
         return;
     }
     
-    const filtered = AppState.debloatCategory === 'all' 
-        ? AppState.bloatwareData 
-        : AppState.bloatwareData.filter(item => item.subcategory === AppState.debloatCategory);
+    // Filter by category or status
+    let filtered;
+    if (AppState.debloatCategory === 'all') {
+        filtered = AppState.bloatwareData;
+    } else if (AppState.debloatCategory === 'installed') {
+        filtered = AppState.bloatwareData.filter(item => AppState.bloatwareStatuses.get(item.id) === 'installed');
+    } else if (AppState.debloatCategory === 'removed') {
+        filtered = AppState.bloatwareData.filter(item => AppState.bloatwareStatuses.get(item.id) === 'removed');
+    } else {
+        filtered = AppState.bloatwareData.filter(item => item.subcategory === AppState.debloatCategory);
+    }
     
-    renderList(DOM.lists.bloatware, filtered, (item, i) => {
+    // Render toolbar
+    const toolbarHtml = renderDebloatToolbar(filtered);
+    
+    // Render cards
+    const cardsHtml = filtered.map((item) => {
         const isFav = AppState.favorites.has(`bloatware-${item.id}`);
+        const status = AppState.bloatwareStatuses.get(item.id) || 'checking';
+        const isInstalled = status === 'installed';
+        const isRemoved = status === 'removed';
+        const isChecking = status === 'checking';
+        const isSelected = AppState.debloatSelection.has(item.id);
         
-        return renderCard({
-            title: item.name,
-            description: escapeHtml(item.description),
-            badge: 'Debloat',
-            statusText: 'Installed',
-            statusActive: false,
-            hasButton: true,
-            buttonText: 'Remove',
-            buttonData: `data-id="${escapeHtml(item.id)}" data-name="${escapeHtml(item.name)}"`,
-            buttonClass: 'danger remove-bloat-btn',
-            favType: 'bloatware',
-            favIndex: item.id,
-            isFav
+        const statusText = isChecking ? 'Checking...' : isRemoved ? 'Removed' : isInstalled ? 'Installed' : 'Unknown';
+        const btnDisabled = isRemoved || isChecking;
+        const btnText = isRemoved ? 'Removed' : 'Remove';
+        
+        return `
+            <div class="card ${isSelected ? 'card-selected' : ''} has-checkbox" 
+                 role="listitem" data-bloat-id="${escapeHtml(item.id)}">
+                <label class="card-checkbox" onclick="event.stopPropagation()">
+                    <input type="checkbox" 
+                           ${isSelected ? 'checked' : ''}
+                           ${btnDisabled ? 'disabled' : ''}
+                           data-bloat-check-id="${escapeHtml(item.id)}"
+                           aria-label="Select ${escapeHtml(item.name)}">
+                </label>
+                <div class="card-header">
+                    <div class="card-info">
+                        <div class="card-badge cat-debloat">Debloat</div>
+                        <h3>${escapeHtml(item.name)}</h3>
+                        <p>${escapeHtml(item.description)}</p>
+                    </div>
+                    <button class="fav-btn ${isFav ? 'active' : ''}" 
+                            data-type="bloatware" 
+                            data-index="${escapeHtml(item.id)}" 
+                            title="${isFav ? 'Remove from favorites' : 'Add to favorites'}"
+                            aria-label="${isFav ? 'Remove from favorites' : 'Add to favorites'}">
+                        <svg viewBox="0 0 24 24" fill="${isFav ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="card-footer">
+                    <div class="card-status ${isInstalled ? 'active' : 'inactive'}">
+                        <span class="status-dot"></span>
+                        <span>${statusText}</span>
+                    </div>
+                    <button class="btn-action danger remove-bloat-btn" 
+                            data-id="${escapeHtml(item.id)}" 
+                            data-name="${escapeHtml(item.name)}"
+                            data-winget="${escapeHtml(item.winget_id)}"
+                            ${btnDisabled ? 'disabled' : ''}>
+                        ${btnText}
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    DOM.lists.bloatware.innerHTML = toolbarHtml + `<div class="cards-grid">${cardsHtml}</div>`;
+    
+    // Bind checkbox events
+    DOM.lists.bloatware.querySelectorAll('input[data-bloat-check-id]').forEach(cb => {
+        cb.addEventListener('change', (e) => {
+            const id = e.target.dataset.bloatCheckId;
+            if (e.target.checked) {
+                AppState.debloatSelection.add(id);
+            } else {
+                AppState.debloatSelection.delete(id);
+            }
+            const card = e.target.closest('.card');
+            if (card) card.classList.toggle('card-selected', e.target.checked);
+            updateDebloatToolbar();
         });
     });
+    
+    updateDebloatToolbar();
+}
+
+/**
+ * Render the debloat toolbar with styled Select All button, remove selected, remove all
+ */
+function renderDebloatToolbar(filtered) {
+    const totalItems = filtered || getFilteredBloatware();
+    const selectable = totalItems.filter(item => {
+        const status = AppState.bloatwareStatuses.get(item.id);
+        return status !== 'removed';
+    });
+    // Count only selected items within the current filter
+    const selectedCount = totalItems.filter(item => AppState.debloatSelection.has(item.id)).length;
+    const allSelected = selectable.length > 0 && selectable.every(item => AppState.debloatSelection.has(item.id));
+    
+    // Check/uncheck SVG icons
+    const checkIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+    const uncheckIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>`;
+    
+    return `
+        <div class="debloat-toolbar">
+            <button class="toolbar-select-btn ${allSelected ? 'active' : ''}" id="debloat-select-all-btn" title="Select all items">
+                ${allSelected ? checkIcon : uncheckIcon}
+                <span>Select All</span>
+            </button>
+            <span class="toolbar-count">${selectedCount} selected</span>
+            <span class="toolbar-spacer"></span>
+            <button class="btn-secondary" id="debloat-refresh-status" title="Recheck installed status">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                Refresh
+            </button>
+            <button class="btn-danger" id="debloat-remove-selected" ${selectedCount === 0 ? 'disabled' : ''}>
+                Remove Selected (${selectedCount})
+            </button>
+            <button class="btn-primary" id="debloat-remove-all">
+                Remove All
+            </button>
+        </div>
+    `;
+}
+
+/**
+ * Get the currently filtered bloatware list based on active category
+ */
+function getFilteredBloatware() {
+    if (AppState.debloatCategory === 'all') {
+        return AppState.bloatwareData;
+    } else if (AppState.debloatCategory === 'installed') {
+        return AppState.bloatwareData.filter(item => AppState.bloatwareStatuses.get(item.id) === 'installed');
+    } else if (AppState.debloatCategory === 'removed') {
+        return AppState.bloatwareData.filter(item => AppState.bloatwareStatuses.get(item.id) === 'removed');
+    } else {
+        return AppState.bloatwareData.filter(item => item.subcategory === AppState.debloatCategory);
+    }
+}
+
+/**
+ * Update debloat tab badges with item counts
+ */
+function updateDebloatTabBadges() {
+    const debloatTabs = document.getElementById('debloat-tabs');
+    if (!debloatTabs) return;
+    
+    const all = AppState.bloatwareData.length;
+    const games = AppState.bloatwareData.filter(i => i.subcategory === 'games').length;
+    const apps = AppState.bloatwareData.filter(i => i.subcategory === 'apps').length;
+    const system = AppState.bloatwareData.filter(i => i.subcategory === 'system').length;
+    const installed = AppState.bloatwareData.filter(i => AppState.bloatwareStatuses.get(i.id) === 'installed').length;
+    const removed = AppState.bloatwareData.filter(i => AppState.bloatwareStatuses.get(i.id) === 'removed').length;
+    
+    const counts = { all, games, apps, system, installed, removed };
+    
+    debloatTabs.querySelectorAll('.opt-tab').forEach(btn => {
+        const cat = btn.dataset.cat;
+        const count = counts[cat] || 0;
+        // Remove existing badge
+        const existing = btn.querySelector('.tab-badge');
+        if (existing) existing.remove();
+        // Add new badge
+        if (count > 0) {
+            const badge = document.createElement('span');
+            badge.className = 'tab-badge';
+            badge.textContent = count;
+            btn.appendChild(badge);
+        }
+    });
+}
+
+/**
+ * Update the debloat toolbar without re-rendering the entire list
+ */
+function updateDebloatToolbar() {
+    const filtered = getFilteredBloatware();
+    
+    const selectable = filtered.filter(item => {
+        const status = AppState.bloatwareStatuses.get(item.id);
+        return status !== 'removed';
+    });
+    // Count only selected items within the current filter
+    const selectedCount = filtered.filter(item => AppState.debloatSelection.has(item.id)).length;
+    const allSelected = selectable.length > 0 && selectable.every(item => AppState.debloatSelection.has(item.id));
+    
+    // Update styled Select All button
+    const selectAllBtn = document.getElementById('debloat-select-all-btn');
+    if (selectAllBtn) {
+        selectAllBtn.classList.toggle('active', allSelected);
+        const checkIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+        const uncheckIcon = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>`;
+        selectAllBtn.innerHTML = `${allSelected ? checkIcon : uncheckIcon}<span>Select All</span>`;
+    }
+    
+    const countEl = document.querySelector('.debloat-toolbar .toolbar-count');
+    if (countEl) countEl.textContent = `${selectedCount} selected`;
+    
+    const removeSelectedBtn = document.getElementById('debloat-remove-selected');
+    if (removeSelectedBtn) {
+        removeSelectedBtn.disabled = selectedCount === 0;
+        removeSelectedBtn.textContent = `Remove Selected (${selectedCount})`;
+    }
+    
+    // Update tab badges
+    updateDebloatTabBadges();
 }
 
 /**
@@ -1373,11 +1809,122 @@ window.removeBloatware = async function(wingetId, name) {
         showProgress(100);
         setTimeout(() => hideProgress(), 500);
         showStatus(result);
-        await loadBloatware();
+        
+        // Update status for the removed item
+        const item = AppState.bloatwareData.find(b => b.winget_id === wingetId || b.name === name);
+        if (item) {
+            AppState.bloatwareStatuses.set(item.id, 'removed');
+            AppState.debloatSelection.delete(item.id);
+            updateBloatwareCardStatus(item.id);
+            updateDebloatToolbar();
+        }
     } catch (err) {
         hideProgress();
         showStatus(`Error: ${err}`);
     }
+};
+
+/**
+ * Remove selected bloatware items
+ */
+window.removeSelectedBloatware = async function() {
+    const selectedIds = Array.from(AppState.debloatSelection);
+    if (selectedIds.length === 0) return;
+    
+    const selectedItems = selectedIds
+        .map(id => AppState.bloatwareData.find(b => b.id === id))
+        .filter(Boolean);
+    
+    const confirmed = await Modal.show({
+        title: 'Remove Selected',
+        message: `Remove ${selectedItems.length} selected bloatware item(s)?\n\n${selectedItems.map(i => '• ' + i.name).join('\n')}`,
+        danger: true
+    });
+    if (!confirmed) return;
+    
+    showStatus(`Removing ${selectedItems.length} items...`);
+    showProgress(10);
+    
+    let removed = 0;
+    let failed = 0;
+    
+    for (let i = 0; i < selectedItems.length; i++) {
+        const item = selectedItems[i];
+        const progress = 10 + Math.round((i / selectedItems.length) * 85);
+        showProgress(progress);
+        showStatus(`Removing ${item.name}... (${i + 1}/${selectedItems.length})`);
+        
+        try {
+            await invoke('remove_bloatware', { name: item.winget_id });
+            AppState.bloatwareStatuses.set(item.id, 'removed');
+            removed++;
+        } catch (err) {
+            console.error(`[removeSelected] Failed for ${item.name}:`, err);
+            failed++;
+        }
+        
+        updateBloatwareCardStatus(item.id);
+    }
+    
+    AppState.debloatSelection.clear();
+    showProgress(100);
+    setTimeout(() => hideProgress(), 500);
+    showStatus(`Removed ${removed} item(s)${failed > 0 ? `, ${failed} failed` : ''}`);
+    updateDebloatToolbar();
+};
+
+/**
+ * Remove all bloatware items in current view
+ */
+window.removeAllBloatware = async function() {
+    const filtered = getFilteredBloatware();
+    
+    const removable = filtered.filter(item => {
+        const status = AppState.bloatwareStatuses.get(item.id);
+        return status !== 'removed';
+    });
+    
+    if (removable.length === 0) {
+        showStatus('No items to remove');
+        return;
+    }
+    
+    const confirmed = await Modal.show({
+        title: 'Remove All',
+        message: `Remove ALL ${removable.length} bloatware item(s) in "${AppState.debloatCategory === 'all' ? 'All' : AppState.debloatCategory}" category?\n\nThis action cannot be undone.`,
+        danger: true
+    });
+    if (!confirmed) return;
+    
+    showStatus(`Removing ${removable.length} items...`);
+    showProgress(10);
+    
+    let removed = 0;
+    let failed = 0;
+    
+    for (let i = 0; i < removable.length; i++) {
+        const item = removable[i];
+        const progress = 10 + Math.round((i / removable.length) * 85);
+        showProgress(progress);
+        showStatus(`Removing ${item.name}... (${i + 1}/${removable.length})`);
+        
+        try {
+            await invoke('remove_bloatware', { name: item.winget_id });
+            AppState.bloatwareStatuses.set(item.id, 'removed');
+            removed++;
+        } catch (err) {
+            console.error(`[removeAll] Failed for ${item.name}:`, err);
+            failed++;
+        }
+        
+        updateBloatwareCardStatus(item.id);
+    }
+    
+    AppState.debloatSelection.clear();
+    showProgress(100);
+    setTimeout(() => hideProgress(), 500);
+    showStatus(`Removed ${removed} item(s)${failed > 0 ? `, ${failed} failed` : ''}`);
+    updateDebloatToolbar();
 };
 
 /**
@@ -1700,15 +2247,21 @@ function renderFavorites() {
                     favIndex: item.itemId
                 });
             } else if (type === 'bloatware') {
+                const bloatStatus = AppState.bloatwareStatuses.get(data.id);
+                const bloatInstalled = bloatStatus === 'installed';
+                const bloatRemoved = bloatStatus === 'removed';
+                const bloatStatusText = bloatRemoved ? 'Removed' : bloatInstalled ? 'Installed' : (bloatStatus === 'checking' ? 'Checking...' : 'Unknown');
                 html += renderFavCard({
                     title: data.name,
                     description: escapeHtml(data.description),
                     badge: 'Debloat',
-                    statusText: 'Installed',
+                    statusText: bloatStatusText,
+                    statusActive: bloatInstalled,
                     hasButton: true,
-                    buttonText: 'Remove',
+                    buttonText: bloatRemoved ? 'Removed' : 'Remove',
                     buttonData: `data-id="${escapeHtml(data.id)}" data-name="${escapeHtml(data.name)}" data-winget="${escapeHtml(data.winget_id)}"`,
                     buttonClass: 'danger remove-bloat-btn',
+                    buttonDisabled: bloatRemoved,
                     favType: type,
                     favIndex: item.itemId
                 });
@@ -1751,6 +2304,7 @@ function renderFavCard({
     buttonText,
     buttonClass,
     buttonData,
+    buttonDisabled,
     favType,
     favIndex
 }) {
@@ -1793,7 +2347,8 @@ function renderFavCard({
                 ` : ''}
                 ${hasButton ? `
                     <button class="btn-action ${buttonClass || ''}" 
-                            ${buttonData}>
+                            ${buttonData}
+                            ${buttonDisabled ? 'disabled' : ''}>
                         ${escapeHtml(buttonText)}
                     </button>
                 ` : ''}

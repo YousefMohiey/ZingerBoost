@@ -850,19 +850,19 @@ pub async fn check_bloatware_installed(winget_id: String) -> Result<bool, String
 #[tauri::command]
 pub async fn install_software(winget_id: String) -> Result<String, String> {
     // Wrap blocking winget install in spawn_blocking to avoid freezing the async runtime
-    tokio::task::spawn_blocking(move || {
-        WingetInstaller::new().install(&winget_id)
-    })
-    .await
-    .map_err(|e| format!("Task join error: {}", e))?
+    tokio::task::spawn_blocking(move || WingetInstaller::new().install(&winget_id))
+        .await
+        .map_err(|e| format!("Task join error: {}", e))?
 }
 
 // ============================================================================
 // Tauri Commands - Metrics
 // ============================================================================
 
+/// Returns metrics as a native struct — Tauri serializes it as a JSON object directly.
+/// This avoids double-encoding issues that caused NaN on the frontend.
 #[tauri::command]
-pub async fn get_metrics(state: tauri::State<'_, AppState>) -> Result<String, String> {
+pub async fn get_metrics(state: tauri::State<'_, AppState>) -> Result<MetricsDto, String> {
     let metrics = state.metrics.current().await;
     tracing::debug!(
         "[metrics] cpu={:.1}% ram={:.1}% disk={:.1}% net={:.2}/{:.2}Mbps",
@@ -872,16 +872,35 @@ pub async fn get_metrics(state: tauri::State<'_, AppState>) -> Result<String, St
         metrics.network_down_mbps,
         metrics.network_up_mbps
     );
-    let dto = MetricsDto {
-        cpu_percent: metrics.cpu_percent,
-        ram_percent: metrics.ram_percent,
+    Ok(MetricsDto {
+        cpu_percent: if metrics.cpu_percent.is_finite() {
+            metrics.cpu_percent
+        } else {
+            0.0
+        },
+        ram_percent: if metrics.ram_percent.is_finite() {
+            metrics.ram_percent
+        } else {
+            0.0
+        },
         ram_used_mb: metrics.ram_used_mb,
         ram_total_mb: metrics.ram_total_mb,
-        disk_active_percent: metrics.disk_active_percent,
-        network_down_mbps: metrics.network_down_mbps,
-        network_up_mbps: metrics.network_up_mbps,
-    };
-    to_json(&dto)
+        disk_active_percent: if metrics.disk_active_percent.is_finite() {
+            metrics.disk_active_percent
+        } else {
+            0.0
+        },
+        network_down_mbps: if metrics.network_down_mbps.is_finite() {
+            metrics.network_down_mbps
+        } else {
+            0.0
+        },
+        network_up_mbps: if metrics.network_up_mbps.is_finite() {
+            metrics.network_up_mbps
+        } else {
+            0.0
+        },
+    })
 }
 
 // ============================================================================

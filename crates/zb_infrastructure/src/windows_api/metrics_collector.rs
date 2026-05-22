@@ -65,7 +65,11 @@ impl MetricsState {
 }
 
 fn f64_to_u64(v: f64) -> u64 {
-    (v * 100.0) as u64
+    if v.is_finite() && v >= 0.0 {
+        (v * 100.0) as u64
+    } else {
+        0 // NaN, Infinity, or negative → 0
+    }
 }
 
 fn u64_to_f64(v: u64) -> f64 {
@@ -231,167 +235,175 @@ fn run_sampler(state: &MetricsState) {
         // Method 1 (backup): GetAdaptersAddresses for additional interfaces
         // ONLY used when wildcard fails — to avoid double-counting
         if !wildcard_added {
-        // First call to get required buffer size
-        let mut buf_size: u32 = 0;
-        let initial_result = GetAdaptersAddresses(
-            0, // AF_UNSPEC - get both IPv4 and IPv6
-            GAA_FLAG_INCLUDE_ALL_INTERFACES,
-            None,
-            None,
-            &mut buf_size,
-        );
-
-        info!(
-            "[metrics] GetAdaptersAddresses initial result={}, required size={}",
-            initial_result, buf_size
-        );
-
-        // Allocate proper buffer and call again
-        if buf_size > 0 {
-            let mut buf: Vec<u8> = vec![0; buf_size as usize];
-            let result = GetAdaptersAddresses(
-                0,
+            // First call to get required buffer size
+            let mut buf_size: u32 = 0;
+            let initial_result = GetAdaptersAddresses(
+                0, // AF_UNSPEC - get both IPv4 and IPv6
                 GAA_FLAG_INCLUDE_ALL_INTERFACES,
                 None,
-                Some(buf.as_mut_ptr() as *mut _),
+                None,
                 &mut buf_size,
             );
 
-            info!("[metrics] GetAdaptersAddresses second result={}", result);
+            info!(
+                "[metrics] GetAdaptersAddresses initial result={}, required size={}",
+                initial_result, buf_size
+            );
 
-            if result == 0 {
-                use windows::Win32::NetworkManagement::IpHelper::IP_ADAPTER_ADDRESSES_LH;
+            // Allocate proper buffer and call again
+            if buf_size > 0 {
+                let mut buf: Vec<u8> = vec![0; buf_size as usize];
+                let result = GetAdaptersAddresses(
+                    0,
+                    GAA_FLAG_INCLUDE_ALL_INTERFACES,
+                    None,
+                    Some(buf.as_mut_ptr() as *mut _),
+                    &mut buf_size,
+                );
 
-                let mut adapter = buf.as_ptr() as *const IP_ADAPTER_ADDRESSES_LH;
-                let mut found_count = 0;
+                info!("[metrics] GetAdaptersAddresses second result={}", result);
 
-                while !adapter.is_null() {
-                    let info = &*adapter;
+                if result == 0 {
+                    use windows::Win32::NetworkManagement::IpHelper::IP_ADAPTER_ADDRESSES_LH;
 
-                    // Skip non-operational adapters
-                    if info.OperStatus != IF_OPER_STATUS(1) {
-                        // IfOperStatusUp
-                        adapter = info.Next;
-                        continue;
-                    }
+                    let mut adapter = buf.as_ptr() as *const IP_ADAPTER_ADDRESSES_LH;
+                    let mut found_count = 0;
 
-                    // Get adapter name (FriendlyName)
-                    let friendly_name = info.FriendlyName;
-                    if !friendly_name.is_null() {
-                        let name_len = (0..)
-                            .take_while(|&i| *friendly_name.0.offset(i as isize) != 0)
-                            .count();
-                        let name_slice = std::slice::from_raw_parts(friendly_name.0, name_len);
-                        if let Ok(name) = String::from_utf16(name_slice) {
-                            if !name.is_empty() {
-                                // Skip loopback and known pseudo-adapters
-                                let lower = name.to_lowercase();
-                                if !lower.contains("loopback")
-                                    && !lower.contains("isatap")
-                                    && !lower.contains("teredo")
-                                {
-                                    // Escape PDH-special chars
-                                    let escaped = name
-                                        .replace('\\', "\\\\")
-                                        .replace('(', "\\(")
-                                        .replace(')', "\\)")
-                                        .replace('#', "\\#");
+                    while !adapter.is_null() {
+                        let info = &*adapter;
 
-                                    info!(
-                                        "[metrics] Found active adapter: {} -> {}",
-                                        name, escaped
-                                    );
+                        // Skip non-operational adapters
+                        if info.OperStatus != IF_OPER_STATUS(1) {
+                            // IfOperStatusUp
+                            adapter = info.Next;
+                            continue;
+                        }
 
-                                    // Add Bytes Received/sec
-                                    let down_path = format!(
-                                        "\\Network Interface({escaped})\\Bytes Received/sec\0"
-                                    );
-                                    let down_path_w: Vec<u16> = down_path.encode_utf16().collect();
-                                    let mut down_counter: isize = 0;
-                                    if PdhAddEnglishCounterW(
-                                        query,
-                                        PCWSTR::from_raw(down_path_w.as_ptr()),
-                                        0,
-                                        &mut down_counter,
-                                    ) == 0
+                        // Get adapter name (FriendlyName)
+                        let friendly_name = info.FriendlyName;
+                        if !friendly_name.is_null() {
+                            let name_len = (0..)
+                                .take_while(|&i| *friendly_name.0.offset(i as isize) != 0)
+                                .count();
+                            let name_slice = std::slice::from_raw_parts(friendly_name.0, name_len);
+                            if let Ok(name) = String::from_utf16(name_slice) {
+                                if !name.is_empty() {
+                                    // Skip loopback and known pseudo-adapters
+                                    let lower = name.to_lowercase();
+                                    if !lower.contains("loopback")
+                                        && !lower.contains("isatap")
+                                        && !lower.contains("teredo")
                                     {
-                                        net_down_counters.push(down_counter);
-                                        info!("[metrics] Added network down: {}", name);
-                                    } else {
-                                        info!("[metrics] Failed to add down counter for {}", name);
-                                    }
+                                        // Escape PDH-special chars
+                                        let escaped = name
+                                            .replace('\\', "\\\\")
+                                            .replace('(', "\\(")
+                                            .replace(')', "\\)")
+                                            .replace('#', "\\#");
 
-                                    // Add Bytes Sent/sec
-                                    let up_path =
-                                        format!("\\Network Interface({escaped})\\Bytes Sent/sec\0");
-                                    let up_path_w: Vec<u16> = up_path.encode_utf16().collect();
-                                    let mut up_counter: isize = 0;
-                                    if PdhAddEnglishCounterW(
-                                        query,
-                                        PCWSTR::from_raw(up_path_w.as_ptr()),
-                                        0,
-                                        &mut up_counter,
-                                    ) == 0
-                                    {
-                                        net_up_counters.push(up_counter);
-                                        info!("[metrics] Added network up: {}", name);
-                                    } else {
-                                        info!("[metrics] Failed to add up counter for {}", name);
-                                    }
+                                        info!(
+                                            "[metrics] Found active adapter: {} -> {}",
+                                            name, escaped
+                                        );
 
-                                    found_count += 1;
+                                        // Add Bytes Received/sec
+                                        let down_path = format!(
+                                            "\\Network Interface({escaped})\\Bytes Received/sec\0"
+                                        );
+                                        let down_path_w: Vec<u16> =
+                                            down_path.encode_utf16().collect();
+                                        let mut down_counter: isize = 0;
+                                        if PdhAddEnglishCounterW(
+                                            query,
+                                            PCWSTR::from_raw(down_path_w.as_ptr()),
+                                            0,
+                                            &mut down_counter,
+                                        ) == 0
+                                        {
+                                            net_down_counters.push(down_counter);
+                                            info!("[metrics] Added network down: {}", name);
+                                        } else {
+                                            info!(
+                                                "[metrics] Failed to add down counter for {}",
+                                                name
+                                            );
+                                        }
+
+                                        // Add Bytes Sent/sec
+                                        let up_path = format!(
+                                            "\\Network Interface({escaped})\\Bytes Sent/sec\0"
+                                        );
+                                        let up_path_w: Vec<u16> = up_path.encode_utf16().collect();
+                                        let mut up_counter: isize = 0;
+                                        if PdhAddEnglishCounterW(
+                                            query,
+                                            PCWSTR::from_raw(up_path_w.as_ptr()),
+                                            0,
+                                            &mut up_counter,
+                                        ) == 0
+                                        {
+                                            net_up_counters.push(up_counter);
+                                            info!("[metrics] Added network up: {}", name);
+                                        } else {
+                                            info!(
+                                                "[metrics] Failed to add up counter for {}",
+                                                name
+                                            );
+                                        }
+
+                                        found_count += 1;
+                                    }
                                 }
                             }
                         }
+
+                        adapter = info.Next;
                     }
 
-                    adapter = info.Next;
+                    info!(
+                        "[metrics] GetAdaptersAddresses found {} active adapters",
+                        found_count
+                    );
+                }
+
+                // Fallback: Use wildcard since PDH supports * and typeperf confirmed it works
+                if net_down_counters.is_empty() {
+                    info!("[metrics] Trying wildcard network counter");
+                    let down_path = "\\Network Interface(*)\\Bytes Received/sec\0";
+                    let down_path_w: Vec<u16> = down_path.encode_utf16().collect();
+                    let mut down_counter: isize = 0;
+                    if PdhAddEnglishCounterW(
+                        query,
+                        PCWSTR::from_raw(down_path_w.as_ptr()),
+                        0,
+                        &mut down_counter,
+                    ) == 0
+                    {
+                        net_down_counters.push(down_counter);
+                        info!("[metrics] Added wildcard down counter");
+                    }
+
+                    let up_path = "\\Network Interface(*)\\Bytes Sent/sec\0";
+                    let up_path_w: Vec<u16> = up_path.encode_utf16().collect();
+                    let mut up_counter: isize = 0;
+                    if PdhAddEnglishCounterW(
+                        query,
+                        PCWSTR::from_raw(up_path_w.as_ptr()),
+                        0,
+                        &mut up_counter,
+                    ) == 0
+                    {
+                        net_up_counters.push(up_counter);
+                        info!("[metrics] Added wildcard up counter");
+                    }
                 }
 
                 info!(
-                    "[metrics] GetAdaptersAddresses found {} active adapters",
-                    found_count
+                    "[metrics] Network counters: down={} up={}",
+                    net_down_counters.len(),
+                    net_up_counters.len()
                 );
             }
-
-            // Fallback: Use wildcard since PDH supports * and typeperf confirmed it works
-            if net_down_counters.is_empty() {
-                info!("[metrics] Trying wildcard network counter");
-                let down_path = "\\Network Interface(*)\\Bytes Received/sec\0";
-                let down_path_w: Vec<u16> = down_path.encode_utf16().collect();
-                let mut down_counter: isize = 0;
-                if PdhAddEnglishCounterW(
-                    query,
-                    PCWSTR::from_raw(down_path_w.as_ptr()),
-                    0,
-                    &mut down_counter,
-                ) == 0
-                {
-                    net_down_counters.push(down_counter);
-                    info!("[metrics] Added wildcard down counter");
-                }
-
-                let up_path = "\\Network Interface(*)\\Bytes Sent/sec\0";
-                let up_path_w: Vec<u16> = up_path.encode_utf16().collect();
-                let mut up_counter: isize = 0;
-                if PdhAddEnglishCounterW(
-                    query,
-                    PCWSTR::from_raw(up_path_w.as_ptr()),
-                    0,
-                    &mut up_counter,
-                ) == 0
-                {
-                    net_up_counters.push(up_counter);
-                    info!("[metrics] Added wildcard up counter");
-                }
-            }
-
-            info!(
-                "[metrics] Network counters: down={} up={}",
-                net_down_counters.len(),
-                net_up_counters.len()
-            );
-        }
         } // end if !wildcard_added
 
         // Method 2: Fallback to PDH enumeration - this gives us the REAL instance names that PDH understands
@@ -708,7 +720,10 @@ fn run_sampler(state: &MetricsState) {
             if cpu_ok {
                 let mut val: PDH_FMT_COUNTERVALUE = std::mem::zeroed();
                 if PdhGetFormattedCounterValue(cpu_counter, PDH_FMT_DOUBLE, None, &mut val) == 0 {
-                    cpu = val.Anonymous.doubleValue.min(100.0);
+                    let raw = val.Anonymous.doubleValue;
+                    if raw.is_finite() {
+                        cpu = raw.clamp(0.0, 100.0);
+                    }
                 }
             }
 
@@ -717,7 +732,10 @@ fn run_sampler(state: &MetricsState) {
             if disk_ok {
                 let mut val: PDH_FMT_COUNTERVALUE = std::mem::zeroed();
                 if PdhGetFormattedCounterValue(disk_counter, PDH_FMT_DOUBLE, None, &mut val) == 0 {
-                    disk = val.Anonymous.doubleValue.min(100.0);
+                    let raw = val.Anonymous.doubleValue;
+                    if raw.is_finite() {
+                        disk = raw.clamp(0.0, 100.0);
+                    }
                 }
             }
 
@@ -729,7 +747,9 @@ fn run_sampler(state: &MetricsState) {
                 let result = PdhGetFormattedCounterValue(*counter, PDH_FMT_DOUBLE, None, &mut val);
                 if result == 0 {
                     let raw = val.Anonymous.doubleValue;
-                    net_down += raw * 8.0 / 1_000_000.0;
+                    if raw.is_finite() && raw >= 0.0 {
+                        net_down += raw * 8.0 / 1_000_000.0;
+                    }
                 }
             }
 
@@ -739,7 +759,9 @@ fn run_sampler(state: &MetricsState) {
                 let result = PdhGetFormattedCounterValue(*counter, PDH_FMT_DOUBLE, None, &mut val);
                 if result == 0 {
                     let raw = val.Anonymous.doubleValue;
-                    net_up += raw * 8.0 / 1_000_000.0;
+                    if raw.is_finite() && raw >= 0.0 {
+                        net_up += raw * 8.0 / 1_000_000.0;
+                    }
                 }
             }
 

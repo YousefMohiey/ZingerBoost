@@ -1,7 +1,7 @@
 #![windows_subsystem = "windows"]
 
 use std::sync::Arc;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use tokio::sync::Mutex;
 use zb_application::tweak_engine::TweakEngine;
 use zb_infrastructure::logging::init_logging;
@@ -45,8 +45,7 @@ fn relaunch_as_admin() {
 }
 
 /// Start background task that pushes metrics to the frontend every second.
-/// Uses webview eval() to directly update DOM elements, bypassing all
-/// event/callback indirection. This avoids WebView2 timer throttling.
+/// Uses Tauri events to communicate with frontend (MCP-compatible).
 fn start_metrics_emitter(app: tauri::AppHandle, metrics: Arc<MetricsCollector>) {
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(1));
@@ -55,51 +54,21 @@ fn start_metrics_emitter(app: tauri::AppHandle, metrics: Arc<MetricsCollector>) 
         loop {
             interval.tick().await;
             tick_count += 1;
-            let m = metrics.current_json();
+            // Use .current() (returns SystemMetrics struct) instead of .current_json() (returns String).
+            // Emitting a String would double-encode it as a JSON string literal,
+            // causing the frontend to receive a string instead of an object (NaN values).
+            let m = metrics.current().await;
             if tick_count % 5 == 1 {
-                tracing::info!("[metrics-emitter] tick#{} json={}", tick_count, &m);
+                tracing::info!(
+                    "[metrics-emitter] tick#{} cpu={:.1}% ram={:.1}% disk={:.1}% net={:.2}/{:.2}Mbps",
+                    tick_count, m.cpu_percent, m.ram_percent, m.disk_active_percent,
+                    m.network_down_mbps, m.network_up_mbps
+                );
             }
 
-            // Build JS that directly updates DOM elements - no callbacks needed
-            let js = format!(
-                r#"
-(function() {{
-    try {{
-        var d = {};
-        var cpuEl = document.getElementById('home-cpu-value');
-        var ramEl = document.getElementById('home-ram-value');
-        var diskEl = document.getElementById('home-disk-value');
-        var netEl = document.getElementById('home-network-value');
-        var cpuBar = document.getElementById('home-cpu-bar');
-        var ramBar = document.getElementById('home-ram-bar');
-        var diskBar = document.getElementById('home-disk-bar');
-        var netBar = document.getElementById('home-network-bar');
-        var tsEl = document.getElementById('metrics-last-update');
-        var ecEl = document.getElementById('event-counter');
-        
-        if (cpuEl) {{ cpuEl.textContent = Math.round(d.cpu_percent) + '%'; }}
-        if (ramEl) {{ ramEl.textContent = Math.round(d.ram_percent) + '%'; }}
-        if (diskEl) {{ diskEl.textContent = Math.round(d.disk_active_percent) + '%'; }}
-        var netTotal = d.network_down_mbps + d.network_up_mbps;
-        if (netEl) {{ netEl.textContent = netTotal < 1 ? (netTotal*1000).toFixed(0)+' Kbps' : netTotal.toFixed(1)+' Mbps'; }}
-        if (cpuBar) {{ cpuBar.style.width = Math.min(d.cpu_percent,100)+'%'; }}
-        if (ramBar) {{ ramBar.style.width = Math.min(d.ram_percent,100)+'%'; }}
-        if (diskBar) {{ diskBar.style.width = Math.min(d.disk_active_percent,100)+'%'; }}
-        if (netBar) {{ netBar.style.width = Math.min(netTotal*5,100)+'%'; }}
-        if (tsEl) {{ tsEl.textContent = new Date().toLocaleTimeString(); }}
-        if (ecEl) {{ ecEl.textContent = 'eval:' + (parseInt(ecEl.dataset.c||'0')+1); ecEl.dataset.c = (parseInt(ecEl.dataset.c||'0')+1).toString(); }}
-    }} catch(e) {{ console.error('[metrics-eval]', e); }}
-}})()
-"#,
-                m
-            );
-
-            if let Some(wv) = app.get_webview_window("main") {
-                if let Err(e) = wv.eval(&js) {
-                    tracing::warn!("[metrics-emitter] eval failed: {:?}", e);
-                }
-            } else {
-                tracing::warn!("[metrics-emitter] no webview window 'main'");
+            // Emit struct directly — Tauri serializes it as a JSON object (not double-encoded)
+            if let Err(e) = app.emit("metrics-update", &m) {
+                tracing::warn!("[metrics-emitter] emit failed: {:?}", e);
             }
         }
     });
