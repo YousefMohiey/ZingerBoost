@@ -1,7 +1,9 @@
 #![windows_subsystem = "windows"]
 
 use std::sync::Arc;
-use tauri::{Emitter, Manager};
+use tauri::Emitter;
+#[cfg(debug_assertions)]
+use tauri::Manager;
 use tokio::sync::Mutex;
 use zb_application::tweak_engine::TweakEngine;
 use zb_infrastructure::logging::init_logging;
