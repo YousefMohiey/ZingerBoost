@@ -20,104 +20,17 @@ use crate::state::AppState;
 // ============================================================================
 
 pub fn make_all_tweaks() -> Vec<Arc<dyn Tweak>> {
-    let rp = WinRegistryProvider::new();
     vec![
-        // ---- Visual Effects (consolidated) ----
-        Arc::new(
-            zb_domain::tweaks::definitions::VisualBestPerformanceTweak::with_provider(rp.clone()),
-        ),
-        Arc::new(
-            zb_domain::tweaks::definitions::ShowFileExtensionsTweak::with_provider(rp.clone()),
-        ),
-        Arc::new(zb_domain::tweaks::definitions::EndTaskOnTaskbarTweak::with_provider(rp.clone())),
-        Arc::new(zb_domain::tweaks::definitions::VerboseLogonTweak::with_provider(rp.clone())),
-        // ---- Privacy ----
-        Arc::new(zb_domain::tweaks::definitions::DisableTelemetryTweak::with_provider(rp.clone())),
-        Arc::new(
-            zb_domain::tweaks::definitions::DisableBackgroundAppsTweak::with_provider(rp.clone()),
-        ),
-        Arc::new(
-            zb_domain::tweaks::definitions::DisableAdvertisingIdTweak::with_provider(rp.clone()),
-        ),
-        Arc::new(
-            zb_domain::tweaks::definitions::DisableLockScreenAdsTweak::with_provider(rp.clone()),
-        ),
-        Arc::new(
-            zb_domain::tweaks::definitions::DisableStartSuggestionsTweak::with_provider(rp.clone()),
-        ),
-        Arc::new(
-            zb_domain::tweaks::definitions::DisableExplorerAdsTweak::with_provider(rp.clone()),
-        ),
-        Arc::new(
-            zb_domain::tweaks::definitions::DisableActivityHistoryTweak::with_provider(rp.clone()),
-        ),
-        Arc::new(
-            zb_domain::tweaks::definitions::DisableTailoredExperiencesTweak::with_provider(
-                rp.clone(),
-            ),
-        ),
-        Arc::new(
-            zb_domain::tweaks::definitions::DisableFeedbackFrequencyTweak::with_provider(
-                rp.clone(),
-            ),
-        ),
-        Arc::new(
-            zb_domain::tweaks::definitions::DisableLocationServicesTweak::with_provider(rp.clone()),
-        ),
-        Arc::new(
-            zb_domain::tweaks::definitions::DisableCortanaRegistryTweak::with_provider(rp.clone()),
-        ),
-        Arc::new(
-            zb_domain::tweaks::definitions::DisableConsumerFeaturesTweak::with_provider(rp.clone()),
-        ),
-        Arc::new(zb_domain::tweaks::definitions::DisableWpbtTweak::with_provider(rp.clone())),
-        Arc::new(zb_domain::tweaks::definitions::DisableMeetNowTweak::with_provider(rp.clone())),
-        // ---- Performance ----
-        Arc::new(zb_domain::tweaks::definitions::DisableHibernationTweak::new()),
+        Arc::new(zb_domain::tweaks::definitions::VisualBestPerformanceTweak::new()),
+        Arc::new(zb_domain::tweaks::definitions::EndTaskOnTaskbarTweak::new()),
+        Arc::new(zb_domain::tweaks::definitions::VerboseLogonTweak::new()),
+        Arc::new(zb_domain::tweaks::definitions::DisableTelemetryTweak::new()),
+        Arc::new(zb_domain::tweaks::definitions::DisableConsumerFeaturesTweak::new()),
         Arc::new(zb_domain::tweaks::definitions::SetHighPerformanceTweak::new()),
-        Arc::new(
-            zb_domain::tweaks::definitions::DisableMemoryCompressionTweak::with_provider(
-                rp.clone(),
-            ),
-        ),
-        Arc::new(
-            zb_domain::tweaks::definitions::DisableStartupDelayTweak::with_provider(rp.clone()),
-        ),
-        // ---- Gaming ----
-        Arc::new(zb_domain::tweaks::definitions::DisableGameDvrTweak::with_provider(rp.clone())),
-        Arc::new(
-            zb_domain::tweaks::definitions::DisableFullscreenOptimizationsTweak::with_provider(
-                rp.clone(),
-            ),
-        ),
-        Arc::new(
-            zb_domain::tweaks::definitions::EnableHwGpuSchedulingTweak::with_provider(rp.clone()),
-        ),
-        // ---- Network ----
-        Arc::new(
-            zb_domain::tweaks::definitions::DisableNaglesAlgorithmTweak::with_provider(rp.clone()),
-        ),
-        Arc::new(
-            zb_domain::tweaks::definitions::DisableNetworkThrottlingTweak::with_provider(
-                rp.clone(),
-            ),
-        ),
-        Arc::new(zb_domain::tweaks::definitions::SetTcpAutotuningNormalTweak::new()),
-        Arc::new(zb_domain::tweaks::definitions::DisableWifiSenseTweak::with_provider(rp.clone())),
-        // ---- Windows Update ----
-        Arc::new(
-            zb_domain::tweaks::definitions::DisableAutoDriverUpdatesTweak::with_provider(
-                rp.clone(),
-            ),
-        ),
-        Arc::new(
-            zb_domain::tweaks::definitions::DisableWUAutoRebootTweak::with_provider(rp.clone()),
-        ),
-        Arc::new(
-            zb_domain::tweaks::definitions::DisableDeliveryOptimizationTweak::with_provider(
-                rp.clone(),
-            ),
-        ),
+        Arc::new(zb_domain::tweaks::definitions::DisableHibernationTweak::new()),
+        Arc::new(zb_domain::tweaks::definitions::DisableSuperfetchTweak::new()),
+        Arc::new(zb_domain::tweaks::definitions::DisableWpbtTweak::new()),
+        Arc::new(zb_domain::tweaks::definitions::ShowFileExtensionsTweak::new()),
     ]
 }
 
